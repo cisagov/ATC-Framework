@@ -19,7 +19,7 @@ updates:
       - dependency-name: hashicorp/setup-terraform
       - dependency-name: mxschmitt/action-tmate
       - dependency-name: step-security/harden-runner
-      # # Managed by cisagov/skeleton-python-library
+      # # Managed by cisagov/ATC-Framework
       # - dependency-name: actions/download-artifact
       # - dependency-name: actions/upload-artifact
       # - dependency-name: github/codeql-action/analyze
