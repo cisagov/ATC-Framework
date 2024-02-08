@@ -5,6 +5,7 @@
 # these updates when the pull request(s) in the appropriate skeleton are merged
 # and Lineage processes these changes.
 
+version: 2
 updates:
   - directory: /
     ignore:
@@ -27,8 +28,18 @@ updates:
       # - dependency-name: github/codeql-action/init
     package-ecosystem: github-actions
     schedule:
-      interval: weekly
-
+      interval: "weekly"
+    ignore:
+      # Managed by cisagov/skeleton-generic
+      - dependency-name: actions/cache
+      - dependency-name: actions/checkout
+      - dependency-name: actions/setup-go
+      - dependency-name: actions/setup-python
+      - dependency-name: hashicorp/setup-terraform
+      - dependency-name: mxschmitt/action-tmate
+      # Managed by cisagov/skeleton-python-library
+      - dependency-name: actions/download-artifact
+      - dependency-name: actions/upload-artifact
   - directory: /
     package-ecosystem: pip
     schedule:
