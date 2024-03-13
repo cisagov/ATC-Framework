@@ -3619,3 +3619,378 @@ class AlertInput(BaseModel):
         """AlertInput config class."""
 
         orm_mode = True
+
+
+# --- get_orgs(), Issue 699 pe-reports ---
+# Return full organization table record
+class OrganizationsFullTable(BaseModel):
+    """OrganizationsFullTable schema class."""
+
+    organizations_uid: Optional[str] = None
+    name: Optional[str] = None
+    cyhy_db_name: Optional[str] = None
+    org_type_uid: Optional[str] = None
+    report_on: Optional[bool] = None
+    password: Optional[str] = None
+    date_first_reported: Optional[str] = None
+    parent_org_uid: Optional[str] = None
+    premium_report: Optional[bool] = None
+    agency_type: Optional[str] = None
+    demo: Optional[bool] = None
+    scorecard: Optional[bool] = None
+    fceb: Optional[bool] = None
+    receives_cyhy_report: Optional[bool] = None
+    receives_bod_report: Optional[bool] = None
+    receives_cybex_report: Optional[bool] = None
+    run_scans: Optional[bool] = None
+    is_parent: Optional[bool] = None
+    ignore_roll_up: Optional[bool] = None
+    retired: Optional[bool] = None
+    cyhy_period_start: Optional[str] = None
+    fceb_child: Optional[bool] = None
+    election: Optional[bool] = None
+    scorecard_child: Optional[bool] = None
+    location_name: Optional[str] = None
+    county: Optional[str] = None
+    county_fips: Optional[int] = None
+    state_abbreviation: Optional[str] = None
+    state_fips: Optional[int] = None
+    state_name: Optional[str] = None
+    country: Optional[str] = None
+    country_name: Optional[str] = None
+
+    class Config:
+        """OrganizationsFullTable schema config class."""
+        
+        orm_mode = True
+
+
+# --- get_data_source_uid(), Issue 700 pe-reports ---
+class DataSourceByNameInput(BaseModel):
+    """DataSourceByNameInput schema class."""
+
+    name: str
+
+    class Config:
+        """DataSourceByNameInput schema config class."""
+
+        orm_mode = True
+
+
+# --- get_data_source_uid(), Issue 700 pe-reports ---
+class DataSourceFullTable(BaseModel):
+    """DataSourceFullTable schema class."""
+
+    data_source_uid: str
+    name: str
+    description: str
+    last_run: str
+
+    class Config:
+        """DataSourceFullTable schema config class."""
+
+        orm_mode = True
+
+
+# --- get_breaches(), Issue 701 pe-reports ---
+class BreachNamesAndUIDs(BaseModel):
+    """BreachNamesAndUIDs schema class."""
+
+    breach_name: str
+    credential_breaches_uid: str
+
+    class Config:
+        """BreachNamesAndUIDs schema config class."""
+
+        orm_mode = True
+
+
+# --- getSubdomain(), Issue 702 pe-reports ---
+class SubdomainUIDByDomainInput(BaseModel):
+    """SubdomainUIDByDomainInput schema class."""
+
+    domain: str
+
+    class Config:
+        """SubdomainUIDByDomainInput schema config class."""
+
+        orm_mode = True
+
+
+# --- getSubdomain(), Issue 702 pe-reports ---
+class SubdomainUIDByDomain(BaseModel):
+    """SubdomainUIDByDomain schema class."""
+
+    sub_domain_uid: str
+
+    class Config:
+        """SubdomainUIDByDomain schema config class."""
+
+        orm_mode = True
+
+
+# --- org_root_domains(), Issue 703 pe-reports ---
+class RootdomainsByOrgUIDInput(BaseModel):
+    """RootdomainsByOrgUIDInput schema class."""
+
+    org_uid: str
+
+    class Config:
+        """RootdomainsByOrgUIDInput schema config class."""
+
+        orm_mode = True
+
+
+# --- org_root_domains(), Issue 703 pe-reports ---
+class RootDomainsTable(BaseModel):
+    """RootDomainsTable schema class."""
+
+    root_domain_uid: Optional[str] = None
+    organizations_uid_id: Optional[str] = None
+    root_domain: Optional[str] = None
+    ip_address: Optional[str] = None
+    data_source_uid_id: Optional[str] = None
+    enumerate_subs: Optional[bool] = None
+
+    class Config:
+        """RootDomainsTable schema config class."""
+
+        orm_mode = True
+
+
+
+# --- domain_permu_insert_dnstwist(), Issue 706 pe-reports/005 atc-framework ---
+# Insert multiple dnstwist records into the domain_permutations table
+class DomainPermuInsertDNSTwist(BaseModel):
+    """DomainPermuInsertDNSTwist schema class."""
+
+    organizations_uid: Optional[str] = None
+    data_source_uid: Optional[str] = None
+    sub_domain_uid: Optional[str] = None
+    domain_permutation: Optional[str] = None
+    ipv4: Optional[str] = None
+    ipv6: Optional[str] = None
+    mail_server: Optional[str] = None
+    name_server: Optional[str] = None
+    fuzzer: Optional[str] = None
+    date_active: Optional[str] = None
+    ssdeep_score: Optional[str] = None
+    malicious: Optional[bool] = None
+    blocklist_attack_count: Optional[int] = None
+    blocklist_report_count: Optional[int] = None
+    dshield_record_count: Optional[int] = None
+    dshield_attack_count: Optional[int] = None
+
+    class Config:
+        """DomainPermuInsertDNSTwist schema config class."""
+
+        orm_mode = True
+
+
+# --- domain_permu_insert_dnstwist(), Issue 706 pe-reports/005 atc-framework ---
+# Insert multiple dnstwist records into the domain_permutations table, input
+class DomainPermuInsertDNSTwistInput(BaseModel):
+    """DomainPermuInsertDNSTwistInput schema class."""
+
+    insert_data: List[DomainPermuInsertDNSTwist]
+
+    class Config:
+        """DomainPermuInsertDNSTwistInput schema config class."""
+
+        orm_mode = True
+
+
+# --- get_root_domains(), Issue 707 pe-reports/006 atc-framework ---
+# This function will reuse the schemas from the /rootdomains_by_org_uid endpoint
+    
+
+# --- getDataSource(), Issue 708 pe-reports/007 atc-framework ---
+# This function will reuse the schemas from the /data_source_by_name endpoint
+
+        
+# --- execute_hibp_breach_values(), Issue 709 pe-reports/008 atc-framework ---
+# Insert bulk HIBP breach data into credential_breaches table
+class CredBreachesHIBPInsert(BaseModel):
+    """CredBreachesHIBPInsert schema class."""
+
+    breach_name: Optional[str] = None
+    description: Optional[str] = None
+    exposed_cred_count: Optional[int] = None
+    breach_date: Optional[str] = None
+    added_date: Optional[str] = None
+    modified_date: Optional[str] = None
+    data_classes: Optional[str] = None
+    password_included: Optional[bool] = None
+    is_verified: Optional[bool] = None
+    is_fabricated: Optional[bool] = None
+    is_sensitive: Optional[bool] = None
+    is_retired: Optional[bool] = None
+    is_spam_list: Optional[bool] = None
+    data_source_uid: Optional[str] = None
+
+    class Config:
+        """CredBreachesHIBPInsert schema config class."""
+
+        orm_mode = True
+
+
+# --- execute_hibp_breach_values(), Issue 709 pe-reports/008 atc-framework ---
+# Insert bulk HIBP breach data into credential_breaches table, input
+class CredBreachesHIBPInsertInput(BaseModel):
+    """CredBreachesHIBPInsertInput schema class."""
+
+    breach_data: List[CredBreachesHIBPInsert]
+
+    class Config:
+        """CredBreachesHIBPInsertInput schema config class."""
+
+        orm_mode = True
+
+
+# --- execute_hibp_email_values(), Issue 710 pe-reports/009 atc-framework ---
+# Insert bulk HIBP credential data into credential_exposures table
+class CredExpHIBPInsert(BaseModel):
+    """CredExpHIBPInsert schema class."""
+
+    email: Optional[str] = None
+    organizations_uid: Optional[str] = None
+    root_domain: Optional[str] = None
+    sub_domain: Optional[str] = None
+    modified_date: Optional[str] = None
+    breach_name: Optional[str] = None
+    credential_breaches_uid: Optional[str] = None
+    data_source_uid: Optional[str] = None
+    name: Optional[str] = None
+
+    class Config:
+        """CredExpHIBPInsert schema config class."""
+
+        orm_mode = True
+
+
+# --- execute_hibp_email_values(), Issue 710 pe-reports/009 atc-framework ---
+# Insert bulk IntelX credential data into credential_exposures table, input
+class CredExpHIBPInsertInput(BaseModel):
+    """CredExpHIBPInsertInput schema class."""
+
+    exp_data: List[CredExpHIBPInsert]
+
+    class Config:
+        """CredExpHIBPInsertInput schema config class."""
+
+        orm_mode = True
+    
+
+# --- get_breach_uids(), Issue 010 atc-framework ---
+# Retrieve all breach names and uids
+class BreachUIDs(BaseModel):
+    """BreachUIDs schema class."""
+
+    breach_name: Optional[str] = None
+    credential_breaches_uid: Optional[str] = None
+
+    class Config:
+        """BreachUIDs schema config class."""
+
+        orm_mode = True
+
+
+# --- query_orgs(), Issue 011 atc-framework ---
+# Reuses OrganizationsFullTable schema
+        
+
+# --- query_PE_subs(), Issue 012 atc-framework ---
+class SubdomainsByOrgUIDInput(BaseModel):
+    """SubdomainsByOrgUIDInput schema class."""
+
+    org_uid: str
+
+    class Config:
+        """SubdomainsByOrgUIDInput schema config class."""
+
+        orm_mode = True
+
+
+# --- query_PE_subs(), Issue 012 atc-framework ---
+class SubdomainsByOrgUID(BaseModel):
+    """SubdomainsByOrgUID schema class."""
+
+    sub_domain: Optional[str] = None
+    root_domain: Optional[str] = None
+
+    class Config:
+        """SubdomainsByOrgUID schema config class."""
+
+        orm_mode = True
+        
+
+# --- insert_shodan_assets(), Issue 016 atc-framework ---
+# Insert bulk Shodan data into shodan_assets table
+class ShodanAssetsInsert(BaseModel):
+    """ShodanAssetsInsert schema class."""
+
+    email: Optional[str] = None
+    organizations_uid: Optional[str] = None
+    root_domain: Optional[str] = None
+    sub_domain: Optional[str] = None
+    modified_date: Optional[str] = None
+    breach_name: Optional[str] = None
+    credential_breaches_uid: Optional[str] = None
+    data_source_uid: Optional[str] = None
+    name: Optional[str] = None
+
+    class Config:
+        """ShodanAssetsInsert schema config class."""
+
+        orm_mode = True
+
+
+# --- insert_shodan_assets(), Issue 016 atc-framework ---
+# Insert bulk Shodan data into shodan_assets table, input
+class ShodanAssetsInsertInput(BaseModel):
+    """ShodanAssetsInsertInput schema class."""
+
+    asset_data: List[ShodanAssetsInsert]
+
+    class Config:
+        """ShodanAssetsInsertInput schema config class."""
+
+        orm_mode = True
+
+
+# --- insert_shodan_vulns(), Issue 017 atc-framework ---
+# Insert bulk Shodan data into shodan_vulns table
+class ShodanVulnsInsert(BaseModel):
+    """ShodanVulnsInsert schema class."""
+
+    email: Optional[str] = None
+    organizations_uid: Optional[str] = None
+    root_domain: Optional[str] = None
+    sub_domain: Optional[str] = None
+    modified_date: Optional[str] = None
+    breach_name: Optional[str] = None
+    credential_breaches_uid: Optional[str] = None
+    data_source_uid: Optional[str] = None
+    name: Optional[str] = None
+
+    class Config:
+        """ShodanVulnsInsert schema config class."""
+
+        orm_mode = True
+
+
+# --- insert_shodan_vulns(), Issue 017 atc-framework ---
+# Insert bulk Shodan data into shodan_vulns table, input
+class ShodanVulnsInsertInput(BaseModel):
+    """ShodanVulnsInsertInput schema class."""
+
+    vulns_data: List[ShodanVulnsInsert]
+
+    class Config:
+        """ShodanVulnsInsertInput schema config class."""
+
+        orm_mode = True
+
+
+# --- get_demo_orgs(), Issue 018 atc-framework ---
+# Reuses OrganizationsFullTable schema

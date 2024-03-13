@@ -2193,7 +2193,7 @@ def query_previous_period(org_uid, prev_end_date):
     return assets_dict
 
 
-# v ---------- PE-Score API Queries, Issue 635 ---------- v
+#  ---------- PE-Score API Queries, Issue 635 ---------- 
 # --- Issue 635 ---
 def pescore_hist_domain_alert(start_date, end_date):
     """
@@ -2658,6 +2658,36 @@ def query_shodan(org_uid, start_date, end_date, table):
             close(conn)
 
 
+# --- Issue 018 atc-framework ---
+def get_demo_orgs():
+    """
+    Query API to retrieve data for all demo orgs.
+
+    Return:
+        All demo org data as list of tuples
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "organizations_demo"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return, convert to tuple list
+        return [tuple(dic.values()) for dic in result]
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
 # ???
 def execute_values(conn, dataframe, table, except_condition=";"):
     """INSERT into table, generic."""
@@ -2746,24 +2776,6 @@ def query_cidrs():
     df = pd.read_sql(sql, conn)
     conn.close()
     return df
-
-
-# Conversion in progress
-def get_demo_orgs(conn):
-    """Query organizations table for orgs we report on."""
-    try:
-        cur = conn.cursor()
-        sql = """SELECT * FROM organizations
-        WHERE demo is True"""
-        cur.execute(sql)
-        pe_orgs = cur.fetchall()
-        cur.close()
-        return pe_orgs
-    except (Exception, psycopg2.DatabaseError) as error:
-        LOGGER.error("There was a problem with your database query %s", error)
-    finally:
-        if conn is not None:
-            close(conn)
 
 
 # Conversion in progress
@@ -3265,7 +3277,7 @@ def query_creds_view_tsql(org_uid, start_date, end_date):
     """Query credentials view ."""
     conn = connect()
     try:
-        sql = """SELECT * FROM mat_vw_breachcomp
+        sql = """SELECT * FROM vw_breachcomp
         WHERE organizations_uid = %(org_uid)s
         AND modified_date BETWEEN %(start_date)s AND %(end_date)s"""
         df = pd.read_sql(
@@ -3584,6 +3596,24 @@ def upsert_new_cves_tsql(new_cves):
         # Show error and close connection if failed
         LOGGER.error("There was a problem with your database query %s", err)
         cursor.close()
+    finally:
+        if conn is not None:
+            close(conn)
+
+
+# --- 018 atc-framework OLD TSQL ---
+def get_demo_orgs(conn):
+    """Query organizations table for orgs we report on."""
+    try:
+        cur = conn.cursor()
+        sql = """SELECT * FROM organizations
+        WHERE demo is True"""
+        cur.execute(sql)
+        pe_orgs = cur.fetchall()
+        cur.close()
+        return pe_orgs
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
     finally:
         if conn is not None:
             close(conn)

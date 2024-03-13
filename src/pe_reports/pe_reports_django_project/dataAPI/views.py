@@ -19,6 +19,7 @@ from dataAPI.tasks import (
     cred_breach_intelx_task,
     cred_breach_sixgill_task,
     cred_exp_sixgill_task,
+    credential_breach_vulns_task,
     credsbydate_view_task,
     cve_info_insert_task,
     cves_by_modified_date_task,
@@ -56,16 +57,18 @@ from dataAPI.tasks import (
     pescore_hist_darkweb_alert_task,
     pescore_hist_darkweb_ment_task,
     pescore_hist_domain_alert_task,
+    shodan_vulns_task,
     sub_domains_by_org_task,
     sub_domains_table_task,
     top_cves_insert_task,
+    was_vulns_task
 )
 from decouple import config
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.forms.models import model_to_dict
 from fastapi import (
     APIRouter,
@@ -4231,7 +4234,8 @@ def rss_insert(data: schemas.RSSInsertInput, tokens: dict = Depends(get_api_key)
             try:
                 # Check if record already exists
                 ReportSummaryStats.objects.get(
-                    organizations_uid=specified_org_uid, start_date=data.start_date
+                    organizations_uid=specified_org_uid,
+                    start_date=data.start_date
                 )
                 # If it already exists, update
                 ReportSummaryStats.objects.filter(
@@ -6310,6 +6314,43 @@ async def get_pshtt_domains_to_run_status(
     else:
         return {"message": "No api key was submitted"}
 
+# --- get_orgs(), Issue 699 pe-reports ---
+@api_router.get(
+    "/organizations_demo_or_report_on",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.OrganizationsFullTable],
+    tags=["Retrieve data for all demo or report_on orgs."],
+)
+def organizations_demo(tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get data for all demo or report_on orgs."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            organizations_demo_or_report_on_data = list(
+                Organizations.objects.filter(Q(demo=True) | Q(report_on=True)).values()
+            )
+            # Convert data types to match response model
+            for row in organizations_demo_or_report_on_data:
+                row["organizations_uid"] = convert_uuid_to_string(
+                    row["organizations_uid"]
+                )
+                row["cyhy_period_start"] = convert_date_to_string(
+                    row["cyhy_period_start"]
+                )
+                row["date_first_reported"] = convert_date_to_string(
+                    row["date_first_reported"]
+                )
+            return organizations_demo_or_report_on_data
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+
 
 @api_router.put(
     "/pshtt_result_update_or_insert",
@@ -6335,7 +6376,7 @@ def pshtt_result_update_or_insert(
             )
             sub_domain_uid = SubDomains.objects.get(sub_domain_uid=data.sub_domain_uid)
 
-            # Get WAS record based on tag
+            
             pshtt_object, created = PshttResults.objects.update_or_create(
                 sub_domain_uid=data.sub_domain_uid,
                 organizations_uid=data.organizations_uid,
@@ -6411,6 +6452,677 @@ def pshtt_result_update_or_insert(
         except Exception as e:
             print(e)
             print("failed to insert or update")
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+
+
+# --- get_data_source_uid(), Issue 700 pe-reports ---
+@api_router.post(
+    "/data_source_by_name",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.DataSourceFullTable],
+    tags=["Retrieve data for specified data source name."],
+)
+def data_source_by_name(data: schemas.DataSourceByNameInput, tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get data for specified data source name."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            data_source_by_name_data = list(
+                DataSource.objects.filter(name=data.name).values()
+            )
+            # also update data source record
+            today = dt.today().strftime("%Y-%m-%d")
+            DataSource.objects.filter(name=data.name).update(last_run=today)
+            # Convert data types to match response model
+            for row in data_source_by_name_data:
+                row["data_source_uid"] = convert_uuid_to_string(
+                    row["data_source_uid"]
+                )
+                row["last_run"] = convert_date_to_string(
+                    row["last_run"]
+                )
+            return data_source_by_name_data
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- get_breaches(), Issue 701 pe-reports ---
+@api_router.get(
+    "/breach_names_and_uids",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.BreachNamesAndUIDs],
+    tags=["Retrieve all breach names and uids."],
+)
+def breach_names_and_uids(tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get all breach names and uids."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            breach_names_and_uids_data = list(
+                CredentialBreaches.objects.all().values("breach_name", "credential_breaches_uid")
+            )
+            # Convert data types to match response model
+            for row in breach_names_and_uids_data:
+                row["credential_breaches_uid"] = convert_uuid_to_string(
+                    row["credential_breaches_uid"]
+                )
+            return breach_names_and_uids_data
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- getSubdomain(), Issue 702 pe-reports ---
+@api_router.post(
+    "/subdomain_uid_by_domain",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.SubdomainUIDByDomain],
+    tags=["Retrieve data for the specified subdomain."],
+)
+def subdomain_by_domain(data: schemas.SubdomainUIDByDomainInput, tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get data for specified subdomain."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            subdomain_by_domain_data = list(
+                SubDomains.objects.filter(sub_domain=data.domain).values("sub_domain_uid")
+            )
+            # Convert data types to match response model
+            for row in subdomain_by_domain_data:
+                row["sub_domain_uid"] = convert_uuid_to_string(row["sub_domain_uid"])
+            return subdomain_by_domain_data
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- org_root_domains(), Issue 703 pe-reports ---
+@api_router.post(
+    "/rootdomains_by_org_uid",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.RootDomainsTable],
+    tags=["Retrieve root domains for the specified org uid."],
+)
+def rootdomains_by_org_uid(data: schemas.RootdomainsByOrgUIDInput, tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get root domains for specified org uid."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            rootdomains_by_org_uid_data = list(
+                RootDomains.objects.filter(
+                    organizations_uid=data.org_uid, 
+                    enumerate_subs=True
+                ).values()
+            )
+            # Convert data types to match response model
+            for row in rootdomains_by_org_uid_data:
+                row["root_domain_uid"] = convert_uuid_to_string(row["root_domain_uid"])
+                row["organizations_uid_id"] = convert_uuid_to_string(row["organizations_uid_id"])
+                row["data_source_uid_id"] = convert_uuid_to_string(row["data_source_uid_id"])
+            return rootdomains_by_org_uid_data
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+
+
+@api_router.post(
+    "/crossfeed_vulns",
+    dependencies=[Depends(get_api_key)],
+    #response_model=schemas.PshttDomainToRunTaskResp,TODO, create schema for generlized output
+    tags=["Return all vulnerabilites formatted for crossfeed database."],
+)
+def crossfeed_vulns(
+    data: schemas.GenInputOrgName,
+    tokens: dict = Depends(get_api_key)
+    ):
+    """Returna all vulnerabilities for crossfeed database."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        tasks_dict = {}
+        shodan_task = shodan_vulns_task.delay(data.org_acronym)
+        tasks_dict['shodan'] = shodan_task.id
+        cred_task = credential_breach_vulns_task.delay(data.org_acronym)
+        tasks_dict['creds'] = cred_task.id
+        was_task = was_vulns_task.delay(data.org_acronym)
+        tasks_dict['was'] = was_task.id
+        #TODO: add task for XPANSE data
+        # Return the new task id w/ "Processing" status
+        return {"tasks_dict": tasks_dict, "status": "Processing"}
+
+    else:
+        return {"message": "No api key was submitted"}
+
+
+@api_router.get(
+    "/crossfeed_vulns/task/",
+    dependencies=[Depends(get_api_key)],
+    # , Depends(RateLimiter(times=200, seconds=60))
+    # response_model=schemas.PshttDomainToRunTaskResp,
+    tags=["Check task status for endpoint crossfeed vulns."],
+)
+async def crossfeed_vulns_resp(
+    scan_name: str, task_id: str, tokens: dict = Depends(get_api_key)
+):
+    """Retrieve status of a passed task and id."""
+    # Retrieve task status
+    if scan_name == "shodan":
+        task = shodan_vulns_task.AsyncResult(task_id)
+    elif scan_name == "creds":
+        task = credential_breach_vulns_task.AsyncResult(task_id)
+    elif scan_name == "was":
+        task = was_vulns_task.AsyncResult(task_id)
+    # Return appropriate message for status
+    if task.state == "SUCCESS":
+        return {"task_id": task_id, "status": "Completed", "result": task.result}
+    elif task.state == "PENDING":
+        return {"task_id": task_id, "status": "Pending"}
+    elif task.state == "FAILURE":
+        return {"task_id": task_id, "status": "Failed", "error": str(task.result)}
+    else:
+        return {"task_id": task_id, "status": task.state}
+
+
+# --- domain_permu_insert_dnstwist, Issue 706 pe-reports/005 atc-framework ---
+@api_router.put(
+    "/domain_permu_insert_dnstwist",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    tags=["Insert multiple DNSTwist records into the domain_permutations table."],
+)
+def domain_permu_insert_dnstwist(
+    data: schemas.DomainPermuInsertDNSTwistInput, tokens: dict = Depends(get_api_key)
+):
+    """Insert multiple DNSTwist records into the domain_permutations table through the API."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, proceed
+            create_ct = 0
+            update_ct = 0
+            for record in data.insert_data:
+                # convert to dict
+                record_dict = dict(record)
+                curr_org_inst = Organizations.objects.get(
+                    organizations_uid=record_dict["organizations_uid"]
+                )
+                curr_source_inst = DataSource.objects.get(
+                    data_source_uid=record_dict["data_source_uid"]
+                )
+                curr_subdomain_inst = SubDomains.objects.get(
+                    sub_domain_uid=record_dict["sub_domain_uid"]
+                )
+                # Insert each row of data, on conflict update existing
+                try:
+                    DomainPermutations.objects.get(
+                        organizations_uid=curr_org_inst,
+                        domain_permutation=record_dict["domain_permutation"],
+                    )
+                    # If record already exists, update
+                    DomainPermutations.objects.filter(
+                        organizations_uid=curr_org_inst,
+                        domain_permutation=record_dict["domain_permutation"],
+                    ).update(
+                        mailicious=record_dict["mailicious"],
+                        blocklist_attack_count=record_dict["blocklist_attack_count"],
+                        blocklist_report_count=record_dict["blocklist_report_count"],
+                        dshield_record_count=record_dict["dshield_record_count"],
+                        dshield_attack_count=record_dict["dshield_attack_count"],
+                        data_source_uid=record_dict["data_source_uid"],
+                        date_active=record_dict["date_active"],
+                    )
+                    update_ct += 1
+                except DomainPermutations.DoesNotExist:
+                    # Otherwise, create new record
+                    DomainPermutations.objects.create(
+                        organizations_uid=curr_org_inst,
+                        data_source_uid=curr_source_inst,
+                        sub_domain_uid=curr_subdomain_inst,
+                        domain_permutation=record_dict["domain_permutation"],
+                        ipv4=record_dict["ipv4"],
+                        ipv6=record_dict["ipv6"],
+                        mail_server=record_dict["mail_server"],
+                        name_server=record_dict["name_server"],
+                        fuzzer=record_dict["fuzzer"],
+                        date_active=record_dict["date_active"],
+                        ssdeep_score=record_dict["ssdeep_score"],
+                        malicious=record_dict["mailicious"],
+                        blocklist_attack_count=record_dict["blocklist_attack_count"],
+                        blocklist_report_count=record_dict["blocklist_report_count"],
+                        dshield_record_count=record_dict["dshield_record_count"],
+                        dshield_attack_count=record_dict["dshield_attack_count"],
+                    )
+                    create_ct += 1
+            return (
+                "New DNSTwist data in the domain_permutations table: "
+                + str(create_ct)
+                + " created, "
+                + str(update_ct)
+                + " updated"
+            )
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- get_root_domains(), Issue 707 pe-reports/006 atc-framework ---
+# This function reuses the /rootdomains_by_org_uid endpoint
+    
+
+# --- getDataSource(), Issue 708 pe-reports/007 atc-framework ---
+# This function reuses the /data_source_by_name endpoint
+    
+
+# --- execute_hibp_breach_values(), Issue 709/008 atc-framework ---
+@api_router.put(
+    "/cred_breaches_hibp_insert",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    tags=["Insert HIBP credential breaches into the credential_breaches table."],
+)
+def cred_breaches_hibp_insert(
+    data: schemas.CredBreachesHIBPInsertInput, tokens: dict = Depends(get_api_key)
+):
+    """Insert HIBP credential breaches into the credential_breaches table through the API ."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, insert hibp breach data
+            insert_count = 0
+            update_count = 0
+            for row in data.breach_data:
+                # Check if record already exists
+                row_dict = row.__dict__
+                breach_results = CredentialBreaches.objects.filter(
+                    breach_name=row_dict["breach_name"]
+                )
+                if not breach_results.exists():
+                    # If not, insert new record
+                    curr_data_source_inst = DataSource.objects.get(
+                        data_source_uid=row_dict["data_source_uid"]
+                    )
+                    CredentialBreaches.objects.create(
+                        breach_name=row_dict["breach_name"],
+                        description=row_dict["description"],
+                        exposed_cred_count=row_dict["exposed_cred_count"],
+                        breach_date=row_dict["breach_date"],
+                        added_date=row_dict["added_date"],
+                        modified_date=row_dict["modified_date"],
+                        data_classes=row_dict["data_classes"],
+                        password_included=row_dict["password_included"],
+                        is_verified=row_dict["is_verified"],
+                        is_fabricated=row_dict["is_fabricated"],
+                        is_sensitive=row_dict["is_sensitive"],
+                        is_retired=row_dict["is_retired"],
+                        is_spam_list=row_dict["is_spam_list"],
+                        data_source_uid=curr_data_source_inst,
+                    )
+                    insert_count += 1
+                else:
+                    # Otherwise, update
+                    CredentialBreaches.objects.filter(
+                        breach_name=row_dict["breach_name"]
+                    ).update(
+                        modified_daate=row_dict["modified_date"],
+                        exposed_cred_count=row_dict["exposed_cred_count"],
+                        password_included=row_dict["password_included"]
+                    )
+                    update_count += 1
+            return (
+                str(insert_count)
+                + " records created, "
+                + str(update_count)
+                + " records updated in the credential_breaches table"
+            )
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- execute_hibp_emails_values(), Issue 710 pe-reports/009 atc-framework ---
+@api_router.put(
+    "/cred_exp_hibp_insert",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    tags=["Insert HIBP data into the credential_exposures table."],
+)
+def cred_exp_hibp_insert(
+    data: schemas.CredExpHIBPInsertInput, tokens: dict = Depends(get_api_key)
+):
+    """Insert HIBP data into the credential_exposures table using the API endpoint."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, insert intelx data
+            create_cnt = 0
+            for row in data.exp_data:
+                row_dict = row.__dict__
+                try:
+                    CredentialExposures.objects.get(
+                        breach_name=row_dict["breach_name"],
+                        email=row_dict["email"],
+                    )
+                    # If record already exists, do nothing
+                except CredentialExposures.DoesNotExist:
+                    # If record doesn't exist yet, create one
+                    curr_org_inst = Organizations.objects.get(
+                        organizations_uid=row_dict["organizations_uid"]
+                    )
+                    curr_source_inst = DataSource.objects.get(
+                        data_source_uid=row_dict["data_source_uid"]
+                    )
+                    curr_breach_inst = CredentialBreaches.objects.get(
+                        breach_name=row_dict["breach_name"],
+                    )
+                    CredentialExposures.objects.create(
+                        # credential_exposures_uid=uuid.uuid1(),
+                        email=row_dict["email"],
+                        organizations_uid=curr_org_inst,
+                        root_domain=row_dict["root_domain"],
+                        sub_domain=row_dict["sub_domain"],
+                        modified_date=row_dict["modified_date"],
+                        breach_name=row_dict["breach_name"],
+                        credential_breaches_uid=curr_breach_inst,
+                        data_source_uid=curr_source_inst,
+                        name=row_dict["name"],
+                    )
+                    create_cnt += 1
+            # Return success message
+            return (
+                str(create_cnt)
+                + " records created in the credential_exposures table"
+            )
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- get_breach_uids(), Issue 010 atc-framework ---
+@api_router.get(
+    "/breach_uids",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.BreachUIDs],
+    tags=["Retrieve all breach names and uids."],
+)
+def breach_uids(tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get all breach names and uids."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            breach_uids_data = list(
+                CredentialBreaches.objects.all().values(
+                    "breach_name", 
+                    "credential_breaches_uid",
+                )
+            )
+            # Convert data types to match response model
+            for row in breach_uids_data:
+                row["credential_breaches_uid"] = convert_uuid_to_string(
+                    row["credential_breaches_uid"]
+                )
+            return breach_uids_data
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+        
+
+# --- query_orgs(), Issue 011 atc-framework ---
+@api_router.get(
+    "/reported_orgs",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.OrganizationsFullTable],
+    tags=["Retrieve data for all orgs where report_on is true."],
+)
+def reported_orgs(tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get data for all orgs where report_on is true."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            reported_orgs_data = list(
+                Organizations.objects.filter(report_on=True).values()
+            )
+            # Convert data types to match response model
+            for row in reported_orgs_data:
+                row["organizations_uid"] = convert_uuid_to_string(
+                    row["organizations_uid"]
+                )
+            return reported_orgs_data
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+
+
+# --- query_PE_subs(), Issue 012 atc-framework ---
+@api_router.post(
+    "/subdomains_by_org_uid",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.SubdomainsByOrgUID],
+    tags=["Retrieve subdomains for the specified org uid."],
+)
+def subdomains_by_org_uid(data: schemas.SubdomainsByOrgUIDInput, tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get subdomains for specified org uid."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            subdomains_by_org_uid_data = list(
+                RootDomains.objects.filter(
+                    organizations_uid=data.org_uid
+                ).values(
+                    "root_domains_uid__sub_domain", 
+                    "root_domain"
+                )
+            )
+            return subdomains_by_org_uid_data
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- insert_shodan_assets(), Issue 016 atc-framework ---
+@api_router.put(
+    "/shodan_assets_insert",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    tags=["Insert Shodan data into the shodan_assets table."],
+)
+def shodan_assets_insert(
+    data: schemas.ShodanAssetsInsertInput, tokens: dict = Depends(get_api_key)
+):
+    """Insert Shodan data into the shodan_assets table using the API endpoint."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, insert intelx data
+            create_cnt = 0
+            for row in data.exp_data:
+                row_dict = row.__dict__
+                try:
+                    # Check if record already exists
+                    ShodanAssets.objects.get(
+                        organizations_uid=row_dict["organizations_uid"], 
+                        ip=row_dict["ip"], 
+                        port=row_dict["port"], 
+                        protocol=row_dict["protocol"], 
+                        timestamp=row_dict["timestamp"],
+                    )
+                    # If record already exists, do nothing
+                except CredentialExposures.DoesNotExist:
+                    # If record doesn't exist yet, create one
+                    curr_org_inst = Organizations.objects.get(
+                        organizations_uid=row_dict["organizations_uid"]
+                    )
+                    ShodanAssets.objects.create(
+                        # Need to fill this out
+                        # credential_exposures_uid=uuid.uuid1(),
+                        email=row_dict["email"],
+                        organizations_uid=curr_org_inst,
+                        root_domain=row_dict["root_domain"],
+                        sub_domain=row_dict["sub_domain"],
+                        modified_date=row_dict["modified_date"],
+                        breach_name=row_dict["breach_name"],
+                        name=row_dict["name"],
+                    )
+                    create_cnt += 1
+            # Return success message
+            return (
+                str(create_cnt)
+                + " records created in the credential_exposures table"
+            )
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- insert_shodan_vulns(), Issue 017 atc-framework ---
+@api_router.put(
+    "/shodan_vulns_insert",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    tags=["Insert Shodan data into the shodan_vulns table."],
+)
+def shodan_vulns_insert(
+    data: schemas.ShodanVulnsInsertInput, tokens: dict = Depends(get_api_key)
+):
+    """Insert Shodan data into the shodan_vulns table using the API endpoint."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, insert intelx data
+            create_cnt = 0
+            for row in data.exp_data:
+                row_dict = row.__dict__
+                try:
+                    CredentialExposures.objects.get(
+                        breach_name=row_dict["breach_name"],
+                        email=row_dict["email"],
+                    )
+                    # If record already exists, do nothing
+                except CredentialExposures.DoesNotExist:
+                    # If record doesn't exist yet, create one
+                    curr_org_inst = Organizations.objects.get(
+                        organizations_uid=row_dict["organizations_uid"]
+                    )
+                    curr_source_inst = DataSource.objects.get(
+                        data_source_uid=row_dict["data_source_uid"]
+                    )
+                    curr_breach_inst = CredentialBreaches.objects.get(
+                        breach_name=row_dict["breach_name"],
+                    )
+                    CredentialExposures.objects.create(
+                        # credential_exposures_uid=uuid.uuid1(),
+                        email=row_dict["email"],
+                        organizations_uid=curr_org_inst,
+                        root_domain=row_dict["root_domain"],
+                        sub_domain=row_dict["sub_domain"],
+                        modified_date=row_dict["modified_date"],
+                        breach_name=row_dict["breach_name"],
+                        credential_breaches_uid=curr_breach_inst,
+                        data_source_uid=curr_source_inst,
+                        name=row_dict["name"],
+                    )
+                    create_cnt += 1
+            # Return success message
+            return (
+                str(create_cnt)
+                + " records created in the credential_exposures table"
+            )
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
+
+# --- get_demo_orgs(), Issue 018 atc-framework ---
+@api_router.get(
+    "/organizations_demo",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=List[schemas.OrganizationsFullTable],
+    tags=["Retrieve data for all demo orgs."],
+)
+def organizations_demo(tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get data for all demo orgs."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            organizations_demo_data = list(
+                Organizations.objects.filter(demo=True).values()
+            )
+            # Convert data types to match response model
+            for row in organizations_demo_data:
+                row["organizations_uid"] = convert_uuid_to_string(
+                    row["organizations_uid"]
+                )
+            return organizations_demo_data
+        except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}

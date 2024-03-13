@@ -945,25 +945,527 @@ def api_pshtt_insert(pshtt_dict):
         LOGGER.error(err)
 
 
-# v ===== ACTIVE TSQL THAT STILL NEEDS CONVERSION ===== v
-# Conversion in progress
+# --- Issue 699 pe-reports ---
 def get_orgs():
-    """Query organizations table."""
-    conn = connect()
+    """
+    Query API to retrieve data for all demo or report_on orgs.
+
+    Return:
+        All demo or report_on org data as list of tuples
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "organizations_demo_or_report_on"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
     try:
-        cur = conn.cursor()
-        sql = """SELECT * FROM organizations"""
-        cur.execute(sql)
-        pe_orgs = cur.fetchall()
-        keys = ("org_uid", "org_name", "cyhy_db_name")
-        pe_orgs = [dict(zip(keys, values)) for values in pe_orgs]
-        cur.close()
-        return pe_orgs
-    except (Exception, psycopg2.DatabaseError) as error:
-        LOGGER.error("There was a problem with your database query %s", error)
-    finally:
-        if conn is not None:
-            close(conn)
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        for row in result:
+            if row.get("date_first_reported") is not None:
+                row["date_first_reported"] = datetime.strptime(row.get("date_first_reported"), "%Y-%m-%d")
+            if row.get("cyhy_period_start") is not None:
+                row["cyhy_period_start"] = datetime.strptime(row.get("cyhy_period_start"), "%Y-%m-%d")
+            if row.get("county_fips") is not None:
+                row["county_fips"] = Decimal(row.get("county_fips"))
+            if row.get("state_fips") is not None:
+                row["state_fips"] = Decimal(row.get("state_fips"))
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 700 pe-reports ---
+def get_data_source_uid(source):
+    """
+    Query API to get the uid for the specified data source.
+
+    Args:
+        source: The name of the specified data source
+
+    Return:
+        UID for the specified data source
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "data_source_by_name"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"name": source})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        return tup_result[0][0]
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 701 pe-reports ---
+def get_breaches():
+    """
+    Query API to get all the breach_names and uids from credential_breaches table.
+
+    Return:
+        All breach_names and uids as a list of tuples
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "breach_names_and_uids"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        return tup_result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 702 pe-reports ---
+def getSubdomain(domain):
+    """
+    Query API to get the uid for the specified subdomain.
+
+    Args:
+        domain: The name of the specified subdomain
+
+    Return:
+        uid for the specified subdomain
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "subdomain_uid_by_domain"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"domain": domain})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        final_result = result[0]
+        return final_result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 703 pe-reports ---
+def org_root_domains(org_uid):
+    """
+    Query API to get the root domains for the specified org uid.
+
+    Args:
+        org_uid: The uid of the specified organization
+
+    Return:
+        root domains for the specified org uid
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "rootdomains_by_org_uid"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"org_uid": org_uid})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        result_df = pd.DataFrame.from_dict(result)
+        result_df.rename(columns={
+            "root_domain_uid": "root_uid",
+            "organizations_uid": "org_uid"
+        }, inplace=True)
+        result_dict_list = result_df.to_dict("records")
+        return result_dict_list
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 706 pe-reports/005 atc-framework ---
+def insert_dnstwist_domain_permu(df):
+    """
+    Query API to insert multiple dnstwist records into the domain_permutations table.
+
+    Args:
+        df: Dataframe containing DNSTwist data to be inserted
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "domain_permu_insert_dnstwist"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    # Adjust data types and convert to list of dictionaries
+    df["date_active"] = pd.to_datetime(df["date_active"])
+    df["date_active"] = df["date_active"].dt.strftime("%Y-%m-%d")
+    df_dict_list = df.to_dict("records")
+    data = json.dumps({"insert_data": df_dict_list})
+    try:
+        # Call endpoint
+        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 707 pe-reports/006 atc-framework ---
+# Reuse the /rootdomains_by_org_uid endpoint, but return as dataframe
+def get_root_domains_api(org_uid):
+    """
+    Query API to get the root domains for the specified org uid.
+
+    Args:
+        org_uid: The uid of the specified organization
+
+    Return:
+        root domains for the specified org uid as dataframe
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "rootdomains_by_org_uid"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"org_uid": org_uid})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        result_df = pd.DataFrame.from_dict(result)
+        return result_df
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 708 pe-reports/007 atc-framework ---
+# Reuse the /data_source_by_name endpoint, but return all fields
+def getDataSource_api(source):
+    """
+    Query API to get all info for the specified data source.
+
+    Args:
+        source: The name of the specified data source
+
+    Return:
+        Data for the specified data source
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "data_source_by_name"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"name": source})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        return tup_result[0]
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 709 pe-reports/008 atc-framework ---
+# Very similar to insert_intelx_breaches(), but for HIBP
+def execute_hibp_breach_values(jsonList, thread):
+    """
+    Query API to insert multiple HIBP records into the credential_breaches table.
+
+    Args:
+        jsonList: List of dictionaries containing HIBP breach data to be inserted
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "cred_breaches_hibp_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    # Remove duplicates and convert to list of dictionaries
+    data = json.dumps({"breach_data": jsonList})
+    try:
+        # Call endpoint
+        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        LOGGER.info("Data inserted into credential_breaches successfully..")
+        LOGGER.info("\t", result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 710 pe-reports/009 atc-framework ---
+# Very similar to insert_intelx_credentials(), but for HIBP
+def execute_hibp_emails_values(jsonList, thread):
+    """
+    Query API to insert multiple HIBP records into the credential_exposures table.
+
+    Args:
+        jsonList: List of dictionaries containing HIBP credential exposure data to be inserted
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "cred_exp_hibp_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    # Remove duplicates and convert to list of dictionaries
+    data = json.dumps({"exp_data": jsonList})
+    try:
+        # Call endpoint
+        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 010 atc-framework ---
+def get_breach_uids():
+    """
+    Query API to get all breach names and uids.
+
+    Return:
+        All breach names and uids.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "breach_uids"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        # Call endpoint
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 011 atc-framework ---
+def query_orgs(thread):
+    """
+    Query API to get all orgs where report_on is true.
+
+    Return:
+        All orgs where report_on is true as a dataframe.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "reported_orgs"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        # Call endpoint
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        result_df = pd.DataFrame(result)
+        return result_df
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 012 atc-framework ---
+def query_PE_subs(org_uid):
+    """
+    Query API to get all subdomains for the specified organization.
+
+    Args:
+        org_uid: The organizations_uid of the specified org.
+
+    Return:
+        All subdomains for the specified organization.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "subdomains_by_org_uid"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"org_uid": org_uid})
+    try:
+        # Call endpoint
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        result_df = pd.DataFrame(result)
+        return result_df
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 016 atc-framework ---
+def insert_shodan_assets(dataframe, table, thread, org_name, failed):
+    """
+    Query API to insert Shodan data into the shodan_assets table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_assets.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_assets_inserts"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"asset_data": dataframe})
+    try:
+        # Call endpoint
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 017 atc-framework ---
+def insert_shodan_vulns(dataframe, table, thread, org_name, failed):
+    """
+    Query API to insert Shodan data into the shodan_vulns table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_vulns.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_vulns_inserts"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"vuln_data": dataframe})
+    try:
+        # Call endpoint
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# v ===== ACTIVE TSQL THAT STILL NEEDS CONVERSION ===== v
 
 
 # Conversion in progress
@@ -981,78 +1483,6 @@ def get_ips(org_uid):
     return ips
 
 
-# Conversion in progress
-def get_data_source_uid(source):
-    """Get data source uid."""
-    conn = connect()
-    cur = conn.cursor()
-    sql = """SELECT * FROM data_source WHERE name = '{}'"""
-    cur.execute(sql.format(source))
-    source = cur.fetchone()[0]
-    cur.close()
-    cur = conn.cursor()
-    # Update last_run in data_source table
-    date = datetime.today().strftime("%Y-%m-%d")
-    sql = """update data_source set last_run = '{}'
-            where name = '{}';"""
-    cur.execute(sql.format(date, source))
-    cur.close()
-    close(conn)
-    return source
-
-
-# Conversion in progress
-def get_breaches():
-    """Get credential breaches."""
-    conn = connect()
-    try:
-        cur = conn.cursor()
-        sql = """SELECT breach_name, credential_breaches_uid FROM credential_breaches"""
-        cur.execute(sql)
-        pe_orgs = cur.fetchall()
-        cur.close()
-        return pe_orgs
-    except (Exception, psycopg2.DatabaseError) as error:
-        LOGGER.error("There was a problem with your database query %s", error)
-    finally:
-        if conn is not None:
-            close(conn)
-
-
-# Conversion in progress
-def insert_shodan_data(dataframe, table, thread, org_name, failed):
-    """Insert Shodan data into database."""
-    conn = connect()
-    tpls = [tuple(x) for x in dataframe.to_numpy()]
-    cols = ",".join(list(dataframe.columns))
-    sql = """INSERT INTO {}({}) VALUES %s
-    ON CONFLICT (organizations_uid, ip, port, protocol, timestamp)
-    DO NOTHING;"""
-    cursor = conn.cursor()
-    try:
-        extras.execute_values(
-            cursor,
-            sql.format(
-                table,
-                cols,
-            ),
-            tpls,
-        )
-        conn.commit()
-        LOGGER.info(
-            "{} Data inserted using execute_values() successfully - {}".format(
-                thread, org_name
-            )
-        )
-    except Exception as e:
-        LOGGER.error("{} failed inserting into {}".format(org_name, table))
-        LOGGER.error("{} {} - {}".format(thread, e, org_name))
-        failed.append("{} failed inserting into {}".format(org_name, table))
-        conn.rollback()
-    cursor.close()
-    return failed
-
-
 # ???
 def query_orgs_rev():
     """Query orgs in reverse."""
@@ -1060,52 +1490,6 @@ def query_orgs_rev():
     sql = "SELECT * FROM organizations WHERE report_on is True ORDER BY organizations_uid DESC;"
     df = pd.read_sql_query(sql, conn)
     close(conn)
-    return df
-
-
-# Conversion in progress
-def getSubdomain(conn, domain):
-    """Get subdomains given a domain from the databases."""
-    cur = conn.cursor()
-    sql = """SELECT * FROM sub_domains sd
-        WHERE sd.sub_domain = %(domain)s"""
-    cur.execute(sql, {"domain": domain})
-    sub = cur.fetchone()
-    cur.close()
-    return sub
-
-
-# Conversion in progress
-def getDataSource(conn, source):
-    """Get datasource information from a database."""
-    cur = conn.cursor()
-    sql = """SELECT * FROM data_source WHERE name=%(s)s"""
-    cur.execute(sql, {"s": source})
-    source = cur.fetchone()
-    cur.close()
-    return source
-
-
-# Conversion in progress
-def org_root_domains(conn, org_uid):
-    """Get root domains from database given the org_uid."""
-    sql = """
-        select * from root_domains rd
-        where rd.organizations_uid = %(org_id)s;
-    """
-    df = pd.read_sql_query(sql, conn, params={"org_id": org_uid})
-    return df
-
-
-# Conversion in progress
-def get_root_domains(conn, org_uid):
-    """Get root domains from database given the org_uid."""
-    sql = """
-        select * from root_domains rd
-        where rd.organizations_uid = %(org_id)s
-        and enumerate_subs is True;
-    """
-    df = pd.read_sql_query(sql, conn, params={"org_id": org_uid})
     return df
 
 
@@ -1481,3 +1865,424 @@ def insert_intelx_credentials_tsql(df):
         logging.info(error)
         conn.rollback()
     cursor.close()
+
+# WAS queries
+def getPotential(org_id):
+    """Get findings for specific time period in months."""
+    conn = connect()
+    cur = conn.cursor()
+    sql = """   SELECT COUNT(*) FROM was_findings 
+                WHERE was_org_id = '{}' AND potential IS TRUE;
+                """
+    cur.execute(sql.format(org_id), conn)
+    ret = cur.fetchall()
+    cur.close()
+    close(conn)
+    return ret
+
+
+def insertWASIds(listIds):
+    """Insert WAS IDs into database."""
+    conn = connect()
+    sql = """INSERT INTO was_map (was_org_id,pe_org_id)
+            VALUES ('{}','{}')
+            ON CONFLICT (was_org_id) DO NOTHING;"""
+    sqlNoUUID = """INSERT INTO was_map (was_org_id)
+            VALUES ('{}')
+            ON CONFLICT (was_org_id) DO NOTHING;"""
+    cur = conn.cursor()
+    for id in listIds:
+        if id[1] == '':
+            cur.execute(sqlNoUUID.format(id[0]))
+        else:
+            cur.execute(sql.format(id[0], id[1]))
+    conn.commit()
+    close(conn)
+    print("Success adding WAS IDs to database.")
+
+def getPreviousFindingsHistorical(org_id,monthsAgo):
+    """Get findings for specific time period in months."""
+    conn = connect()
+    cur = conn.cursor()
+    sql = """   SELECT * FROM was_findings 
+                WHERE was_org_id = '{}';
+                """
+    cur.execute(sql.format(org_id,monthsAgo-1,monthsAgo), conn)
+    ret = cur.fetchall()
+    cur.close()
+    close(conn)
+    return ret
+
+def insertFindingData(findingList):
+    """Insert finding data into database."""
+    # TODO: Dont use was_ord_id to reference orgs, use customer_id once was data become available
+    conn = connect()
+    sql = """INSERT INTO was_findings (finding_uid, finding_type, webapp_id, webapp_url, webapp_name, was_org_id, name, owasp_category, severity, times_detected, cvss_v3_attack_vector, base_score, temporal_score, fstatus, last_detected, first_detected, potential, cwe_list, wasc_list)
+            VALUES ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}')
+            ON CONFLICT (finding_uid) DO UPDATE 
+            SET is_remidiated = CASE
+                WHEN was_findings.fstatus != 'FIXED' AND excluded.fstatus = 'FIXED' THEN TRUE
+                ELSE was_findings.is_remidiated
+            END,
+            webapp_name = excluded.webapp_name,
+            webapp_url = excluded.webapp_url,
+            name = excluded.name,
+            cvss_v3_attack_vector = excluded.cvss_v3_attack_vector,
+            fstatus = excluded.fstatus,
+            times_detected = excluded.times_detected,
+            last_detected = excluded.last_detected,
+            potential = excluded.potential,
+            cwe_list = excluded.cwe_list,
+            wasc_list = excluded.wasc_list
+            ;"""
+    cur = conn.cursor()
+    for finding in findingList:
+        finding['cwe_list'] = '{' + ','.join(map(str,finding["cwe_list"])) + '}'
+        try:
+            cur.execute(
+                sql.format(
+                    finding["finding_uid"],
+                    finding["finding_type"],
+                    finding["webapp_id"],
+                    finding["webapp_url"],
+                    finding["webapp_name"],
+                    finding["was_org_id"],
+                    finding["name"],
+                    finding["owasp_category"],
+                    finding["severity"],
+                    finding["times_detected"],
+                    finding["cvss_v3_attack_vector"],
+                    finding["base_score"],
+                    finding["temporal_score"],
+                    finding["fstatus"],
+                    finding["last_detected"],
+                    finding["first_detected"],
+                    finding["potential"],
+                    finding["cwe_list"],
+                    json.dumps(finding["wasc_list"])
+                )
+            )
+        except KeyError:
+            print("KeyError")
+            print(finding)
+    conn.commit()
+    close(conn)
+    print("Success adding finding data to database.")
+
+def queryVulnWebAppCount(org_id):
+    """Query the amount of webapps with vulnerabilities."""
+    # TODO: Dont use was_ord_id to reference orgs, use customer_id once was data become available
+    conn = connect()
+    sql = """   SELECT webapp_id FROM was_findings
+                WHERE was_org_id = '{}'
+                AND
+                (
+                    fstatus = 'ACTIVE'
+                    OR fstatus = 'NEW'
+                    OR fstatus = 'REOPENED'
+                );
+        """
+    df = pd.read_sql_query(sql.format(org_id), conn)
+    webIdsList = df["webapp_id"].values.tolist()
+    close(conn)
+    return len(set(webIdsList))
+
+def queryWASOrgList():
+    """Query the list of WAS orgs."""
+    # TODO: Dont use was_ord_id to reference orgs, use customer_id once was data become available
+    conn = connect()
+    sql = """SELECT was_org_id FROM was_map"""
+    df = pd.read_sql_query(sql, conn)
+    orgList = df["was_org_id"].values.tolist()
+    close(conn)
+    return orgList
+
+
+def getPEuuid(org_id):
+    """Query the org uuid given a certain cyhy db name"""
+    conn = connect()
+    sql = """SELECT organizations_uid FROM organizations WHERE cyhy_db_name = '{}'"""
+    cur = conn.cursor()
+    cur.execute(sql.format(org_id))
+    ret = cur.fetchone()[0]
+    close(conn)
+    return ret
+
+def getPreviousFindings(org_id,monthsAgo):
+    """Get findings for specific time period in months."""
+    conn = connect()
+    cur = conn.cursor()
+    sql = """   SELECT * FROM was_findings 
+                WHERE was_org_id = '{}'
+                AND last_detected >= date_trunc('month', now() - interval '{} month')
+                AND last_detected < date_trunc('month', now() - interval '{} month');
+                """
+    cur.execute(sql.format(org_id,monthsAgo,monthsAgo-1), conn)
+    ret = cur.fetchall()
+    cur.close()
+    close(conn)
+    return ret
+
+def queryVulnCountAll(org_id):
+    """Query the amount of webapps with vulnerabilities."""
+    # TODO: Dont use was_ord_id to reference orgs, use customer_id once was data become available
+    conn = connect()
+    sql = """   SELECT webapp_id FROM was_findings
+                WHERE was_org_id = '{}'
+                AND
+                (
+                    fstatus = 'ACTIVE'
+                    OR fstatus = 'NEW'
+                    OR fstatus = 'REOPENED'
+                );
+        """
+    df = pd.read_sql_query(sql.format(org_id), conn)
+    webIdsList = df["webapp_id"].values.tolist()
+    close(conn)
+    return len(webIdsList)
+
+def queryVulnCountSeverity(org_id,severity):
+    """Query the amount of webapps with vulnerabilities."""
+    # TODO: Dont use was_ord_id to reference orgs, use customer_id once was data become available
+    conn = connect()
+    sql = """   SELECT webapp_id FROM was_findings
+                WHERE was_org_id = '{}'
+                AND severity = '{}'
+                AND
+                (
+                    fstatus = 'ACTIVE'
+                    OR fstatus = 'NEW'
+                    OR fstatus = 'REOPENED'
+                );
+        """
+    df = pd.read_sql_query(sql.format(org_id,severity), conn)
+    webIdsList = df["webapp_id"].values.tolist()
+    close(conn)
+    return len(webIdsList)
+
+def insertWASVulnData(data):
+    """Insert WAS vulnerability data into database."""
+    conn = connect()
+    cur = conn.cursor()
+    sql = """   INSERT INTO was_history (was_org_ID,date_scanned,vuln_cnt,vuln_webapp_cnt,web_app_cnt,high_rem_time,crit_rem_time,report_period,high_vuln_cnt,crit_vuln_cnt,crit_rem_cnt,high_rem_cnt,total_potential)
+                VALUES ('{}','{}',{},{},{}, (CASE WHEN {} = 0 THEN NULL ELSE {} END), (CASE WHEN {} = 0 THEN NULL ELSE {} END),'{}',{},{},{},{},{}) """
+    cur.execute(
+        sql.format(
+            data['was_org_id'],
+            data['date_scanned'],
+            data['vuln_cnt'],
+            data['vuln_webapp_cnt'],
+            data['web_app_cnt'],
+            data['high_rem_time'],
+            data['high_rem_time'],
+            data['crit_rem_time'],
+            data['crit_rem_time'],
+            data['report_period'],
+            data['high_vuln_cnt'],
+            data['crit_vuln_cnt'],
+            data['high_rem_cnt'],
+            data['crit_rem_cnt'],
+            data['total_potential'],
+            )
+        )
+    conn.commit()
+    close(conn)
+    print("Success adding finding data to database.")
+
+
+# --- 699 pe-reports OLD TSQL ---
+def get_orgs_tsql():
+    """Query organizations table."""
+    conn = connect()
+    try:
+        cur = conn.cursor()
+        sql = """SELECT * FROM organizations"""
+        cur.execute(sql)
+        pe_orgs = cur.fetchall()
+        keys = ("org_uid", "org_name", "cyhy_db_name")
+        pe_orgs = [dict(zip(keys, values)) for values in pe_orgs]
+        cur.close()
+        return pe_orgs
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    finally:
+        if conn is not None:
+            close(conn)
+
+
+# --- 700 pe-reports OLD TSQL ---
+def get_data_source_uid_tsql(source):
+    """Get data source uid."""
+    conn = connect()
+    cur = conn.cursor()
+    sql = """SELECT * FROM data_source WHERE name = '{}'"""
+    cur.execute(sql.format(source))
+    source = cur.fetchone()[0]
+    cur.close()
+    cur = conn.cursor()
+    # Update last_run in data_source table
+    date = datetime.today().strftime("%Y-%m-%d")
+    sql = """update data_source set last_run = '{}'
+            where name = '{}';"""
+    cur.execute(sql.format(date, source))
+    cur.close()
+    close(conn)
+    return source
+
+
+# --- 701 pe-reports OLD TSQL ---
+def get_breaches_tsql():
+    """Get credential breaches."""
+    conn = connect()
+    try:
+        cur = conn.cursor()
+        sql = """SELECT breach_name, credential_breaches_uid FROM credential_breaches"""
+        cur.execute(sql)
+        pe_orgs = cur.fetchall()
+        cur.close()
+        return pe_orgs
+    except (Exception, psycopg2.DatabaseError) as error:
+        logging.error("There was a problem with your database query %s", error)
+    finally:
+        if conn is not None:
+            close(conn)
+
+
+# --- 702 pe-reports OLD TSQL ---
+def getSubdomain_tsql(domain):
+    """Get subdomain."""
+    conn = connect()
+    try:
+        cur = conn.cursor()
+        sql = """select * from sub_domains sd
+                where sd.sub_domain = %s;"""
+        cur.execute(sql, [domain])
+        sub = cur.fetchall()
+        cur.close()
+        return sub[0][0]
+    except (Exception, psycopg2.DatabaseError):
+        print("Adding domain to the sub-domain table")
+    finally:
+        if conn is not None:
+            close(conn)
+
+        
+# --- 703 pe-reports OLD TSQL ---
+def org_root_domains_tsql(conn, org_uid):
+    """Get root domains from database given the org_uid."""
+    conn = connect()
+    try:
+        cur = conn.cursor()
+        sql = """select * from root_domains rd
+                where rd.organizations_uid = %s
+                and enumerate_subs is True;"""
+        cur.execute(sql, [org_uid])
+        roots = cur.fetchall()
+        keys = (
+            "root_uid",
+            "org_uid",
+            "root_domain",
+            "ip_address",
+            "data_source_uid",
+            "enumerate_subs",
+        )
+        roots = [dict(zip(keys, values)) for values in roots]
+        cur.close()
+        return roots
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    finally:
+        if conn is not None:
+            close(conn)
+
+
+# --- 706 pe-reports/005 atc-framework OLD TSQL ---
+# The old TSQL did not come from a function, it was
+# a loose query floating around in dnstwistscript.py
+
+
+# --- 707 pe-reports/006 atc-framework OLD TSQL ---
+def get_root_domains(conn, org_uid):
+    """Get root domains from database given the org_uid."""
+    sql = """
+        select * from root_domains rd
+        where rd.organizations_uid = %(org_id)s
+        and enumerate_subs is True;
+    """
+    df = pd.read_sql_query(sql, conn, params={"org_id": org_uid})
+    return df
+
+
+# --- 708 pe-reports/007 atc-framework OLD TSQL ---
+# This TSQL is from the getDataSource() function in
+# hibp_latest.py and hibp_latest_rev.py
+def getDataSource(conn, source):
+    """Get datasource information from a database."""
+    cur = conn.cursor()
+    sql = """SELECT * FROM data_source WHERE name=%(s)s"""
+    cur.execute(sql, {"s": source})
+    source = cur.fetchone()
+    cur.close()
+    return source
+
+
+# --- 709 pe-reports/008 atc-framework OLD TSQL ---
+# This TSQL is from the execute_hibp_breach_values() function in 
+# hibp_latest.py and hibp_latest_rev.py
+
+
+# --- 710 pe-reports/009 atc-framework OLD TSQL ---
+# This TSQL is from the execute_hibp_emails_values() function in 
+# hibp_latest.py and hibp_latest_rev.py
+
+
+# --- 010 atc-framework OLD TSQL ---
+# The old TSQL did not come from a function, it was
+# a loose query floating around in hibp_latest.py/hibp_latest_rev.py
+
+
+# --- 011 atc-framework OLD TSQL ---
+# This TSQL is from the query_orgs() function in 
+# adhoc/data/run.py
+
+
+# --- 012 atc-framework OLD TSQL ---
+# This TSQL is from the query_PE_subs() function in 
+# hibp_latest.py and hibp_latest_rev.py
+
+
+# --- 016/017 atc-framework OLD TSQL ---
+# This TSQL function is being broken up into two separate endpoints
+def insert_shodan_data(dataframe, table, thread, org_name, failed):
+    """Insert Shodan data into database."""
+    # get rid of \x00 characters
+    dataframe = dataframe.replace({'\x00': ''}, regex=True)
+    conn = connect()
+    tpls = [tuple(x) for x in dataframe.to_numpy()]
+    cols = ",".join(list(dataframe.columns))
+    sql = """INSERT INTO {}({}) VALUES %s
+    ON CONFLICT (organizations_uid, ip, port, protocol, timestamp)
+    DO NOTHING;"""
+    cursor = conn.cursor()
+    try:
+        extras.execute_values(
+            cursor,
+            sql.format(
+                table,
+                cols,
+            ),
+            tpls,
+        )
+        conn.commit()
+        logging.info(
+            "{} Data inserted using execute_values() successfully - {}".format(
+                thread, org_name
+            )
+        )
+    except Exception as e:
+        logging.error("{} failed inserting into {}".format(org_name, table))
+        logging.error("{} {} - {}".format(thread, e, org_name))
+        failed.append("{} failed inserting into {}".format(org_name, table))
+        conn.rollback()
+    cursor.close()
+    return failed
