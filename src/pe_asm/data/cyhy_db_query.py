@@ -79,12 +79,12 @@ def sshTunnel(conn_staging_dict):
     return server.local_bind_port
 
 
-def mongo_connect():
+def mongo_connect(sec="cyhy_mongo"):
     """Connect to CyHy Mongo database."""
     try:
         checkCyhyRunning()
         time.sleep(3)
-        db_info = db_config(section="cyhy_mongo")
+        db_info = db_config(section=sec)
         host = db_info["host"]
         user = db_info["user"]
         password = db_info["password"]
@@ -93,7 +93,7 @@ def mongo_connect():
 
         CONNECTION_STRING = f"mongodb://{user}:{password}@{host}:{port}/{dbname}"
         mongo_client = MongoClient(CONNECTION_STRING)
-        return mongo_client["cyhy"]
+        return mongo_client[dbname]
     except Exception as e:
         LOGGER.error(e)
         LOGGER.error(
