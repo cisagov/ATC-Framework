@@ -28,13 +28,16 @@ import logging
 import os
 import re
 import sys
+import time
 from typing import Any, Dict
 
 # Third-Party Libraries
 import boto3
 from botocore.exceptions import ClientError
 import docopt
+import pymongo.errors
 from schema import And, Schema, SchemaError, Use
+import yaml
 
 # cisagov Libraries
 import pe_reports
@@ -44,7 +47,6 @@ from ._version import __version__
 from .pe_message import PEMessage
 from .stats_message import StatsMessage
 
-# Setup logging
 LOGGER = logging.getLogger(__name__)
 MAILER_AWS_PROFILE = "cool-dns-sessendemail-cyber.dhs.gov"
 MAILER_ARN = os.environ.get("MAILER_ARN")
@@ -192,11 +194,11 @@ def send_message(ses_client, message, counter=None):
 
 
 def send_pe_reports(ses_client, pe_report_dir, to):
-    """
-    Send out Posture and Exposure reports.
+    """Send out Posture and Exposure reports.
 
     Parameters
     ----------
+
     ses_client : boto3.client
         The boto3 SES client via which the message is to be sent.
 
@@ -227,22 +229,25 @@ def send_pe_reports(ses_client, pe_report_dir, to):
     try:
         # The directory must contain one usable report
         cyhy_agencies = len(pe_orgs)
-        LOGGER.info(f"{cyhy_agencies} agencies found in P&E.")
+        LOGGER.info(f"Running report mailer for {cyhy_agencies} organizations")
         1 / cyhy_agencies
     except ZeroDivisionError:
-        LOGGER.critical("No report data is found in %s", pe_report_dir)
+        LOGGER.critical("No report data was found in %s", pe_report_dir)
         sys.exit(1)
 
     staging_conn = connect()
     # org_contacts = get_orgs_contacts(staging_conn) # old tsql ver.
-    org_contacts = get_orgs_contacts()  # api ver.
-
+    org_contacts = get_orgs_contacts() # api ver.
+    
     agencies_emailed_pe_reports = 0
+    reports_not_mailed = 0
     # Iterate over cyhy_requests, if necessary
     if pe_report_dir:
         for org in pe_orgs:
             id = org[2]
             if id == "GSEC":
+                LOGGER.warning(f"The PDF report for {org[2]} was intentionally set to not be mailed")
+                reports_not_mailed += 1
                 continue
             if to is not None:
                 to_emails = to
@@ -274,9 +279,10 @@ def send_pe_reports(ses_client, pe_report_dir, to):
 
             # At most one Cybex report and CSV should match
             if len(pe_report_filenames) > 2:
-                LOGGER.warning("More than two PDF reports found")
+                LOGGER.warning(f"More than two encrypted PDF reports found for {org[2]}")
             elif not pe_report_filenames:
-                LOGGER.error("No PDF report found")
+                LOGGER.warning(f"No encrypted PDF report found for {org[2]}, no report will be mailed")
+                reports_not_mailed += 1
                 continue
 
             if pe_report_filenames:
@@ -306,10 +312,11 @@ def send_pe_reports(ses_client, pe_report_dir, to):
                     pe_report_filename, pe_asm_filename, report_date, id, to_emails
                 )
 
-                print(to_emails)
-                print(pe_report_filename)
-                print(pe_asm_filename)
-                print(report_date)
+                print("Recipient: ", to_emails)
+                print("Report Date: ", report_date)
+                print("Report File:", pe_report_filename)
+                print("ASM Summary File", pe_asm_filename, "\n")
+                
 
                 try:
                     agencies_emailed_pe_reports = send_message(
@@ -325,7 +332,8 @@ def send_pe_reports(ses_client, pe_report_dir, to):
 
     # Print out and log some statistics
     pe_stats_string = f"Out of {cyhy_agencies} agencies with Posture and Exposure reports, {agencies_emailed_pe_reports} ({100.0 * agencies_emailed_pe_reports / cyhy_agencies:.2f}%) were emailed."
-    LOGGER.info(pe_stats_string)
+    mail_summary_log_string = f"{agencies_emailed_pe_reports}/{cyhy_agencies} reports were mailed, {reports_not_mailed}/{cyhy_agencies} reports were not mailed"
+    LOGGER.info(mail_summary_log_string)
 
     return pe_stats_string
 
@@ -339,19 +347,20 @@ def send_reports(pe_report_dir, summary_to, test_emails):
         return 1
 
     # Assume role to use mailer
-    sts_client = boto3.client("sts")
-    assumed_role_object = sts_client.assume_role(
-        RoleArn=MAILER_ARN, RoleSessionName="AssumeRoleSession1"
+    sts_client = boto3.client('sts')
+    assumed_role_object=sts_client.assume_role(
+        RoleArn=MAILER_ARN,
+        RoleSessionName="AssumeRoleSession1"
     )
-    credentials = assumed_role_object["Credentials"]
+    credentials=assumed_role_object['Credentials']
 
-    ses_client = boto3.client(
-        "ses",
+    ses_client = boto3.client("ses", 
         region_name="us-east-1",
-        aws_access_key_id=credentials["AccessKeyId"],
-        aws_secret_access_key=credentials["SecretAccessKey"],
-        aws_session_token=credentials["SessionToken"],
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken']
     )
+    
 
     # Email the summary statistics, if necessary
     if test_emails is not None:
@@ -380,6 +389,8 @@ def send_reports(pe_report_dir, summary_to, test_emails):
 
 def main():
     """Send emails."""
+    LOGGER.info("--- PE Report Mailing Starting ---")
+    start_time = time.time()
     # Parse command line arguments
     args: Dict[str, str] = docopt.docopt(__doc__, version=__version__)
 
@@ -416,7 +427,7 @@ def main():
         level=log_level.upper(),
     )
 
-    LOGGER.info("Sending Posture & Exposure Reports, Version : %s", __version__)
+    LOGGER.info("Posture & Exposure Report Mailer, Version : %s", __version__)
 
     send_reports(
         # TODO: Improve use of schema to validate arguments.
@@ -426,5 +437,10 @@ def main():
         validated_args["--test-emails"],
     )
 
+    end_time = time.time()
+    LOGGER.info(f"Execution time for PE report mailing: {str(datetime.timedelta(seconds=(end_time - start_time)))} (H:M:S)")
+    LOGGER.info("--- PE Report Mailing Complete ---")
+
     # Stop logging and clean up
     logging.shutdown()
+

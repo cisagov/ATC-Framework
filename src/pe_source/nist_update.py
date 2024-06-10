@@ -7,7 +7,12 @@ import sys
 import time
 
 # Third-Party Libraries
-from data.pe_db.db_query_source import api_cve_insert, get_cve_and_products
+from data.pe_db.db_query_source import (
+    query_all_cves,
+    api_cve_insert, 
+    get_cve_and_products
+)
+
 from nested_lookup import nested_lookup
 import pytz
 import requests

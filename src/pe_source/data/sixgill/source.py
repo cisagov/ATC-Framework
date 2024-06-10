@@ -22,7 +22,6 @@ from .api import (
     org_assets,
 )
 
-# Setup logging
 LOGGER = logging.getLogger(__name__)
 
 
@@ -59,6 +58,7 @@ def root_domains(org_id):
 def mentions(date, aliases, soc_media_included=False):
     """Pull dark web mentions data for an organization."""
     token = cybersix_token()
+
     # Build the query using the org's aliases
     mentions = ""
     for mention in aliases:
@@ -78,19 +78,22 @@ def mentions(date, aliases, soc_media_included=False):
                 linkedin, Linkedin, discord, forum_discord, raddle, telegram,
                 jabber, ICQ, icq, mastodon)"""
         )
+
     # Get the total number of mentions
-    count = 1
-    while count < 7:
-        try:
-            LOGGER.info("Total mentions try #%s", count)
-            resp = intel_post(token, query, frm=0, scroll=False, result_size=1)
-            break
-        except Exception:
-            LOGGER.info("Error. Trying to get mentions count again...")
-            count += 1
-            continue
-    total_mentions = resp["total_intel_items"]
+    try:
+        LOGGER.info(f"Retrieving total numnber of mentions")
+        resp = intel_post(token, query, frm=0, scroll=False, result_size=1)
+        total_mentions = resp["total_intel_items"] 
+    except Exception as e:
+        LOGGER.error("Total mentions count retrieval failed")
+        LOGGER.error(e)
+    
     LOGGER.info("Total Mentions: %s", total_mentions)
+
+    # Catch situation where org has 0 mentions
+    if total_mentions == 0:
+        return pd.DataFrame()
+
     # Fetch mentions in segments
     # Recommended segment is 50. The maximum is 400.
     i = 0
@@ -141,13 +144,13 @@ def mentions(date, aliases, soc_media_included=False):
                         smaller_segment_count = 1
                     else:
                         segment_size = 10
-                    LOGGER.error(
+                    LOGGER.warning(
                         "Failed 3 times. Switching to a segment size of %s",
                         segment_size,
                     )
                     try_count = 1
                     continue
-                LOGGER.error("Try %s/3 failed.", try_count)
+                LOGGER.warning("Mentions segment retieval failed, try %s/3", try_count)
                 try_count += 1
     return df_all_mentions
 
@@ -159,25 +162,39 @@ def alerts(org_id):
     LOGGER.info(count)
     count_total = count["total"]
     LOGGER.info("Total Alerts: %s", count_total)
-    # Recommended "fetch_size" is 25. The maximum is 400.
-    fetch_size = 25
-    all_alerts = []
 
+    # Recommended "fetch_size" is 25. The maximum is 400.
+    fetch_size = 50
+    all_alerts = []
+    df_all_alerts = pd.DataFrame()
+    token_refresh_counter = 1
     for offset in range(0, count_total, fetch_size):
+        # Keep API auth token refreshed (they expire after 30min)
+        if token_refresh_counter % 100 == 0:
+            # Set to refresh every 100 chunks 
+            # this needs to be adjusted depending on chunk size
+            LOGGER.warning("API auth token refreshed due to long alert retrieval time...")
+            token = cybersix_token()
+        token_refresh_counter += 1
+        # Retrieve alert data for this chunk
         try:
-            resp = alerts_list(token, org_id, fetch_size, offset).json()
+            print(f"Working on alert chunk at offset {offset} out of {count_total}")
+            resp = alerts_list(token, org_id, fetch_size, offset)
             df_alerts = pd.DataFrame.from_dict(resp)
+            df_alerts.drop(columns=["sub_alerts"], inplace=True) # large unused data field
             all_alerts.append(df_alerts)
             df_all_alerts = pd.concat(all_alerts).reset_index(drop=True)
         except Exception as e:
-            print(e)
-            print("HAD TO CONTINUE THROUGH ALERT CHUNK")
+            LOGGER.error(f"Issue fetching alert data chunk at offset: {offset}")
+            LOGGER.error(e)
             continue
+
     # Fetch the full content of each alert
     # for i, r in df_all_alerts.iterrows():
     #     print(r["id"])
     #     content = alerts_content(org_id, r["id"])
-    #     df_all_alerts.at[i, "content"] = content
+    #     df_all_alerts.at[i, "content"] 
+
     return df_all_alerts
 
 

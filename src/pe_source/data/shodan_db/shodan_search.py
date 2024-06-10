@@ -11,23 +11,24 @@ import requests
 import shodan
 
 # cisagov Libraries
-from pe_source.data.pe_db.db_query_source import (
+from pe_source.data.pe_db.db_query_source import (  # get_ips_dhs,; get_ips_hhs,; get_ips_nasa,
     get_data_source_uid,
     get_ips,
     insert_shodan_data,
 )
 
-# Setup logging
 LOGGER = logging.getLogger(__name__)
 
 
 def run_shodan_thread(api, org_chunk, thread_name):
     """Run a Shodan thread."""
     failed = []
-    for org in org_chunk:
+    warnings = []
+    for org_idx, org in enumerate(org_chunk):
         org_name = org["cyhy_db_name"]
         org_uid = org["organizations_uid"]
-        LOGGER.info("{} Running IPs for {}".format(thread_name, org_name))
+        # LOGGER.info("{} Running IPs for {}".format(thread_name, org_name))
+        LOGGER.info(f"{thread_name}: Running Shodan on {org_name}")
         start, end = get_dates()
         try:
             ips = get_ips(org_uid)
@@ -38,13 +39,16 @@ def run_shodan_thread(api, org_chunk, thread_name):
             continue
 
         if len(ips) == 0:
-            LOGGER.error("{} No IPs for {}.".format(thread_name, org_name))
-            failed.append("{} has 0 IPs".format(org_name))
+            LOGGER.warning("{} No IPs for {}.".format(thread_name, org_name))
+            warnings.append("{} has 0 IPs".format(org_name))
             continue
 
         failed = search_shodan(
             thread_name, ips, api, start, end, org_uid, org_name, failed
         )
+
+    if len(warnings) > 0:
+        LOGGER.warning(f"{thread_name} Warnings: {warnings}")
 
     if len(failed) > 0:
         LOGGER.critical("{} Failures: {}".format(thread_name, failed))
@@ -161,6 +165,9 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                             "timestamp": d["timestamp"],
                                             "type": ftype,
                                             "is_verified": False,
+                                            "cpe": d.get("cpe", None),
+                                            "banner": d.get("data", None),
+                                            "version": d.get("version", None)
                                         }
                                     )
                             elif d["_shodan"]["module"] in risky_ports:
@@ -202,6 +209,9 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                         "timestamp": d["timestamp"],
                                         "type": ftype,
                                         "is_verified": False,
+                                        "cpe": d.get("cpe", None),
+                                        "banner": d.get("data", None),
+                                        "version": d.get("version", None)
                                     }
                                 )
 
@@ -221,7 +231,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                     "tags": r["tags"],
                                     "timestamp": d["timestamp"],
                                     "country_code": location["country_code"],
-                                    "location": str(location),
+                                    "location": str(location)
                                 }
                             )
 

@@ -6,7 +6,7 @@ import logging
 import threading
 
 # Third-Party Libraries
-import data.pshtt.utils as utils
+from .data.pshtt import utils
 import numpy as np
 
 from .data.pe_db.db_query_source import api_pshtt_domains_to_run, api_pshtt_insert

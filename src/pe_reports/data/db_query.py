@@ -29,8 +29,9 @@ CONN_PARAMS_DIC = config()
 CONN_PARAMS_DIC_STAGING = staging_config()
 
 # These need to filled with API key/url path in database.ini
-pe_api_key = CONN_PARAMS_DIC_STAGING.get("pe_api_key")
-pe_api_url = CONN_PARAMS_DIC_STAGING.get("pe_api_url")
+API_DIC = staging_config(section="pe_api")
+pe_api_url = API_DIC.get("pe_api_url")
+pe_api_key = API_DIC.get("pe_api_key")
 
 
 def task_api_call(task_url, check_url, data={}, retry_time=3):
@@ -55,24 +56,36 @@ def task_api_call(task_url, check_url, data={}, retry_time=3):
             create_task_url, headers=headers, data=data
         ).json()
         task_id = create_task_result.get("task_id")
-        LOGGER.info("Created task for", task_url, "query, task_id: ", task_id)
+        LOGGER.info("Created task for " + task_url + " query, task_id: " + task_id)
         check_task_url += task_id
         while task_status != "Completed" and task_status != "Failed":
             # Ping task status endpoint and get status
-            check_task_resp = requests.get(check_task_url, headers=headers).json()
+            # check_task_resp = requests.get(check_task_url, headers=headers).json()
+            check_task_resp = requests.get(check_task_url, headers=headers)
+            #print(check_task_resp)
+            check_task_resp = check_task_resp.json()
             task_status = check_task_resp.get("status")
-            LOGGER.info("\tPinged", check_url, "status endpoint, status:", task_status)
+            LOGGER.info(
+                "\tPinged " + check_url + " status endpoint, status: " + task_status
+            )
             time.sleep(retry_time)
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
+        print(errh)
     except requests.exceptions.ConnectionError as errc:
         LOGGER.error(errc)
+        print(errc)
     except requests.exceptions.Timeout as errt:
         LOGGER.error(errt)
+        print(errt)
     except requests.exceptions.RequestException as err:
         LOGGER.error(err)
+        print(err)
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
+        print(err)
+    except Exception as err:
+        print(err)
     # Once task finishes, return result
     if task_status == "Completed":
         return check_task_resp.get("result")
@@ -2080,7 +2093,6 @@ def query_subs(org_uid):
     Return:
         All the subdomains belonging to the specified org as a dataframe
     """
-    start_time = time.time()
     total_num_pages = 1
     page_num = 1
     total_data = []
@@ -2100,21 +2112,16 @@ def query_subs(org_uid):
         page_num += 1
     # Once all data has been retrieved, return overall dataframe
     total_data = pd.DataFrame.from_dict(total_data)
-    LOGGER.info(
-        "Total time to retrieve all subdomains for this org: "
-        + str(time.time() - start_time)
-    )
     # Process data and return
     total_data.rename(
         columns={
-            "root_domain_uid_id": "root_domain_uid",
-            "data_source_uid_id": "data_source_uid",
-            "dns_record_uid_id": "dns_record_uid",
+            "root_domain_uid__root_domain": "origin_root_domain",
+            "identified": "pe_discovered_asset",
         },
         inplace=True,
     )
-    total_data["first_seen"] = pd.to_datetime(total_data["first_seen"]).dt.date
-    total_data["last_seen"] = pd.to_datetime(total_data["last_seen"]).dt.date
+    # total_data["first_seen"] = pd.to_datetime(total_data["first_seen"]).dt.date
+    # total_data["last_seen"] = pd.to_datetime(total_data["last_seen"]).dt.date
     # Return truly empty dataframe if no results
     if total_data[total_data.columns].isnull().apply(lambda x: all(x), axis=1)[0]:
         total_data.drop(total_data.index, inplace=True)

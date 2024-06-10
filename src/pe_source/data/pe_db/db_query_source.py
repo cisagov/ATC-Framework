@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from datetime import datetime
+from decimal import Decimal
 import json
 import logging
 import socket
@@ -21,14 +22,15 @@ from pe_reports.data.config import config, staging_config
 from pe_reports.data.db_query import task_api_call
 
 # Setup logging to central file
-LOGGER = app.config["LOGGER"]
+LOGGER = logging.getLogger(__name__)
 
 CONN_PARAMS_DIC = config()
 CONN_PARAMS_DIC_STAGING = staging_config()
 
 # These need to filled with API key/url path in database.ini
-pe_api_key = CONN_PARAMS_DIC_STAGING.get("pe_api_key")
-pe_api_url = CONN_PARAMS_DIC_STAGING.get("pe_api_url")
+API_DIC = staging_config(section="pe_api")
+pe_api_key = API_DIC.get("pe_api_key")
+pe_api_url = API_DIC.get("pe_api_url")
 
 
 def show_psycopg2_exception(err):
@@ -154,6 +156,16 @@ def insert_sixgill_alerts(new_alerts):
         LOGGER.info(
             "Working on chunk " + str(chunk_ct) + " of " + str(len(chunked_list))
         )
+        # Check total content field data size for this chunk
+        total_content_size = sum([len(entry["content"]) for entry in chunk])
+        # If total content field size is too big, trim content field for this chunk
+        if total_content_size > 400000:
+            LOGGER.warning("Excessive alert content data for this chunk, trimming...")
+            for entry in chunk:
+                over_limit = len(entry["content"]) > 2000
+                entry["content"] = entry["content"][:2000]
+                if over_limit:
+                    entry["content"] += "\n[content has been trimmed for space savings]"
         # Endpoint info
         task_url = "alerts_insert"
         status_url = "alerts_insert/task/"
@@ -993,7 +1005,7 @@ def get_data_source_uid(source):
         source: The name of the specified data source
 
     Return:
-        UID for the specified data source
+        Data for the specified data source
     """
     # Endpoint info
     endpoint_url = pe_api_url + "data_source_by_name"
@@ -1071,8 +1083,8 @@ def getSubdomain(domain):
     try:
         result = requests.post(endpoint_url, headers=headers, data=data).json()
         # Process data and return
-        final_result = result[0]
-        return final_result
+        tup_result = [tuple(row.values()) for row in result]
+        return tup_result[0][0]
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
@@ -1472,14 +1484,37 @@ def insert_shodan_vulns(dataframe, table, thread, org_name, failed):
 def get_ips(org_uid):
     """Get IP data."""
     conn = connect()
-    sql = """SELECT wa.asset as ip_address
-            FROM web_assets wa
-            WHERE wa.organizations_uid = %(org_uid)s
-            and wa.report_on = True
-            """
-    df = pd.read_sql(sql, conn, params={"org_uid": org_uid})
-    ips = list(df["ip_address"].values)
+    sql1 = """SELECT i.ip_hash, i.ip, ct.network FROM ips i
+    JOIN cidrs ct on ct.cidr_uid = i.origin_cidr
+    JOIN organizations o on o.organizations_uid = ct.organizations_uid
+    where o.organizations_uid = %(org_uid)s
+    and i.origin_cidr is not null
+    and i.shodan_results is True
+    and i.current;"""
+    df1 = pd.read_sql(sql1, conn, params={"org_uid": org_uid})
+    ips1 = list(df1["ip"].values)
+
+    sql2 = """select i.ip_hash, i.ip
+    from ips i
+    join ips_subs is2 ON i.ip_hash = is2.ip_hash
+    join sub_domains sd on sd.sub_domain_uid = is2.sub_domain_uid
+    join root_domains rd on rd.root_domain_uid = sd.root_domain_uid
+    JOIN organizations o on o.organizations_uid = rd.organizations_uid
+    where o.organizations_uid = %(org_uid)s
+    and i.shodan_results is True
+    and sd.current
+    and i.current;"""
+    df2 = pd.read_sql(sql2, conn, params={"org_uid": org_uid})
+    ips2 = list(df2["ip"].values)
+
+    in_first = set(ips1)
+    in_second = set(ips2)
+
+    in_second_but_not_in_first = in_second - in_first
+
+    ips = ips1 + list(in_second_but_not_in_first)
     conn.close()
+
     return ips
 
 
@@ -2274,7 +2309,7 @@ def insert_shodan_data(dataframe, table, thread, org_name, failed):
             tpls,
         )
         conn.commit()
-        logging.info(
+        LOGGER.info(
             "{} Data inserted using execute_values() successfully - {}".format(
                 thread, org_name
             )

@@ -10,20 +10,18 @@ Options:
   -c --ssh-rsa-file=FILENAME        A YAML file containing the Cyber
                                     Hygiene database credentials.
 """
-# Standard Python Libraries
-import logging
-import os
-import traceback
-
-# Third-Party Libraries
+import boto3
+from datetime import timedelta
 from docopt import docopt
 import fitz
+import logging
+import os
+import time
+import traceback
 
-# cisagov Libraries
+from pe_reports.data.db_query import connect, get_orgs, get_orgs_pass
 from pe_reports.data.config import db_password_key
-from pe_reports.data.db_query import connect, get_orgs_pass
 
-# Setup logging
 LOGGER = logging.getLogger(__name__)
 ACCESSOR_AWS_PROFILE = "cool-dns-sesmanagesuppressionlist-cyber.dhs.gov"
 BUCKET_NAME = "cisa-crossfeed-staging-reports"
@@ -53,23 +51,27 @@ def encrypt(file, password, encrypted_file):
 
 def download_encrypt_reports(report_date, output_dir):
     """Fetch reports from S3 bucket."""
-    # download_count = 0
-    # total = len(pe_orgs)
-    # print(total)
-
+    LOGGER.info("--- PE Report Encryption Starting ---")
+    start_time = time.time()
+    download_count = 0
     # Encrypt the reports
     conn = connect()
     pe_org_pass = get_orgs_pass(conn, PASSWORD)
     conn.close()
     encrypted_count = 0
+    no_pass_count = 0
+    LOGGER.info(f"Encrypting {len(pe_org_pass)} PE reports for the {report_date} report run")
     for org_pass in pe_org_pass:
         print(org_pass)
         password = org_pass[1]
-        if password is None:
-            LOGGER.error("NO PASSWORD")
+        if password == None:
+            LOGGER.warning(f"No password on file for {org_pass[0]}, no encrypted report will be generated")
+            no_pass_count += 1
             continue
         # Check if file exists before encrypting
-        current_file = f"{output_dir}/{org_pass[0]}/Posture_and_Exposure_Report-{org_pass[0]}-{report_date}.pdf"
+        current_file = (
+            f"{output_dir}/{org_pass[0]}/Posture_and_Exposure_Report-{org_pass[0]}-{report_date}.pdf"
+        )
         current_asm_file = f"{output_dir}/{org_pass[0]}/Posture-and-Exposure-ASM-Summary_{org_pass[0]}_{report_date}.pdf"
         if not os.path.isfile(current_file):
             LOGGER.error("%s report does not exist.", org_pass[0])
@@ -100,7 +102,10 @@ def download_encrypt_reports(report_date, output_dir):
             LOGGER.error("%s report failed to encrypt.", org_pass[0])
             continue
 
-    LOGGER.info("%d/%d were encrypted.", encrypted_count, 134)
+    end_time = time.time()
+    LOGGER.info(f"{encrypted_count}/{len(pe_org_pass)} reports were encrypted, {no_pass_count}/{len(pe_org_pass)} reports do not have passwords")
+    LOGGER.info(f"Execution time for PE report encryption: {str(timedelta(seconds=(end_time - start_time)))} (H:M:S)")
+    LOGGER.info("--- PE Report Encryption Complete ---")
 
 
 def main():

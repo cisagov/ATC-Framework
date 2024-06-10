@@ -19,11 +19,13 @@ Options:
 import logging
 import os
 import sys
+import time
 from typing import Any, Dict
 
 # Third-Party Libraries
 import boto3
 from botocore.exceptions import ClientError
+from datetime import timedelta
 import docopt
 import fitz
 import pandas as pd
@@ -35,14 +37,14 @@ import pe_reports
 from ._version import __version__
 from .asm_generator import create_summary
 from .data.db_query import connect, get_demo_orgs, get_orgs, refresh_asset_counts_vw
+
+# from .helpers.generate_score import get_pe_scores
 from .pages import init
 from .reportlab_core_generator import core_report_gen
 from .reportlab_generator import report_gen
 
 # from .scorecard_generator import create_scorecard
-# from .helpers.generate_pe_score import get_pe_scores
 
-# Setup logging
 LOGGER = logging.getLogger(__name__)
 ACCESSOR_AWS_PROFILE = os.getenv("ACCESSOR_PROFILE")
 
@@ -61,11 +63,14 @@ def upload_file_to_s3(file_name, datestring, bucket, excel_org):
     try:
         response = s3_client.upload_file(file_name, bucket, object_name)
         if response is None:
-            LOGGER.info("Success uploading to S3.")
+            LOGGER.info(f"Success uploading {file_name.split('/')[-1]} to S3.")
         else:
             LOGGER.info(response)
     except ClientError as e:
         LOGGER.error(e)
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def embed(
@@ -168,43 +173,34 @@ def generate_reports(datestring, output_directory, soc_med_included=False, demo=
     generated_reports = 0
 
     # Resfresh ASM counts view
-    LOGGER.info("Refreshing ASM count view and IPs from cidrs")
+    LOGGER.info("Refreshing ASM asset count view and IPs from cidrs view")
     refresh_asset_counts_vw()
     # set_from_cidr()
-    LOGGER.info("Finished refreshing ASM count view and IPs from Cidrs")
+    LOGGER.info("Finished refreshing ASM asset count view and IPs from cidrs view")
 
     # Iterate over organizations
-
     if pe_orgs:
-        LOGGER.info("PE orgs count: %d", len(pe_orgs))
-        # Generate PE scores for all stakeholders.
-        LOGGER.info("Calculating P&E Scores")
+        # Generate PE scores for all stakeholders WIP
+        # LOGGER.info("Calculating P&E Scores")
         # pe_scores_df = get_pe_scores(datestring, 12)
-        # go = 0
         # pe_orgs.reverse()
-        for org in pe_orgs:
+
+        # Uncomment this to generate reports only for these orgs
+        # pe_orgs = [x for x in pe_orgs if x[2] in [""]]
+
+        # Uncomment this to generate all reports except for these orgs
+        # pe_orgs = [x for x in pe_orgs if x[2] not in [""]]
+        
+        LOGGER.info(f"Generating PE reports for {len(pe_orgs)} requested organizations")
+
+        for org_idx, org in enumerate(pe_orgs):
             # Assign organization values
             org_uid = org[0]
             org_name = org[1]
             org_code = org[2]
             premium = org[8]
 
-            # Uncomment this to only run specified orgs
-            # if org_code not in ["EXIM"]:
-            #     continue
-
-            # Uncomment this to skip specified orgs
-            # if org_code in ["ABLTYONE","ACHP","ACUS","ADF","AFRH","BGSF","CFA","CFPB","CFTC","CIGIE","CLACWA","CNCS","CPSC","CSHIB","CSOSA","DE","DENALI_AlasConnect","DFC","DHS","DHS_FLETC","DNFSB","DOC","DOC_BIS","DOC_CENSUS","DOC_NIST","DOC_NOAA","DOC_NTIA","DOE","DOI","DOI_BIA","DOI_BSEE-BOEM-ONRR","DOI_FWS","DOI_IBC","DOI_NPS","DOI_OIG","DOI_OS","DOI_OS-OAS","DOJ","DOL","DOL_BLS","DOS","DOT","EAC","ED","EEOC","EOP","EOP_OMB","EPA","EXIM","FAA","FCA","FCC","FERC","FHFA","FLRA","FMSHRC","FRB","FTC","GSA","GSEC","GTA","HHS_FDA","HHS_NIH","MCC","MMC","MSPB","NARA","NASA","NCD","NCPC","NCUA","NEA","NEH","NLRB","NMB","NRC","NSF","NTSB","NWTRB","OGE","ONHIR","OPM","OSC","OSHRC","PBGC","PC","PCLOB","PRC","PT","RRB","SBA","SEC","SSA","SSAB","SSS","STB","TREAS","TVA","UDALL","USAB","USAGM","USAID","USCCR","USDA","USIBWC","USICH","USITC","USTDA","VA"]:
-            #     continue
-
-            # if org_code == "HHS_FDA":
-            #     go = 1
-            #     continue
-            # if go != 1:
-            #     continue
-            # Rapidgator%20 DOI_BIA
-
-            LOGGER.info("Running on %s", org_code)
+            LOGGER.info(f"-- Generating report for {org_code} ({org_idx+1} of {len(pe_orgs)}) --")
 
             # Create folders in output directory
             for dir_name in ("ppt", org_code):
@@ -249,7 +245,7 @@ def generate_reports(datestring, output_directory, soc_med_included=False, demo=
             )
 
             # Create ASM Summary
-            LOGGER.info("Creating ASM Summary")
+            LOGGER.info("Creating ASM summary")
             summary_filename = f"{output_directory}/Posture-and-Exposure-ASM-Summary_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
             final_summary_output = f"{output_directory}/{org_code}/Posture-and-Exposure-ASM-Summary_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
             summary_json_filename = f"{output_directory}/{org_code}/ASM_Summary.json"
@@ -262,13 +258,13 @@ def generate_reports(datestring, output_directory, soc_med_included=False, demo=
                 summary_json_filename,
                 summary_excel_filename,
             )
-            LOGGER.info("Done")
+            LOGGER.info("Finished creating ASM summary")
 
             # Create scorecard
-            LOGGER.info("Creating scorecard")
+            # LOGGER.info("Creating scorecard")
             # scorecard_filename = f"{output_directory}/{org_code}/Posture-and-Exposure-Scorecard_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
             # create_scorecard(scorecard_dict, scorecard_filename)
-            LOGGER.info("Done")
+            # LOGGER.info("Finished creating scorecard")
 
             # Convert to HTML to PDF
             output_filename = f"{output_directory}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
@@ -330,7 +326,8 @@ def generate_reports(datestring, output_directory, soc_med_included=False, demo=
             "Connection to pe database failed and/or there are 0 organizations stored."
         )
 
-    LOGGER.info("%s reports generated", generated_reports)
+    LOGGER.info(f"In total, {generated_reports}/{len(pe_orgs)} reports were generated")
+    LOGGER.info(f"Generated reports have been output to the directory: {output_directory}")
 
 
 def main():
@@ -370,7 +367,9 @@ def main():
         level=log_level.upper(),
     )
 
-    LOGGER.info("Loading Posture & Exposure Report, Version : %s", __version__)
+    LOGGER.info("--- PE Report Generation Starting ---")
+    LOGGER.info("Posture & Exposure Report, Version : %s", __version__)
+    report_gen_start_time = time.time()
 
     # Create output directory
     if not os.path.exists(validated_args["OUTPUT_DIRECTORY"]):
@@ -384,7 +383,10 @@ def main():
         validated_args["--demo"],
     )
 
-    LOGGER.info("%s reports generated", generated_reports)
+    report_gen_end_time = time.time()
+    report_gen_exe_time = str(timedelta(seconds=(report_gen_end_time - report_gen_start_time)))
+    LOGGER.info(f"Execution time for PE report generation: {report_gen_exe_time} (H:M:S)")
+    LOGGER.info("--- PE Report Generation Complete ---")
 
     # Stop logging and clean up
     logging.shutdown()

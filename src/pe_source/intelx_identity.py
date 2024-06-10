@@ -28,11 +28,11 @@ START_DATE = (TODAY - DAYS_BACK).strftime("%Y-%m-%d %H:%M:%S")
 END_DATE = TODAY.strftime("%Y-%m-%d %H:%M:%S")
 # Get data source uid
 SOURCE_UID = get_data_source_uid("IntelX")
+
 section = "intelx"
 params = get_params(section)
 api_key = params[0][1]
 
-# Setup logging
 LOGGER = logging.getLogger(__name__)
 
 
@@ -69,19 +69,26 @@ class IntelX:
                 else:
                     continue
 
-        for pe_org in pe_orgs_final:
+        success = 0
+        failed = 0
+        for org_idx, pe_org in enumerate(pe_orgs_final):
             cyhy_org_id = pe_org["cyhy_db_name"]
             pe_org_uid = pe_org["organizations_uid"]
 
             # Verify the org is in the list of orgs to scan
             if cyhy_org_id in orgs_list or orgs_list == "all" or orgs_list == "DEMO":
+                LOGGER.info(f"Running IntelX on {cyhy_org_id} ({org_idx+1} of {len(pe_orgs_final)})")
                 if self.get_credentials(cyhy_org_id, pe_org_uid) == 1:
                     LOGGER.error("Failed to get credentials for %s", cyhy_org_id)
+                    failed += 1
+                else:
+                    success +=1
+
+        LOGGER.info(f"IntelX scan ran successfully for {success}/{len(pe_orgs_final)} organizations")
+
 
     def get_credentials(self, cyhy_org_id, pe_org_uid):
         """Get credentials for a provided org."""
-        LOGGER.info("Running IntelX on %s", cyhy_org_id)
-
         try:
             conn = connect()
             roots_df = get_root_domains(conn, pe_org_uid)

@@ -7,24 +7,25 @@ import logging
 import os
 
 # Third-Party Libraries
-from PyPDF2 import PdfFileReader, PdfFileWriter
 import fitz
+from PyPDF2 import PdfFileReader, PdfFileWriter
+import numpy as np
 import pandas as pd
-
-# from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Frame, Paragraph
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.units import inch
+
 
 # cisagov Libraries
 from pe_reports.data.db_query import (
     query_cidrs_by_org,
-    query_extra_ips,
     query_foreign_IPs,
+    query_extra_ips,
     query_ports_protocols,
     query_roots,
     query_software,
@@ -35,17 +36,14 @@ from pe_reports.data.db_query import (
 LOGGER = logging.getLogger(__name__)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-IN_FILEPATH = BASE_DIR + "/assets_asm/attack_surface_empty.pdf"
 ON_PAGE_INDEX = 0
 UNDERNEATH = (
     False  # if True, new content will be placed underneath page (painted first)
 )
 
+pdfmetrics.registerFont(TTFont("Frank_Goth", BASE_DIR + "/fonts/FranklinGothic.ttf"))
 pdfmetrics.registerFont(
-    TTFont("Frank_Goth", BASE_DIR + "/assets_asm/FranklinGothic.ttf")
-)
-pdfmetrics.registerFont(
-    TTFont("Frank_Goth_Book", BASE_DIR + "/assets_asm/Franklin_Gothic_Book_Regular.ttf")
+    TTFont("Frank_Goth_Book", BASE_DIR + "/fonts/Franklin_Gothic_Book_Regular.ttf")
 )
 
 
@@ -108,7 +106,7 @@ def add_stat_frame(current_value, last_value, x, y, width, height, style, can):
 
 def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx):
     """Create and add JSON attachment."""
-    LOGGER.info("Creating attachment")
+    LOGGER.info("Creating ASM attachments")
     # Create ASM Excel file
     asmWriter = pd.ExcelWriter(asm_xlsx, engine="xlsxwriter")
 
@@ -119,16 +117,14 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx):
     cidr_dict = cidr_df["network"].to_list()
 
     # Extra IPs
-    LOGGER.info("Getting extra IPs")
     ip_lst = query_extra_ips(org_uid)
     ips_df = pd.DataFrame(ip_lst, columns=["ip"])
     ips_df.to_excel(asmWriter, sheet_name="Extra IPs", index=False)
     ips_dict = ips_df["ip"].to_list()
-    LOGGER.info("Finished extra IPs")
 
     # Ports/protocols
     ports_protocols_df = query_ports_protocols(org_uid)
-    ports_protocols_df.to_excel(asmWriter, sheet_name="Ports_Protocols", index=False)
+    ports_protocols_df.to_excel(asmWriter, sheet_name="Ports Protocols", index=False)
     ports_protocols_dict = ports_protocols_df.to_dict(orient="records")
 
     # Root domains
@@ -139,9 +135,12 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx):
 
     # Sub-domains
     sd_df = query_subs(org_uid)
-    sd_df = sd_df[["sub_domain"]]
-    sd_df.to_excel(asmWriter, sheet_name="Sub-domains", index=False)
-    sd_dict = sd_df["sub_domain"].to_list()
+    # sd_df = sd_df[["sub_domain"]]
+    #sd_df = sd_df[["sub_domain", "origin_root_domain", "pe_discovered_asset"]]
+    sd_df = sd_df[["sub_domain", "origin_root_domain"]]
+    sd_df.to_excel(asmWriter, sheet_name="Subdomains", index=False)
+    # sd_dict = sd_df["sub_domain"].to_list()
+    sd_dict = sd_df.to_dict(orient="records")
 
     # Software
     soft_df = query_software(org_uid)
@@ -205,9 +204,7 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx):
     return asm_xlsx
 
 
-def create_summary(
-    org_uid, final_output, data_dict, file_name, json_filename, excel_filename
-):
+def create_summary(org_uid, final_output, data_dict, file_name, json_filename, excel_filename):
     """Create ASM summary PDF."""
     packet = io.BytesIO()
 
@@ -310,8 +307,8 @@ def create_summary(
         can,
     )
     json_title_frame = Frame(
-        6 * inch, 100, 1.5 * inch, 0.5 * inch, id=None, showBoundary=0
-    )
+            6 * inch, 100, 1.5 * inch, 0.5 * inch, id=None, showBoundary=0
+        )
     json_title = Paragraph(
         "JSON&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EXCEL",
         style=json_excel,
@@ -324,7 +321,7 @@ def create_summary(
     new_pdf = PdfFileReader(packet)
 
     # Read existing PDF template
-    existing_pdf = PdfFileReader(open(BASE_DIR + "/assets_asm/empty_asm.pdf", "rb"))
+    existing_pdf = PdfFileReader(open(BASE_DIR + "/assets_asm/empty_asm_2024-04-15.pdf", "rb"))
     output = PdfFileWriter()
 
     # Add the "watermark" (which is the new pdf) on the existing page
@@ -341,5 +338,5 @@ def create_summary(
     asm_xlsx = add_attachment(
         org_uid, final_output, file_name, json_filename, excel_filename
     )
-
+    
     return asm_xlsx
