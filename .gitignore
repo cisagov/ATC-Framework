@@ -50,3 +50,7 @@ src/pe_reports/pe_reports_django_project/*.bak
 src/pe_reports/pe_reports_django_project/*.dir
 src/pe_reports/pe_reports_django_project/*.dat
 dnstwist_output.txt
+adhoc_investigations/adhoc_investigation.ini
+adhoc_investigations/input_data
+adhoc_investigations/output_data
+adhoc_investigations/dnsmonitor_monitored_domains.csv
