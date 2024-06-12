@@ -1,0 +1,174 @@
+Rating,Entity Name,State,County,City,Sector,Entity Type,Region
+50,United States Interagency Council on Homelessness (USICH),DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+55,United States Agency for International Development (USAID) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+60,United States Access Board (USAB) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+39,USDOT - Volpe National Transportation Systems Center - CISA,MA,Middlesex County,Cambridge,"Government Facilities, Transportation Systems",FCEB,Region 1
+68,USDOT - United States Merchant Marine Academy (USMMA) - CISA,NY,Nassau County,Great Neck,"Government Facilities, Transportation Systems",FCEB,Region 2
+66,USDOT - U.S. Department of Transportation Office of the Secretary (OST) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+62,USDOT - Pipeline and Hazardous Materials Safety Administration (PHMSA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+82,USDOT - Office of Inspector General (OIG) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+70,USDOT - National Highway Traffic Safety Administration (NHTSA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+69,USDOT - Maritime Administration (MARAD) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+97,USDOT - Great Lakes St. Lawrence Seaway Development Corporation (GLS) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+74,USDOT - Federal Transit Administration (FTA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+53,USDOT - Federal Railroad Administration (FRA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+54,USDOT - Federal Motor Carrier Safety Administration (FMCSA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+65,USDOT - Federal Highway Administration (FHWA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+62,USDOT - Federal Aviation Administration (FAA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+63,USDOT - Department of Transportation (DOT) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+53,USDOS - U.S. Embassy and Consulates - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+56,USDOS - State Department (DOS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+54,USDOE - Power Marketing Administration (PMA) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+44,USDOE - Office of Science (SC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+72,USDOE - Office of Nuclear Energy (NE) - CISA,DC,District of Columbia,Washington,"Government Facilities, Nuclear Reactors Materials and Water",FCEB,Region 3
+74,USDOE - Office of Fossil Energy and Carbon Management (FECM) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+18,USDOE - Office of Environmental Management (EM) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+61,USDOE - Office of Energy Efficiency and Renewable Energy (EERE) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+58,USDOE - National Nuclear Security Administration (NNSA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Nuclear Reactors Materials and Water",FCEB,Region 3
+46,USDOE - Energy Information Administration (EIA) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+51,USDOE - Energy Department (DOE) - CISA,DC,District of Columbia,Washington,"Chemical, Critical Manufacturing, Energy, Government Facilities, Information Technology, Nuclear Reactors Materials and Water",FCEB,Region 3
+57,USDA - United States Forest Service (USFS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+59,USDA - Department of Agriculture (USDA) - CISA,DC,District of Columbia,Washington,"Dams, Energy, Food and Agriculture, Government Facilities, Water and WasteWater Systems",FCEB,Region 3
+46,USDA - Animal & Plant Health Inspection Service (APHIS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+57,USDA - Agricultural Research Service (ARS) - CISA,MD,Prince George,Beltsville,Government Facilities,FCEB,Region 3
+56,USAGM - U.S. Agency for Global Media (USAGM) - CISA,DC,District of Columbia,Washington,"Communications, Government Facilities, Information Technology",FCEB,Region 3
+61,USAGM - Broadcasting Board of Governors - CISA,DC,District of Columbia,Washington,"Communications, Government Facilities",FCEB,Region 3
+74,Trade and Development Agency (USTDA) - CISA,VA,Arlington County,Arlington,Government Facilities,FCEB,Region 3
+68,Tennessee Valley Authority (TVA) - CISA,TN,Knox County,Knoxville,"Dams, Energy, Government Facilities, Nuclear Reactors Materials and Water",FCEB,Region 4
+62,TREAS - United States Mint - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+79,TREAS - Office of the Comptroller of the Currency (OCC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+61,TREAS - Internal Revenue Service (IRS) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+81,TREAS - Financial Stability Oversight Council (FSOC) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+65,TREAS - Department of Treasury (TREAS) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+67,TREAS - Bureau of Engraving and Printing (BEP) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+60,Surface Transportation Board (STB) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+72,Social Security Administration (SSA) - CISA,MD,Baltimore County,Woodlawn,"Financial Services, Government Facilities",FCEB,Region 3
+56,Small Business Administration (SBA) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+50,Selective Service System (SSS) - CISA,IL,Cook County,Palatine,"Defense Industrial Base, Government Facilities",FCEB,Region 5
+70,Securities and Exchange Commission (SEC) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+37,Railroad Retirement Board (RRB) - CISA,IL,Cook County,Chicago,Government Facilities,FCEB,Region 5
+37,Privacy and Civil Liberties Oversight Board (PCLOB) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+69,Presidio Trust (PT) - CISA,CA,San Francisco County,SF,"Commercial Facilities, Government Facilities",FCEB,Region 9
+74,Pension Benefit Guaranty Corporation (PBGC) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+58,Peace Corps (PC) - CISA,DC,District of Columbia,Washington,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+62,Office of Personnel Management (OPM) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+88,Office of Navajo and Hopi Indian Relocation (ONHIR) - CISA,AZ,Coconino County,Flagstaff,Government Facilities,FCEB,Region 9
+56,Office of Government Ethics (OGE) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+59,Occupational Safety and Health Review Commission (OSHRC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+70,Nuclear Waste Technical Review Board (NWTRB) - CISA,VA,Arlington County,Arlington,"Government Facilities, Nuclear Reactors Materials and Water",FCEB,Region 3
+63,Nuclear Regulatory Commission (NRC) - CISA,DC,District of Columbia,Washington,"Government Facilities, Nuclear Reactors Materials and Water",FCEB,Region 3
+73,National Transportation Safety Board (NTSB) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+38,National Science Foundation (NSF) - CISA,VA,Alexandria city,Alexandria,Government Facilities,FCEB,Region 3
+63,National Labor Relations Board (NLRB) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+58,National Endowment for the Arts (NEA) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+67,National Credit Union Administration (NCUA) - CISA,VA,Alexandria city,Alexandria,"Financial Services, Government Facilities",FCEB,Region 3
+67,National Council on Disability (NCD) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+84,National Capital Planning Commission (NCPC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+53,National Archives and Records Administration (NARA) - CISA,MD,Prince George,College Park,Government Facilities,FCEB,Region 3
+61,National Aeronautics and Space Administration (NASA) - CISA,DC,District of Columbia,Washington,"Communications, Government Facilities, Information Technology, Transportation Systems",FCEB,Region 3
+40,Morris K. Udall and Stewart L. Udall Foundation (UDALL) - CISA,AZ,Pima County,Tucson,Government Facilities,FCEB,Region 9
+67,Millennium Challenge Corporation (MCC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+39,Merit Systems Protection Board (MSPB) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+68,Marine Mammal Commission (MMC) - CISA,MD,Montgomery County,Bethesda,"Government Facilities, Water and WasteWater Systems",FCEB,Region 3
+33,Japan-U.S. Friendship Commission (JUSFC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+13,James Madison Memorial Fellowship Foundation (JMMFF) - CISA,VA,Alexandria city,Alexandria,Government Facilities,FCEB,Region 3
+79,International Trade Commission (USITC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+70,International Development Finance Corporation (DFC) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+64,International Boundary and Water Commission (IBWC) - CISA,TX,El Paso County,El Paso,"Dams, Government Facilities, Water and WasteWater Systems",FCEB,Region 6
+80,Inter-American Foundation (IAF) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+70,Harry S. Truman Scholarship Foundation (HTSF) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+60,HUD - Government National Mortgage Association (GNMA) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+93,HUD - Federal Housing Administration (FHA) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+63,HUD - Department of Housing and Urban Development (HUD) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+61,HHS - Substance Abuse and Mental Health Services Administration (SAMHSA) - CISA,MD,Montgomery County,Rockville,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+56,HHS - National Institutes of Health (NIH) - CISA,MD,Montgomery County,Bethesda,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+68,HHS - Indian Health Service (IHS) - CISA,MD,Montgomery County,Rockville,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+50,HHS - Health and Human Services Department (HHS) - CISA,DC,District of Columbia,Washington,"Emergency Services, Government Facilities, Healthcare and Public Health",FCEB,Region 3
+57,HHS - Health Resources and Services Administration (HRSA) - CISA,MD,Montgomery County,Rockville,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+61,HHS - Food and Drug Administration (FDA) - CISA,MD,Montgomery County,Silver Spring,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+64,HHS - Centers for Medicare & Medicaid Services (CMS) - CISA,MD,Baltimore County,Baltimore,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+56,HHS - Centers for Disease Control and Prevention (CDC) - CISA,GA,DeKalb County,Atlanta,"Government Facilities, Healthcare and Public Health",FCEB,Region 4
+73,HHS - Agency for Toxic Substances and Disease Registry (ATSDR) - CISA,GA,DeKalb County,Atlanta,"Government Facilities, Healthcare and Public Health",FCEB,Region 4
+28,HHS - Agency for Healthcare Research and Quality (AHRQ) - CISA,MD,Montgomery County,Rockville,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+65,HHS - Administration for Community Living (ACL) - CISA,DC,District of Columbia,Washington,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+51,HHS - Administration for Children and Families (ACF) - CISA,DC,District of Columbia,Washington,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+30,Gulf Coast Ecosystem Restoration Council (GCERC) - CISA,DC,District of Columbia,Washington,"Government Facilities, Water and WasteWater Systems",FCEB,Region 3
+80,GSA - Regulatory Information Service Center (RISC) - CISA,DC,District of Columbia,Washington,"Government Facilities, Information Technology",FCEB,Region 3
+61,GSA - General Services Administration (GSA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Information Technology, Transportation Systems",FCEB,Region 3
+73,Federal Trade Commission (FTC) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+79,Federal Retirement Thrift Investment Board (FRTIB) - CISA,AL,Shelby County,Birmingham,"Financial Services, Government Facilities",FCEB,Region 4
+88,Federal Permitting Improvement Steering Council (FPISC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+73,Federal Mine Safety and Health Review Commission (FMSHRC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+51,Federal Mediation and Conciliation Service (FMCS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+39,Federal Maritime Commission (FMC) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+51,Federal Labor Relations Authority (FLRA) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+69,Federal Housing Finance Agency (FHFA) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+65,Federal Energy Regulatory Commission (FERC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+64,Federal Deposit Insurance Corporation (FDIC) - CISA,MO,Jackson County,KCMO,"Financial Services, Government Facilities",FCEB,Region 7
+57,Federal Communications Commission (FCC) - CISA,DC,District of Columbia,Washington,"Communications, Government Facilities",FCEB,Region 3
+51,Farm Credit System Insurance Corporation (FCSIC) - CISA,VA,Fairfax County,McLean,"Financial Services, Government Facilities",FCEB,Region 3
+51,Farm Credit Administration (FCA)  - CISA,VA,Fairfax County,McLean,"Financial Services, Government Facilities",FCEB,Region 3
+65,FRB - Federal Reserve System (FRS) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+65,Export-Import Bank (EXIM) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+69,Equal Employment Opportunity Commission (EEOC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+52,Environmental Protection Agency (EPA) - CISA,DC,District of Columbia,Washington,"Chemical, Energy, Government Facilities, Nuclear Reactors Materials and Water, Water and WasteWater Systems",FCEB,Region 3
+82,Election Assistance Commission (EAC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+70,ED - Office of Federal Student Aid (FSA) - CISA,KY,Wayne County,Monticello,"Financial Services, Government Facilities",FCEB,Region 4
+54,ED - Department of Education (ED) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+65,Department of Veterans Affairs (VA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Healthcare and Public Health",FCEB,Region 3
+74,Denali Commission - CISA,AK,Anchorage Borough,Anchorage,"Energy, Government Facilities, Healthcare and Public Health, Transportation Systems, Water and WasteWater Systems",FCEB,Region 10
+40,DOT - Unified Carrier Registration Plan (UCR) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+62,DOL - Department of Labor (DOL) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+67,DOJ - U.S. Marshals Service (USMS) - CISA,VA,Arlington County,Arlington,"Emergency Services, Government Facilities",FCEB,Region 3
+49,DOJ - Office of Special Counsel (OSC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+58,DOJ - Office of Inspector General (OIG) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+60,DOJ - National Crime Prevention and Privacy Compact Council - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+34,DOJ - Federal Bureau of Prisons (BOP) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+68,DOJ - Federal Bureau of Investigation (FBI) - CISA,DC,District of Columbia,Washington,"Emergency Services, Government Facilities",FCEB,Region 3
+57,DOJ - Drug Enforcement Administration (DEA) - CISA,VA,Fairfax County,Springfield,"Emergency Services, Government Facilities",FCEB,Region 3
+51,DOJ - Department of Justice (DOJ) - CISA,DC,District of Columbia,Washington,"Emergency Services, Government Facilities",FCEB,Region 3
+38,DOJ - Coordinating Council on Juvenile Justice and Delinquency Prevention - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+55,"DOJ - Bureau of Alcohol, Tobacco, Firearms and Explosives (ATF) - CISA",DC,District of Columbia,Washington,"Emergency Services, Government Facilities",FCEB,Region 3
+66,DOI - United States Geological Survey (USGS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+60,DOI - National Park Service (NPS) - CISA,DC,District of Columbia,Washington,"Commercial Facilities, Government Facilities",FCEB,Region 3
+61,DOI - National Indian Gaming Commission (NIGC) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+63,DOI - Fish and Wildlife Service (FWS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+64,DOI - Department of the Interior (DOI) - CISA,DC,District of Columbia,Washington,"Commercial Facilities, Dams, Government Facilities, Water and WasteWater Systems",FCEB,Region 3
+61,DOI - Bureau of Reclamation (BOR) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+55,DOI - Bureau of Land Management (BLM) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+75,DOC - United States Census Bureau (USCB) - CISA,MD,Prince George,Suitland-Silver Hill,Government Facilities,FCEB,Region 3
+64,DOC - U.S. Patent and Trademark Office (USPTO) - CISA,VA,Alexandria city,Alexandria,Government Facilities,FCEB,Region 3
+55,DOC - National Telecommunications and Information Administration (NTIA) - CISA,DC,District of Columbia,Washington,"Communications, Government Facilities",FCEB,Region 3
+45,DOC - National Technical Information Service (NTIS) - CISA,VA,Fairfax County,Alexandria,"Communications, Government Facilities",FCEB,Region 3
+43,DOC - National Oceanic and Atmospheric Administration (NOAA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Information Technology",FCEB,Region 3
+61,DOC - National Institute of Standards and Technology (NIST) - CISA,MD,Montgomery County,Gaithersburg,"Communications, Government Facilities",FCEB,Region 3
+58,DOC - International Trade Administration (ITA) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+56,DOC - Department of Commerce (DOC) - CISA,DC,District of Columbia,Washington,"Communications, Government Facilities",FCEB,Region 3
+62,DOC - Bureau of Economic Analysis (BEA) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+72,DHS - United States Secret Service (USSS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+44,DHS - United States Coast Guard (USCG) - CISA,DC,District of Columbia,Washington,"Emergency Services, Government Facilities, Transportation Systems",FCEB,Region 3
+68,DHS - Transportation Security Administration (TSA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+70,DHS - Immigration and Customs Enforcement (ICE) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+52,DHS - Federal Protective Service (FPS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+68,DHS - Federal Law Enforcement Training Center (FLETC) - CISA,GA,Glynn County,Dock Junction,Government Facilities,FCEB,Region 4
+57,DHS - Federal Emergency Management Agency (FEMA) - CISA,DC,District of Columbia,Washington,"Emergency Services, Government Facilities",FCEB,Region 3
+67,DHS - Department of Homeland Security (DHS) - CISA,DC,District of Columbia,Washington,"Emergency Services, Government Facilities, Information Technology, Transportation Systems",FCEB,Region 3
+67,DHS - Cybersecurity and Infrastructure Security Agency (CISA) - CISA,DC,District of Columbia,Washington,"Government Facilities, Information Technology",FCEB,Region 3
+75,DHS - Customs and Border Protection (CBP) - CISA,DC,District of Columbia,Washington,"Government Facilities, Transportation Systems",FCEB,Region 3
+64,DHS - Citizenship and Immigration Services (CIS) - CISA,MD,Prince George,Camp Springs,Government Facilities,FCEB,Region 3
+67,Court Services and Offender Supervision Agency for the District of Columbia (CSOSA) - CISA,DC,District of Columbia,Washington,"Emergency Services, Government Facilities",FCEB,Region 3
+46,Council of the Inspectors General on Integrity and Efficiency (CIGIE) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+40,Corporation for National and Community Service (CNCS)(Americorps) - CISA,DC,District of Columbia,Washington,"Emergency Services, Government Facilities",FCEB,Region 3
+67,Consumer Product Safety Commission (CPSC) - CISA,MD,Montgomery County,Bethesda,Government Facilities,FCEB,Region 3
+75,Consumer Financial Protection Bureau (CFPB) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+52,Commodity Futures Trading Commission (CFTC) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+71,Committee for Purchase from People Who Are Blind or Severely Disabled (CPPBSD)(AbilityOne) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+23,Commission of Fine Arts (CFA) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+72,Civil Rights Commission (USCCR) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+77,Chemical Safety Board (CSB) - CISA,DC,District of Columbia,Washington,"Chemical, Government Facilities",FCEB,Region 3
+66,Board of Governors of the Federal Reserve (FRB) - CISA,DC,District of Columbia,Washington,"Financial Services, Government Facilities",FCEB,Region 3
+39,Armed Forces Retirement Home (AFRH) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+54,American Battle Monuments Commission (ABMC) - CISA,VA,Arlington County,Arlington,Government Facilities,FCEB,Region 3
+41,African Development Foundation (ADF) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+53,Advisory Council on Historic Preservation (ACHP) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
+56,Administrative Conference of the United States (ACUS) - CISA,DC,District of Columbia,Washington,Government Facilities,FCEB,Region 3
