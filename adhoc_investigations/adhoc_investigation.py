@@ -217,10 +217,10 @@ def run_adhoc_investigation(scans_to_run, curr_date, num_prev_months, org_uid, o
 
 # Choose which scans to run:
 scans_to_run = [
-    #"cybersixgill",
-    #"dnsmonitor",
-    #"dnstwist",
-    #"intelx",
+    "cybersixgill",
+    "dnsmonitor",
+    "dnstwist",
+    "intelx",
     "shodan",
     "whoisxml",
 ]
@@ -228,20 +228,20 @@ scans_to_run = [
 # Fill in organization and timeframe info:
 test_date = "2024-06-10" # ex: "2024-05-23"
 test_num_prev_months = 12 # ex: 12
-test_org_uid = "385cad1a-416f-11ec-bf3a-02589a36c9d7" # ex: The organizations_uid column in the organizations table
-test_org_name = "Department of Transportation" # ex: "Acme Company"
-test_org_abbrv = "DOT" # ex: ACME
-test_sixgill_query = "(\"Department of Transportation\") AND (DOT)" # ex: "(\"Acme Company\") AND (ACME)"
+test_org_uid = "" # ex: The organizations_uid column in the organizations table
+test_org_name = "" # ex: "Acme Company"
+test_org_abbrv = "" # ex: ACME
+test_sixgill_query = "(\"\") AND ()" # ex: "(\"Acme Company\") AND (ACME)"
 
 # Fill in root domain data manually or from csv file:
 # test_root_domains = ["root_domain_1.com", "root_domain_2.com", ...]
-test_root_domains = pd.read_csv("./input_data/DOT/DOT_root_domains.csv")["root_domain"].to_list()
+test_root_domains = pd.read_csv("./input_data/...")["root_domain"].to_list()
 
 # Fill in IP data manually or from csv file:
 # test_ips = ["12.345.678.9", "10.111.213.1", ...]
-test_ips = pd.read_csv("./input_data/DOT/DOT_ips.csv")["ip"].to_list()
+test_ips = pd.read_csv("./input_data/...")["ip"].to_list()
 # Use the code below if pulling IP data from cyhy_db_assets table since it may contain CIDR blocks
-# test_ips = pd.read_csv("./input_data/SEC/SEC_ips.csv")["ip"].to_list()
+# test_ips = pd.read_csv("./input_data/....csv")["ip"].to_list()
 # test_ips = convert_to_list_of_ips(test_ips)
 
 # Runing the adhoc investigation...
