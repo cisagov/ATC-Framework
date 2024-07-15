@@ -28,6 +28,7 @@ CONN_PARAMS_DIC_STAGING = staging_config()
 API_DIC = staging_config(section="pe_api")
 pe_api_url = API_DIC.get("pe_api_url")
 pe_api_key = API_DIC.get("pe_api_key")
+cf_api_key = API_DIC.get("cf_api_key")
 
 
 def show_psycopg2_exception(err):
@@ -461,7 +462,6 @@ def api_pshtt_insert(pshtt_dict):
         ).json()
         print(pshtt_insert_result)
         return pshtt_insert_result
-        LOGGER.info("Successfully inserted new record in report_summary_stats table")
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
@@ -529,9 +529,6 @@ def api_cve_insert(cve_dict):
             endpoint_url, headers=headers, data=data
         ).json()
         # print(cve_insert_result)
-        LOGGER.info(
-            "Successfully inserted new record in cves table with associated cpe products and venders"
-        )
         return cve_insert_result
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
@@ -1495,7 +1492,45 @@ def insert_or_update_business_unit(business_unit_dict):
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
 
+def get_xpanse_business_unit(cyhy_db_name):
+    """
+    Get a Xpanse business unit record into the PE databawse .
 
+    On conflict, update the old record with the new data
+
+    Args:
+        cyhy_db_name: CyHy database name
+
+    Return:
+        Business unit dictionary
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "get_xpanse_business_unit"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+        "Authorization": cf_api_key
+    }
+    data = json.dumps({"cyhy_db_name": cyhy_db_name})
+
+    try:
+        # Call endpoint
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        print(result)
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 682 ---
 def api_xpanse_alert_insert(xpanse_alert_dict):
     """
     Insert an xpanse alert record and connected assets and services.
@@ -1511,8 +1546,9 @@ def api_xpanse_alert_insert(xpanse_alert_dict):
     # Endpoint info
     endpoint_url = pe_api_url + "xpanse_alert_insert_or_update"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps(xpanse_alert_dict, default=str)
 
@@ -1522,9 +1558,7 @@ def api_xpanse_alert_insert(xpanse_alert_dict):
         xpanse_alert_insert_result = requests.put(
             endpoint_url, headers=headers, data=data
         ).json()
-        LOGGER.info(
-            "Successfully inserted new record in xpanse_alerts table with associated assets and services"
-        )
+        LOGGER.info(xpanse_alert_insert_result)
         return xpanse_alert_insert_result
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
@@ -1790,3 +1824,33 @@ def execute_hibp_emails_values(jsonList):
     # except (Exception, psycopg2.DatabaseError) as err:
     #     show_psycopg2_exception(err)
     #     cursor.close()
+
+# --- Issue 699 pe-reports ---
+def get_linked_xpanse_business_units():
+    """
+    Query API to retrieve data for all business units that link to an org.
+
+    Return:
+        All linked xpanse business units
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "linked_xpanse_business_units"
+    headers = {
+        "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)

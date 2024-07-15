@@ -1,11 +1,10 @@
 """Scan to track Xpanse alerts and incidents in the P&E database.
 
 Usage:
-  xpanse XPANSE_ORG_CSV_PATH [--orgs=ORG_LIST] [--last_modified=MOD_TIME] [--log-level=LEVEL]
+  xpanse [--orgs=ORG_LIST] [--last_modified=MOD_TIME] [--log-level=LEVEL]
 
 Options:
   -h --help                         Show this message.
-  XPANSE_ORG_CSV_PATH               The path to the XPANSE Business_unit CSV.
   -o --orgs=ORG_LIST                A semicolon-separated list of Xpanse business_units.
                                     If not specified, data will be gathered for all business_units.
                                     Orgs in the list must match the names in Xpanse. E.g. Culberson County, Texas; DHS - Citizenship and Immigration Services (CIS) - CISA
@@ -32,6 +31,7 @@ from _version import __version__
 from data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
     api_xpanse_alert_insert,
     insert_or_update_business_unit,
+    get_xpanse_business_unit
 )
 import docopt
 import pytz
@@ -78,14 +78,14 @@ def pull_asset_data(xpanse_asset_id_list=[]):
     #   save_asset(asset_dict)
 
 
-def pull_alerts_data(org_dict, business_units_list=[]):
+def pull_alerts_data(org_dict):
     """Pull alerts data from the Xpanse API."""
     url = xpanse_url + "v2/alerts/get_alerts_multi_events"
     # print(org_dict)
-    if len(business_units_list) == 0:
-        business_units_list = list(org_dict.keys())
+    if not org_dict:
+        LOGGER.info("No business unit found")
 
-    for org in business_units_list:
+    for org in [org_dict["business_unit"]["entity_name]"]]:
         request_data = {"use_page_token": True}
         filters = []
         # print(org)
@@ -494,17 +494,19 @@ def pull_service_data(service_id_list):
     return resp_dict.get("reply", {}).get("details", None)
 
 
-def run_xpanse_scans(last_modified, orgs_list, xpanse_org_csv):
+def run_xpanse_scans(last_modified, orgs_list):
     """Run Xpanse scans."""
     LOGGER.info("Starting XPANSE scan.")
     if orgs_list != "all":
-        orgs_list = orgs_list.split(";")
+        orgs_list = orgs_list.split(",")
     else:
         orgs_list = []
 
+    print(orgs_list)
     # org_dict = insert_business_units(xpanse_org_csv)
-    org_dict = get_data_from_business_unti_table()
-    pull_alerts_data(org_dict, orgs_list)
+    org_dict = get_xpanse_business_unit(orgs_list[0])
+    print(org_dict)
+    pull_alerts_data(org_dict)
     # api_pull_xpanse_vulns(orgs_list[0], datetime.datetime(2023, 10, 10, 1, 00))
 
     return 1
@@ -522,10 +524,6 @@ def main():
                 lambda n: n in ("debug", "info", "warning", "error", "critical"),
                 error="Possible values for --log-level are "
                 + "debug, info, warning, error, and critical.",
-            ),
-            "XPANSE_ORG_CSV_PATH": Or(
-                None,
-                Use(open, error="XPANSE_ORG_CSV_PATH should point to a readable CSV"),
             ),
             str: object,  # Don't care about other keys, if any
         }
@@ -552,8 +550,7 @@ def main():
 
     run_xpanse_scans(
         validated_args["--last_modified"],
-        validated_args["--orgs"],
-        validated_args["XPANSE_ORG_CSV_PATH"],
+        validated_args["--orgs"]
     )
 
 
@@ -562,4 +559,5 @@ if __name__ == "__main__":
 
 
 # python3 src/pe_source/xpanse_update.py src/pe_source/XPANSE_CRITICAL_INFRASTRUCTURE_ENTITIES_TABLE_2024-06-05T12_16_12.csv --orgs="National Science Foundation (NSF) - CISA;National Transportation Safety Board (NTSB) - CISA;National Women's Business Council (NWBC) - CISA;Natrona County, Wyoming;Net Number;New York Assembly;New York City Department of Education;New York City Department of Environmental Protection;New York City Department of Information Technology and Telecommunications (DoITT);New York City Health and Hospitals Corporation- CISA;New York City Housing Authority;New York Community Bancorp;New York Independent System Operator (NYISO);New York Life Insurance Company- CISA;New York Metropolitan Transport Authority- CISA;New York Presbyterian Hospital- CISA;New York State Department of Environmental Conservation;New York State Insurance Fund;New York State Senate;New York University (NYU)- CISA;Niagara County, New York;Niagara County, New York- CISA;Noble County, Ohio Election Infrastructure;North American Electric Reliability Corporation (NERC);Nuclear Regulatory Commission (NRC) - CISA;Nuclear Waste Technical Review Board (NWTRB) - CISA;ODNI - National Counterintelligence Center (NCSC) - CISA;OHPRS (Ohio Police Retirement System);Occupational Safety and Health Review Commission (OSHRC) - CISA;Office for People With Developmental Disabilities;Office for the Aging;Office for the Prevention of Domestic Violence;Office of Addiction Services and Supports;Office of Attorney General;Office of Congressional Workplace Rights (OCWR) - CISA;Office of Employee Relations;Office of General Services;Office of Government Ethics (OGE) - CISA;Office of Information Technology Services;Office of Medicaid Inspector General;Office of Mental Health;Office of Navajo and Hopi Indian Relocation (ONHIR) - CISA;Office of Parks, Recreation and Historic Preservation;Office of Personnel Management (OPM) - CISA;Office of State Comptroller;Office of Temporary and Disability Assistance;Office of the Director of National Intelligence (ODNI) - CISA;Office of the Federal Register (OFR) - CISA;Office of the Governor;Ohio Rural Electric Cooperatives"
+# python3 src/pe_source/xpanse_update.py src/pe_source/XPANSE_CRITICAL_INFRASTRUCTURE_ENTITIES_TABLE_2024-06-05T12_16_12.csv --orgs=DHS
 
