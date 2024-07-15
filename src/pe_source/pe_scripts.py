@@ -5,7 +5,7 @@ Usage:
 
 Arguments:
   DATA_SOURCE                       Source to collect data from. Valid values are "cybersixgill",
-                                    "dnstwist", "hibp", "intelx", "pshtt", and "shodan".
+                                    "dnstwist", "xpanse" "hibp", "intelx", "pshtt", and "shodan".
 
 Options:
   -h --help                         Show this message.
@@ -45,6 +45,7 @@ from .hibp import Hibp
 from .intelx_identity import IntelX
 from .pshtt_wrapper import launch_pe_pshtt
 from .shodan_wrapper import Get_shodan
+from .xpanse_alert_pull import run_xpanse_scans
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ LOGGER = logging.getLogger(__name__)
 def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
     """Collect data from the source specified."""
     # If not "all", separate orgs string into a list of orgs
-    if orgs_list != "all" and orgs_list != "DEMO":
+    if orgs_list != "all" and orgs_list != "DEMO" and source != 'xpanse':
         orgs_list = orgs_list.split(",")
     # If not "all", separate Cybersixgill methods string into a list
     if cybersix_methods == "all":
@@ -81,6 +82,8 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
     elif source == "hibp":
         hibp = Hibp(orgs_list)
         hibp.run_hibp()
+    elif source == "xpanse":
+        run_xpanse_scans('',orgs_list)
     else:
         logging.error(
             "Not a valid source name. Correct values are cybersixgill or shodan."

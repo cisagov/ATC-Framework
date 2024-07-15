@@ -26,8 +26,8 @@ import sys
 from typing import Any, Dict
 
 # Third-Party Libraries
-from _version import __version__
-from data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
+# from _version import __version__
+from .data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
     api_xpanse_alert_insert,
     get_linked_xpanse_business_units,
 )
@@ -37,7 +37,7 @@ import requests
 from schema import And, Or, Schema, SchemaError, Use
 
 # cisagov Libraries
-import pe_reports
+# import pe_reports
 from pe_reports.data.config import staging_config
 
 API_DIC = staging_config(section="xpanse")
@@ -483,71 +483,71 @@ def run_xpanse_scans(last_modified, orgs_list):
     return 1
 
 
-def main():
-    """Launch Xpanse scans."""
-    args: Dict[str, str] = docopt.docopt(__doc__, version=__version__)
+# def main():
+#     """Launch Xpanse scans."""
+#     args: Dict[str, str] = docopt.docopt(__doc__, version='0.1.1')
 
-    schema: Schema = Schema(
-        {
-            "--log-level": And(
-                str,
-                Use(str.lower),
-                lambda n: n in ("debug", "info", "warning", "error", "critical"),
-                error="Possible values for --log-level are "
-                + "debug, info, warning, error, and critical.",
-            ),
-            str: object,  # Don't care about other keys, if any
-        }
-    )
+#     schema: Schema = Schema(
+#         {
+#             "--log-level": And(
+#                 str,
+#                 Use(str.lower),
+#                 lambda n: n in ("debug", "info", "warning", "error", "critical"),
+#                 error="Possible values for --log-level are "
+#                 + "debug, info, warning, error, and critical.",
+#             ),
+#             str: object,  # Don't care about other keys, if any
+#         }
+#     )
 
-    try:
-        validated_args: Dict[str, Any] = schema.validate(args)
-    except SchemaError as err:
-        # Exit because one or more of the arguments were invalid
-        print(err, file=sys.stderr)
-        sys.exit(1)
+#     try:
+#         validated_args: Dict[str, Any] = schema.validate(args)
+#     except SchemaError as err:
+#         # Exit because one or more of the arguments were invalid
+#         print(err, file=sys.stderr)
+#         sys.exit(1)
 
-    # Assign validated arguments to variables
-    log_level: str = validated_args["--log-level"]
+#     # Assign validated arguments to variables
+#     log_level: str = validated_args["--log-level"]
 
-    # Set up logging
-    logging.basicConfig(
-        filename=pe_reports.CENTRAL_LOGGING_FILE,
-        filemode="a",
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%m/%d/%Y %I:%M:%S",
-        level=log_level.upper(),
-    )
+#     # Set up logging
+#     logging.basicConfig(
+#         filename=pe_reports.CENTRAL_LOGGING_FILE,
+#         filemode="a",
+#         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+#         datefmt="%m/%d/%Y %I:%M:%S",
+#         level=log_level.upper(),
+#     )
 
-    run_xpanse_scans(
-        validated_args["--last_modified"],
-        validated_args["--orgs"],
-    )
+#     run_xpanse_scans(
+#         validated_args["--last_modified"],
+#         validated_args["--orgs"],
+#     )
 
-def print_start_time():
-    global start_time
-    start_time = datetime.datetime.now()
-    print(f"Script started at: {start_time}")
+# def print_start_time():
+#     global start_time
+#     start_time = datetime.datetime.now()
+#     print(f"Script started at: {start_time}")
 
-# Function to print the end time and calculate duration
-def print_end_time():
-    end_time = datetime.datetime.now()
-    print(f"Script ended at: {end_time}")
+# # Function to print the end time and calculate duration
+# def print_end_time():
+#     end_time = datetime.datetime.now()
+#     print(f"Script ended at: {end_time}")
 
-    # Calculate duration
-    duration = end_time - start_time
+#     # Calculate duration
+#     duration = end_time - start_time
 
-    # Convert duration to hours, minutes, seconds
-    hours, remainder = divmod(duration.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
+#     # Convert duration to hours, minutes, seconds
+#     hours, remainder = divmod(duration.seconds, 3600)
+#     minutes, seconds = divmod(remainder, 60)
 
-    print(f"Script took {hours} hours, {minutes} minutes, and {seconds} seconds to run.")
+#     print(f"Script took {hours} hours, {minutes} minutes, and {seconds} seconds to run.")
 
 
-if __name__ == "__main__":
-    print_start_time()
-    main()
-    print_end_time()
+# if __name__ == "__main__":
+#     print_start_time()
+#     main()
+#     print_end_time()
 
 
 # python3 src/pe_source/xpanse_update.py /var/www/pe-reports/src/pe_source/XPANSE_ENTITIES_2023-11-20.csv --orgs="National Science Foundation (NSF) - CISA;National Transportation Safety Board (NTSB) - CISA;National Women's Business Council (NWBC) - CISA;Natrona County, Wyoming;Net Number;New York Assembly;New York City Department of Education;New York City Department of Environmental Protection;New York City Department of Information Technology and Telecommunications (DoITT);New York City Health and Hospitals Corporation- CISA;New York City Housing Authority;New York Community Bancorp;New York Independent System Operator (NYISO);New York Life Insurance Company- CISA;New York Metropolitan Transport Authority- CISA;New York Presbyterian Hospital- CISA;New York State Department of Environmental Conservation;New York State Insurance Fund;New York State Senate;New York University (NYU)- CISA;Niagara County, New York;Niagara County, New York- CISA;Noble County, Ohio Election Infrastructure;North American Electric Reliability Corporation (NERC);Nuclear Regulatory Commission (NRC) - CISA;Nuclear Waste Technical Review Board (NWTRB) - CISA;ODNI - National Counterintelligence Center (NCSC) - CISA;OHPRS (Ohio Police Retirement System);Occupational Safety and Health Review Commission (OSHRC) - CISA;Office for People With Developmental Disabilities;Office for the Aging;Office for the Prevention of Domestic Violence;Office of Addiction Services and Supports;Office of Attorney General;Office of Congressional Workplace Rights (OCWR) - CISA;Office of Employee Relations;Office of General Services;Office of Government Ethics (OGE) - CISA;Office of Information Technology Services;Office of Medicaid Inspector General;Office of Mental Health;Office of Navajo and Hopi Indian Relocation (ONHIR) - CISA;Office of Parks, Recreation and Historic Preservation;Office of Personnel Management (OPM) - CISA;Office of State Comptroller;Office of Temporary and Disability Assistance;Office of the Director of National Intelligence (ODNI) - CISA;Office of the Federal Register (OFR) - CISA;Office of the Governor;Ohio Rural Electric Cooperatives"
