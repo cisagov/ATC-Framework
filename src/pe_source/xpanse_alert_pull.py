@@ -41,7 +41,7 @@ from schema import And, Or, Schema, SchemaError, Use
 from pe_reports.data.config import staging_config
 
 API_DIC = staging_config(section="xpanse")
-xpanse_url = "https://api-cisa.crtx.federal.paloaltonetworks.com/public_api/"
+xpanse_url = "https://api-cisa-xpanse.crtx.gv.paloaltonetworks.com/public_api/"
 api_key = API_DIC.get("api_key")
 auth_id = API_DIC.get("auth_id")
 
