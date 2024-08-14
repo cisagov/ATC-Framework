@@ -1558,7 +1558,6 @@ def api_xpanse_alert_insert(xpanse_alert_dict):
         xpanse_alert_insert_result = requests.put(
             endpoint_url, headers=headers, data=data
         ).json()
-        LOGGER.info(xpanse_alert_insert_result)
         return xpanse_alert_insert_result
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
