@@ -83,7 +83,11 @@ def pull_alerts_data(linked_org_list, business_units_list=[]):
         business_units_list = list(map(lambda d: d['entity_name'], linked_org_list))
 
     for org in business_units_list:
-        request_data = {"use_page_token": True}
+        request_data = {
+            "use_page_token": True,
+            "search_from":0,
+            "search_to": 5000
+        }
         filters = []
         LOGGER.info("Running Xpanse alert pull on %s", org)
         filters.append(
