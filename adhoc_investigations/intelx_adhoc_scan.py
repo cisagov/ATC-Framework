@@ -4,6 +4,7 @@ import logging
 import time
 
 # Third-Party Libraries
+from dateutil.parser import parse
 import pandas as pd
 import requests
 
@@ -16,6 +17,9 @@ main_log = logging.getLogger(__name__)
 # IntelX API Info
 api_key = adhoc_config.get_ini_data().get("intelx")
 
+def parse_datetime(date):
+    """Parse datetime string for multiple formats."""
+    return parse(date)
 
 def query_identity_api(domain, start_date, end_date):
     """Create an initial search and return the search id."""
@@ -118,7 +122,8 @@ def get_intelx_data(org_abbrv, start_date, end_date, domains, save_file):
         all_df["date"] = all_df["date"].str.strip() # remove leading/trailing spaces
         # all_df['datetime'] = pd.to_datetime(all_df['date'], format='mixed')
         # all_df['datetime'] = pd.to_datetime(all_df['date'])
-        all_df['datetime'] = pd.to_datetime(all_df['date'], format='ISO8601')
+        # all_df['datetime'] = pd.to_datetime(all_df['date'], format='ISO8601')
+        all_df['datetime'] = all_df.date.apply(parse_datetime)
         all_df['date'] = all_df['datetime'].dt.strftime('%m/%d/%Y')
         all_df.reset_index(drop=True, inplace=True)
 

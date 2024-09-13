@@ -14,8 +14,10 @@ Options:
 """
 
 # Standard Python Libraries
+from datetime import timedelta
 import logging
 import sys
+import time
 from typing import Any, Dict
 
 # Third-Party Libraries
@@ -61,68 +63,70 @@ LOGGER = logging.getLogger(__name__)
 def run_asm_sync(staging, method):
     """Collect and sync ASM data."""
     if method == "asm":
-        # Run function to fetch and store all CyHy assets in the P&E database
-        LOGGER.info("Collecting CyHy assets")
-        get_cyhy_assets(staging)
-        LOGGER.info("Finished.")
+        # --- Local Portion of ASM Sync ---
+        #   *** This portion of the ASM Sync process needs to be run locally
+        #   on a Macbook because the Accessor is not allowed to directly
+        #   connect to the CyHy environment. A dedicated python script is 
+        #   available for this "local step" of the ASM Sync
 
-        # Fill the P&E CIDRs table from CyHy assets
-        LOGGER.info("Filling CIDRs.")
+        # Fetch assets from the CyHy database and store them in the PE database
+        # LOGGER.info("Retrieving assets from the CyHy database...")
+        # get_cyhy_assets(staging) # <- needs to happen locally
+        # LOGGER.info("Finished retrieving assets from the CyHy database")
+
+
+        # --- Non-Local Portion of ASM Sync ---
+        #   *** This portion of the ASM Sync process can run remotely on the
+        #   Accessor because it does not require connecting to the CyHy environment
+
+        print("*** Running ATC-Framework version of ASM Sync ***")
+        # Fill the PE CIDRs table using the CyHy assets
+        LOGGER.info("Filling the CIDRs table using the retrieved CyHy assets...")
         fill_cidrs("all_orgs", staging)
-        LOGGER.info("Finished.")
-
+        LOGGER.info("Finished filling the CIDRs table using the retrieved CyHy assets")
         # Identify which CIDRs are current
-        LOGGER.info("Identify CIDR changes")
-        if staging:
-            conn = pe_db_staging_connect()
-        else:
-            conn = pe_db_connect()
-        identify_cidr_changes(conn)
-        conn.close()
+        LOGGER.info("Identifying CIDR changes...")
+        identify_cidr_changes(staging)
+        LOGGER.info("Finished identifying CIDR changes")
 
-        # Fill root domains from dot gov table
+        # Fill root domains using the retrieved dot gov data
+        LOGGER.info("Filling the root domains table using the retrieved dot gov data...")
         # TODO
+        LOGGER.info("Finished filling the root domains table using the retrieved dot gov data")
 
-        # Enumerate sub domains from roots
-        LOGGER.info("Enumerating roots and saving sub-domains.")
+        # Enumerate subdomains from roots
+        LOGGER.info("Enumerating sub-domains from root domains...")
         get_subdomains(staging)
-        LOGGER.info("Finished.")
+        LOGGER.info("Finished enumerating sub-domains from root domains")
 
-        # Connect subs from ips
-        LOGGER.info("Linking subs from ips.")
-        connect_subs_from_ips(staging)
-        LOGGER.info("Finished.")
+        # Link subdomains and ips using ips
+        LOGGER.info("Linking sub-domains and ips using ips...")
+        connect_subs_from_ips(staging) # *** Takes a really long time ~16 days
+        LOGGER.info("Finished linking sub-domains and ips using ips")
 
-        # Connect ips from subs
-        LOGGER.info("Linking ips from subs.")
-        connect_ips_from_subs(staging)
-        LOGGER.info("Finished.")
+        # Link subdomains and ips using subdomains
+        LOGGER.info("Linking sub-domains and ips using sub-domains...")
+        connect_ips_from_subs(staging) # Takes a little more than a day
+        LOGGER.info("Finished linking sub-domains and ips using sub-domains")
 
-        # Identify the current IPs, sub-domains, and connections
-        if staging:
-            conn = pe_db_staging_connect()
-        else:
-            conn = pe_db_connect()
-        LOGGER.info("Identify IP changes.")
-        identify_ip_changes(conn)
-        LOGGER.info("Identify Sub changes.")
-        identify_sub_changes(conn)
-        LOGGER.info("Identify IP SUB changes.")
-        identify_ip_sub_changes(conn)
-        conn.close()
-        LOGGER.info("Finished")
-
-        # Update Identified sub-domains
-        if staging:
-            conn = pe_db_staging_connect()
-        else:
-            conn = pe_db_connect()
-        identified_sub_domains(conn)
+        # Identify which IPs, sub-domains, and connections are current
+        LOGGER.info("Identify IP changes...")
+        identify_ip_changes(staging)
+        LOGGER.info("Finished identifying IP changes")
+        LOGGER.info("Identifying sub-domain changes...")
+        identify_sub_changes(staging)
+        LOGGER.info("Finished identifying sub-domain changes")
+        LOGGER.info("Identifying IP sub-domain link changes...")
+        identify_ip_sub_changes(staging)
+        LOGGER.info("Finished identifying IP sub-domain link changes")
+        LOGGER.info("Updating identified sub-domains...")
+        identified_sub_domains(staging)
+        LOGGER.info("Finished updating identified sub-domains")
 
         # Run shodan dedupe
-        LOGGER.info("Running Shodan dedupe.")
-        dedupe(staging)
-        LOGGER.info("Finished.")
+        LOGGER.info("Running Shodan dedupe...")
+        dedupe(staging) # Takes about ~12hrs
+        LOGGER.info("Finished running Shodan dedupe")
 
     elif method == "scorecard":
         LOGGER.info("STARTING")
@@ -177,7 +181,6 @@ def main():
         datefmt="%m/%d/%Y %I:%M:%S",
         level=log_level.upper(),
     )
-    LOGGER.info("Starting ASM sync scripts")
 
     # Check for the staging option
     try:
@@ -186,8 +189,13 @@ def main():
         print(e)
         staging = False
 
-    # Run ASM finder
+    # Run ASM Sync
+    LOGGER.info("--- ASM Sync Process Starting ---")
+    start_time = time.time()
     run_asm_sync(staging, validated_args["METHOD"])
+    end_time = time.time()
+    LOGGER.info(f"Execution time for ASM Sync: {str(timedelta(seconds=(end_time - start_time)))} (H:M:S)")
+    LOGGER.info("--- ASM Sync Process Complete ---")
 
     # Stop logging and clean up
     logging.shutdown()

@@ -30,6 +30,7 @@ from .data.sixgill.source import (
     root_domains,
     top_cves,
 )
+from .data.helpers.redact_pii import redact_pii, redact_pii_new
 
 # Set todays date formatted YYYY-MM-DD and the start_date 30 days prior
 TODAY = date.today()
@@ -45,6 +46,9 @@ START_DATE_TIME = (NOW - DAYS_BACK).strftime("%Y-%m-%d %H:%M:%S")
 END_DATE_TIME = NOW.strftime("%Y-%m-%d %H:%M:%S")
 
 LOGGER = logging.getLogger(__name__)
+
+# Suppress output from presidio-analyzer import (PII filter)
+logging.getLogger('presidio-analyzer').setLevel(logging.CRITICAL+1)
 
 
 class Cybersixgill:
@@ -232,6 +236,17 @@ class Cybersixgill:
             LOGGER.error(traceback.format_exc())
             return 1
 
+        # Redact PII Testing
+        # print(f"Working on organization: {org_id}")
+        # print("\tBeginning alert redaction")
+        # if "content" in alerts_df.columns:
+        #     alerts_df = redact_pii_new(alerts_df, ["content"])
+        #     print("\tCompleted alert redaction")
+        # else:
+        #    print("\tNo content col to redact")
+        # return 0
+        # print("made it to insertion code")
+
         # Insert alert data into the PE database
         try:
             insert_sixgill_alerts(alerts_df)
@@ -336,6 +351,17 @@ class Cybersixgill:
         mentions_df = mentions_df.rename(columns={"id": "sixgill_mention_id"})
         mentions_df["organizations_uid"] = pe_org_uid
         mentions_df["data_source_uid"] = source_uid
+
+        # Redact PII Testing
+        # mentions_df = mentions_df.iloc[[0]]
+        # mentions_df.to_csv("/var/www/pii_redact_testing/redact_test_input.csv")
+        # print(f"working on organization: {org_id}")
+        # print("\tBeginning mention redaction")
+        # mentions_df = redact_pii_new(mentions_df, ["content"])
+        # print("\tCompleted mention redaction")
+        # mentions_df.to_csv("/var/www/pii_redact_testing/test_redact_output.csv")
+        # return 0
+        # print("made it to insertion code")
 
         # Insert mention data into the PE database
         try:
@@ -491,20 +517,25 @@ class Cybersixgill:
         LOGGER.info(f"Fetching the top ten CVEs for the past report period")
         # Fetch top CVE data
         try:
+            # Get top 10 cves
             top_cve_df = top_cves(10)
+            # Add extra columns
             top_cve_df["date"] = END_DATE
             top_cve_df["nvd_base_score"] = top_cve_df["nvd_base_score"].astype("str")
-            # Add data source uid
             top_cve_df["data_source_uid"] = source_uid
+
+            # *** circl.lu no longer used b/c of API issues,
+            #   CVE summaries are now coming from C6G
             # Get CVE summary from circl.lu
-            top_cve_df["summary"] = ""
-            for cve_index, cve_row in top_cve_df.iterrows():
-                try:
-                    resp = cve_summary(cve_row["cve_id"])
-                    summary = resp["summary"]
-                except Exception:
-                    summary = ""
-                top_cve_df.at[cve_index, "summary"] = summary
+            # top_cve_df["summary"] = ""
+            # for cve_index, cve_row in top_cve_df.iterrows():
+            #     try:
+            #         resp = cve_summary(cve_row["cve_id"])
+            #         summary = resp["summary"]
+            #     except Exception:
+            #         summary = ""
+            #     top_cve_df.at[cve_index, "summary"] = summary
+            
         except Exception as e:
             LOGGER.error("Failed fetching top CVEs.")
             LOGGER.error(e)

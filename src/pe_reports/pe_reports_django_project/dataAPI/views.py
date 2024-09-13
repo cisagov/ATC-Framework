@@ -7126,3 +7126,69 @@ def organizations_demo(tokens: dict = Depends(get_api_key)):
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
+
+# --- Endpoint for Orgs with assets query (no view) ---
+@api_router.post(
+    "/orgs_and_assets",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=schemas.OrgAssetTaskResp,
+    tags=["Call API endpoint to get list all orgs and their linked assets."],
+)
+def orgs_and_assets(data: schemas.OrgsAssetsPagedInput, tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get list all orgs and their linked assets."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, create task for query
+            task = get_orgs_and_assets.delay(data.page, data.per_page)
+            # Return the new task id w/ "Processing" status
+            return {"task_id": task.id, "status": "Processing"}
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+
+
+@api_router.get(
+    "/orgs_and_assets/task/{task_id}",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    response_model=schemas.OrgAssetTaskResp,
+    tags=["Get task status for orgs and assets task."],
+)
+async def get_orgs_and_assets_task_status(task_id: str, tokens: dict = Depends(get_api_key)):
+    """Get task status for orgs and assets task."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            # userapiTokenverify(theapiKey=tokens)
+            # Retrieve task status
+            task = get_orgs_and_assets.AsyncResult(task_id)
+            LOGGER.info(task)
+            # Return appropriate message for status
+            if task.state == "SUCCESS":
+                return {
+                    "task_id": task_id,
+                    "status": "Completed",
+                    "result": task.result,
+                }
+            elif task.state == "PENDING":
+                return {"task_id": task_id, "status": "Pending"}
+            elif task.state == "FAILURE":
+                return {
+                    "task_id": task_id,
+                    "status": "Failed",
+                    "error": str(task.result),
+                }
+            else:
+                return {"task_id": task_id, "status": task.state}
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}

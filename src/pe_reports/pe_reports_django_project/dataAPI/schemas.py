@@ -3294,7 +3294,7 @@ class XpanseVulnOutput(BaseModel):
 class XpanseVulnPullInput(BaseModel):
     """XpanseVulnPullInput schema class."""
 
-    business_unit: str
+    org_acronym: str
     modified_datetime: Optional[datetime] = None
 
     class Config:
@@ -3994,3 +3994,63 @@ class ShodanVulnsInsertInput(BaseModel):
 
 # --- get_demo_orgs(), Issue 018 atc-framework ---
 # Reuses OrganizationsFullTable schema
+
+class OrgsAssetsPagedInput(BaseModel):
+    """OrgsAssetsPagedInput schema class."""
+
+    page: int
+    per_page: int
+
+    class Config:
+        """OrgsAssetsPagedInput schema config class."""
+
+        orm_mode = True
+
+class OrgsWithAssets(BaseModel):
+    """OrgsWithAssets schema class."""
+    
+    org_name: Optional[str] = None
+    acronym: Optional[str] = None
+    retired: Optional[bool] = None
+    cyhy_period_start: Optional[str] = None
+    fceb_child: Optional[bool] = None
+    election: Optional[bool] = None
+    location_name: Optional[str] = None
+    county: Optional[str] = None
+    county_fips: Optional[str] = None
+    state_abbreviation: Optional[str] = None
+    state_fips: Optional[str] = None
+    state_name: Optional[str] = None
+    country: Optional[str] = None
+    country_name: Optional[str] = None
+    scorecard_child: Optional[bool] = None
+    receives_cyhy_report: Optional[bool] = None
+    receives_bod_report: Optional[bool] = None
+    receives_cybex_report: Optional[bool] = None
+    demo: Optional[bool] = None
+    parent_acronym: Optional[str] = None
+    networks: Optional[List[str]] = None
+    root_domains: Optional[List[str]] = None
+    
+
+    class Config:
+        """OrgsWithAssets schema config class."""
+
+        orm_mode = True
+        validate_assignment = True
+
+        
+class OrgAssetPagedResult(BaseModel):
+    """OrgAssetPagedResult schema class."""
+
+    total_pages: int
+    current_page: int
+    data: List[OrgsWithAssets]
+
+class OrgAssetTaskResp(BaseModel):
+    """OrgAssetTaskResp schema class."""
+
+    task_id: str
+    status: str
+    result: Optional[OrgAssetPagedResult] = None
+    error: Optional[str] = None

@@ -838,6 +838,14 @@ class Organizations(models.Model):
     fceb_child = models.BooleanField(blank=True, null=True)
     election = models.BooleanField(blank=True, null=True)
     scorecard_child = models.BooleanField(blank=True, null=True)
+    location_name = models.TextField(blank=True, null=True)
+    county = models.TextField(blank=True, null=True)
+    county_fips = models.IntegerField(blank=True, null=True)
+    state_abbreviation = models.TextField(blank=True, null=True)
+    state_fips = models.IntegerField(blank=True, null=True)
+    state_name = models.TextField(blank=True, null=True)
+    country = models.TextField(blank=True, null=True)
+    country_name = models.TextField(blank=True, null=True)
 
     class Meta:
         """Set Organizations model metadata."""
@@ -1157,6 +1165,12 @@ class ShodanVulns(models.Model):
     mitigation = models.TextField(blank=True, null=True)
     server = models.TextField(blank=True, null=True)
     is_verified = models.BooleanField(blank=True, null=True)
+    banner = models.TextField(blank=True, null=True)
+    version = models.TextField(blank=True, null=True)
+    mitigation = models.TextField(blank=True, null=True)
+    cpe = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
 
     class Meta:
         """Set ShodanVulns model metadata."""
@@ -1431,6 +1445,11 @@ class VwShodanvulnsVerified(models.Model):
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
     data_source = models.TextField(blank=True, null=True)
+    banner = models.TextField(blank=True, null=True)
+    version = models.TextField(blank=True, null=True)
+    cpe = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
 
     class Meta:
         """Set VwShodanvulnsVerified model metadata."""
@@ -2440,3 +2459,59 @@ class CpeProduct(models.Model):
         managed = True
         db_table = "cpe_product"
         unique_together = (("cpe_product_name", "version_number"),)
+
+
+"""
+-- WARNING: It may differ from actual native database DDL
+CREATE TABLE information_schema.was_findings (
+	finding_uid uuid NOT NULL,
+	finding_type varchar(10485760) NULL,
+	webapp_id int4 NULL,
+	was_org_id text NULL,
+	owasp_category varchar(10485760) NULL,
+	severity varchar(10485760) NULL,
+	times_detected int4 NULL,
+	base_score float8 NULL,
+	temporal_score float8 NULL,
+	fstatus varchar(10485760) NULL,
+	last_detected date NULL,
+	first_detected date NULL,
+	is_remidiated bool NULL,
+	potential bool NULL,
+	webapp_url text NULL,
+	webapp_name text NULL,
+	"name" text NULL,
+	cvss_v3_attack_vector text NULL,
+	cwe_list _int4 NULL,
+	wasc_list jsonb NULL
+);
+"""
+class WasFindings(models.Model):
+    """Define WasFindings model."""
+
+    finding_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    finding_type = models.TextField(blank=True, null=True)
+    webapp_id = models.IntegerField(blank=True, null=True)
+    was_org_id = models.TextField(blank=True, null=True)
+    owasp_category = models.TextField(blank=True, null=True)
+    severity = models.TextField(blank=True, null=True)
+    times_detected = models.IntegerField(blank=True, null=True)
+    base_score = models.FloatField(blank=True, null=True)
+    temporal_score = models.FloatField(blank=True, null=True)
+    fstatus = models.TextField(blank=True, null=True)
+    last_detected = models.DateField(blank=True, null=True)
+    first_detected = models.DateField(blank=True, null=True)
+    is_remidiated = models.BooleanField(blank=True, null=True)
+    potential = models.BooleanField(blank=True, null=True)
+    webapp_url = models.TextField(blank=True, null=True)
+    webapp_name = models.TextField(blank=True, null=True)
+    name = models.TextField(blank=True, null=True)
+    cvss_v3_attack_vector = models.TextField(blank=True, null=True)
+    cwe_list = ArrayField(
+        models.IntegerField(blank=True, null=True), blank=True, null=True
+    )
+    wasc_list = models.JSONField(blank=True, null=True)
+    class Meta:
+        """Set WasFindings model metadata."""
+        managed = False
+        db_table = "was_findings"

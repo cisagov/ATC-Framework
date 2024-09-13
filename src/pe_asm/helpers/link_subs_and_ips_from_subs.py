@@ -26,7 +26,7 @@ def find_ips(domain):
         ip = socket.gethostbyname(domain)
     except Exception:
         ip = None
-    LOGGER.info(ip)
+    # LOGGER.info(ip)
     return ip
 
 
@@ -94,4 +94,5 @@ def connect_ips_from_subs(staging, orgs_df=None):
             link_ip_from_domain(sub_domain, root_uid, org_uid, "unknown", conn)
 
         org_count += 1
+        # Close database connection
         conn.close()

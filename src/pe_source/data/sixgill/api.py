@@ -121,6 +121,9 @@ def alerts_list(auth, organization_id, fetch_size, offset):
     if resp.status_code == 400:
         LOGGER.error("Received error code 400 from Cybersixgill's /actionable-alert endpoint")
         LOGGER.error(resp.content)
+    # If 401 token expired code, just return asap
+    elif resp.status_code == 401:
+        return resp
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
@@ -129,7 +132,7 @@ def alerts_list(auth, organization_id, fetch_size, offset):
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=payload)
         retry_count += 1
-    resp = resp.json()
+    # resp = resp.json()
     # Return result
     return resp
 
@@ -234,10 +237,12 @@ def dve_top_cves():
         else:
             nvd_v3_score = result.get("x_sixgill_info").get("nvd").get("v3").get("current")
         nvd_base_score = "{'v2': None, 'v3': " + str(nvd_v3_score) + "}"
+        summary = result.get("description").strip()
         clean_cve = {
             "cve_id": cve_id,
             "dynamic_rating": dynamic_rating,
             "nvd_base_score": nvd_base_score,
+            "summary": summary,
         }
         clean_top_10_cves.append(clean_cve)
     # Return result

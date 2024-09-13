@@ -169,17 +169,32 @@ def alerts(org_id):
     df_all_alerts = pd.DataFrame()
     token_refresh_counter = 1
     for offset in range(0, count_total, fetch_size):
-        # Keep API auth token refreshed (they expire after 30min)
-        if token_refresh_counter % 100 == 0:
-            # Set to refresh every 100 chunks 
-            # this needs to be adjusted depending on chunk size
-            LOGGER.warning("API auth token refreshed due to long alert retrieval time...")
-            token = cybersix_token()
-        token_refresh_counter += 1
+        
+        # # Keep API auth token refreshed (they expire after 30min)
+        # if token_refresh_counter % 100 == 0:
+        #     # Set to refresh every 100 chunks 
+        #     # this needs to be adjusted depending on chunk size
+        #     LOGGER.warning("API auth token refreshed due to long alert retrieval time...")
+        #     token = cybersix_token()
+        # token_refresh_counter += 1
+
         # Retrieve alert data for this chunk
         try:
             print(f"Working on alert chunk at offset {offset} out of {count_total}")
+            # Make initial attempt to call API
             resp = alerts_list(token, org_id, fetch_size, offset)
+            
+            # Check for 401 token expired code (they expire after 30min)
+            if resp.status_code == 401:
+                # If token expired, refresh it
+                LOGGER.warning("Refreshing Cybersixgill API auth token due to long data retrieval time...")
+                token = cybersix_token()
+                # Try calling API again
+                resp = alerts_list(token, org_id, fetch_size, offset)
+
+            # Convert to json and process data
+            resp = resp.json()
+            # resp = alerts_list(token, org_id, fetch_size, offset)
             df_alerts = pd.DataFrame.from_dict(resp)
             df_alerts.drop(columns=["sub_alerts"], inplace=True) # large unused data field
             all_alerts.append(df_alerts)

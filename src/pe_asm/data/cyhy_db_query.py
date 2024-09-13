@@ -505,6 +505,7 @@ def insert_sub_domains(conn, df):
         cursor = conn.cursor()
         extras.execute_values(cursor, sql.format(table, cols), tpls)
         conn.commit()
+        cursor.close()
     except (Exception, psycopg2.DatabaseError) as err:
         # Show error and close connection if failed
         LOGGER.error("There was a problem with your database query %s", err)
@@ -612,104 +613,132 @@ def identify_org_asset_changes(conn):
     conn.commit()
 
 
-def identify_cidr_changes(conn):
+def identify_cidr_changes(staging):
     """Identify CIDR changes."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # Execute queries
     cursor = conn.cursor()
-    LOGGER.info("Marking CIDRs that are in the db.")
+    LOGGER.info("Marking CIDRs as current if seen within the last 3 days")
     cursor.execute(
         """
         UPDATE cidrs
         set current = True
-        where last_seen > (CURRENT_DATE - INTERVAL '3 days')
+        where last_seen > (CURRENT_DATE - INTERVAL '20 days')
         """
     )
     conn.commit()
-
-    LOGGER.info("Marking CIDRs that are no longer seen.")
-    cursor = conn.cursor()
+    LOGGER.info("Marking CIDRs as not current if not seen within the last 3 days")
     cursor.execute(
         """
         UPDATE cidrs
         set current = False
-        where last_seen < (CURRENT_DATE - INTERVAL '3 days')
+        where last_seen < (CURRENT_DATE - INTERVAL '20 days')
         """
     )
     conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()
 
 
-def identify_ip_changes(conn):
+def identify_ip_changes(staging):
     """Identify IP changes."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # Execute queries
     cursor = conn.cursor()
     LOGGER.info("Marking IPs that are in the db.")
     cursor.execute(
         """
         UPDATE ips
         set current = True
-        where last_seen > (CURRENT_DATE - INTERVAL '15 days')
+        where last_seen > (CURRENT_DATE - INTERVAL '20 days')
         """
     )
     conn.commit()
-
     LOGGER.info("Marking IPs that are no longer seen.")
-    cursor = conn.cursor()
     cursor.execute(
         """
         UPDATE ips
         set current = False
-        where last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull;
+        where last_seen < (CURRENT_DATE - INTERVAL '20 days') or last_seen isnull;
         """
     )
     conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()
 
 
-def identify_sub_changes(conn):
+def identify_sub_changes(staging):
     """Identify IP changes."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # Execute queries
     cursor = conn.cursor()
     LOGGER.info("Marking Subs that are in the db.")
     cursor.execute(
         """
         UPDATE sub_domains
         set current = True
-        where last_seen > (CURRENT_DATE - INTERVAL '15 days')
+        where last_seen > (CURRENT_DATE - INTERVAL '20 days')
         """
     )
     conn.commit()
-
     LOGGER.info("Marking IPs that are no longer seen.")
-    cursor = conn.cursor()
     cursor.execute(
         """
         UPDATE sub_domains
         set current = False
-        where last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull;
+        where last_seen < (CURRENT_DATE - INTERVAL '20 days') or last_seen isnull;
         """
     )
     conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()
 
 
-def identify_ip_sub_changes(conn):
+def identify_ip_sub_changes(staging):
     """Identify IP/Subs changes."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # Execute queries
     cursor = conn.cursor()
-    LOGGER.info("Marking Subs that are in the db.")
+    LOGGER.info("Marking IP-subs that are in the db.")
     cursor.execute(
         """
         UPDATE ips_subs
         set current = True
-        where last_seen > (CURRENT_DATE - INTERVAL '15 days')
+        where last_seen > (CURRENT_DATE - INTERVAL '20 days')
         """
     )
     conn.commit()
-
-    LOGGER.info("Marking IPs that are no longer seen.")
-    cursor = conn.cursor()
+    LOGGER.info("Marking IP-subs that are no longer seen.")
     cursor.execute(
         """
         UPDATE ips_subs
         set current = False
-        where last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull;
+        where last_seen < (CURRENT_DATE - INTERVAL '20 days') or last_seen isnull;
         """
     )
     conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()
 
 
 def insert_cyhy_scorecard_data(conn, df, table_name, on_conflict):
@@ -734,8 +763,13 @@ def insert_cyhy_scorecard_data(conn, df, table_name, on_conflict):
         cursor.close()
 
 
-def identified_sub_domains(conn):
+def identified_sub_domains(staging):
     """Set sub-domains to identified."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
     # If the sub's root-domain has enumerate=False, then "identified" is True
     cursor = conn.cursor()
     LOGGER.info("Marking identified sub-domains.")
@@ -749,6 +783,8 @@ def identified_sub_domains(conn):
     )
     conn.commit()
     cursor.close()
+    # Close database connection
+    conn.close()
 
 
 def get_fceb_orgs(conn):

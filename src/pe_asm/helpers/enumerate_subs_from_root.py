@@ -77,7 +77,7 @@ def get_subdomains(staging=False, roots_df=None):
     else:
         conn = pe_db_connect()
 
-    # Query root domains
+    # Query root domains if none provided
     if not isinstance(roots_df, pd.DataFrame):
         roots_df = query_roots(conn)
     total_roots = len(roots_df.index)
@@ -89,7 +89,7 @@ def get_subdomains(staging=False, roots_df=None):
         # Enumerate for sub-domains
         LOGGER.info("Enumerating this root: %s", root_row["root_domain"])
         subs = enumerate_roots(root_row["root_domain"], root_row["root_domain_uid"])
-        LOGGER.info(subs)
+        # LOGGER.info(subs) # Too much log output
         # Create DataFrame
         subs_df = pd.DataFrame(subs)
 
