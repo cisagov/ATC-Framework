@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "dataAPI.apps.DataapiConfig",
+    "dmz_mini_dl.apps.DmzMiniDlConfig",
     "bulkupload.apps.BulkuploadConfig",
     "home.apps.HomeConfig",
     "manage_login.apps.ManageLoginConfig",
@@ -178,8 +179,18 @@ DATABASES = {
         "PASSWORD": config("password"),
         "HOST": config("host"),
         "PORT": config("port"),
+    },
+    "mini_data_lake": {
+        'ENGINE': "django.db.backends.postgresql_psycopg2",  # Replace with your database engine
+        'NAME': config("mdl_database"),
+        'USER': config('mdl_user'),
+        'PASSWORD': config('mdl_password'),
+        'HOST': config('mdl_host'),
+        'PORT': config('mdl_port'),
     }
 }
+
+DATABASE_ROUTERS = ['pe_reports_django.db_routers.MyAppRouter']
 
 # Celery settings
 CELERY_BROKER_URL = (
