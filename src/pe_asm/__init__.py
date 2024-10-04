@@ -5,4 +5,4 @@
 # Python package.
 from ._version import __version__  # noqa: F401
 
-__all__ = ["asm_sync"]
+__all__ = ["asm_sync", "data_lake_cyhy_sync"]

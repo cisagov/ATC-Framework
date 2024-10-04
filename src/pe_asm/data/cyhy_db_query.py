@@ -63,6 +63,27 @@ def pe_db_staging_connect():
         show_psycopg2_exception(err)
         conn = None
         return conn
+    
+def mdl_staging_connect():
+    """Establish an SSH tunnel to the staging environement."""
+    checkVMrunning()
+    time.sleep(3)
+    conn_staging_dict = db_config(section="mdl_staging")
+    ssh_port = sshTunnel(conn_staging_dict)
+    try:
+        LOGGER.info("****SSH Tunnel Established****")
+        conn = psycopg2.connect(
+            host="localhost",
+            user=conn_staging_dict["user"],
+            password=conn_staging_dict["password"],
+            dbname=conn_staging_dict["database"],
+            port=ssh_port,
+        )
+        return conn
+    except OperationalError as err:
+        show_psycopg2_exception(err)
+        conn = None
+        return conn
 
 
 def sshTunnel(conn_staging_dict):
