@@ -172,10 +172,11 @@ def connect_subs_from_ips(staging, orgs_df=None):
                 ips_list.append(ip_obj)
         ips_df = pd.DataFrame(ips_list)
 
-        LOGGER.info("Number of Cidrs: %d", cidrs.index)
+        LOGGER.info(f"Number of Cidrs: {len(cidrs)}")
 
         # if no IPS, continue to next org
         if len(ips_df.index) == 0:
+            # Close database connection
             conn.close()
             org_count += 1
             continue
@@ -203,4 +204,5 @@ def connect_subs_from_ips(staging, orgs_df=None):
 
         org_count += 1
 
+        # Close database connection
         conn.close()

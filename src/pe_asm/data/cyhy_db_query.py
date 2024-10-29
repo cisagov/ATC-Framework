@@ -759,3 +759,246 @@ def get_fceb_orgs(conn):
     df = pd.read_sql(sql, conn)
     fceb_list = list(df["cyhy_db_name"])
     return fceb_list
+
+
+# --- SQS ASM Sync Functions ---
+def sqs_query_org(staging, cyhy_db_name):
+    """Query additional info for the specified organization."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    LOGGER.info(f"Retrieving additional info for org: {cyhy_db_name}")
+    sql = f"""
+        SELECT 
+            organizations_uid, cyhy_db_name, name, agency_type
+        FROM 
+            organizations o
+        WHERE 
+            cyhy_db_name = '{cyhy_db_name}'
+    """
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    return df
+
+def sqs_identify_cidr_changes(staging, org_id):
+    """Identify CIDR changes, single organization."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # Execute queries
+    cursor = conn.cursor()
+    LOGGER.info("Marking CIDRs as current if seen within the last 3 days")
+    cursor.execute(
+        f"""
+        UPDATE cidrs
+        SET current = True
+        WHERE 
+            last_seen > (CURRENT_DATE - INTERVAL '3 days')
+            AND
+            organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    LOGGER.info("Marking CIDRs as not current if not seen within the last 3 days")
+    cursor.execute(
+        f"""
+        UPDATE cidrs
+        SET current = False
+        WHERE
+            last_seen < (CURRENT_DATE - INTERVAL '3 days')
+            AND
+            organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()
+
+def sqs_query_roots(conn, org_id):
+    """Query root_domains, single organization."""
+    LOGGER.info("Retrieving root domains for this organization")
+    sql = f"""
+        SELECT
+            r.root_domain_uid,
+            r.root_domain
+        FROM
+            root_domains r
+            JOIN
+            organizations o
+            ON r.organizations_uid = o.organizations_uid
+        WHERE
+            o.organizations_uid = '{org_id}'
+        """
+    df = pd.read_sql(sql, conn)
+    return df
+
+def sqs_identify_ip_changes(staging, org_id):
+    """Identify IP changes, single organization."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # Execute queries
+    cursor = conn.cursor()
+    LOGGER.info("Marking IPs as current if seen within the last 3 days")
+    cursor.execute(
+        f"""
+        UPDATE ips
+        SET current = True
+        WHERE 
+            last_seen > (CURRENT_DATE - INTERVAL '3 days')
+            AND
+            organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    LOGGER.info("Marking IPs as not current if not seen within the last 3 days")
+    cursor.execute(
+        f"""
+        UPDATE ips
+        SET current = False
+        WHERE 
+            (last_seen < (CURRENT_DATE - INTERVAL '3 days') or last_seen isnull)
+            AND
+            organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()
+
+def sqs_identify_sub_changes(staging, org_id):
+    """Identify IP changes, single organization."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # Execute queries
+    cursor = conn.cursor()
+    LOGGER.info("Marking subdomains as current if seen within the last 3 days")
+    cursor.execute(
+        f"""
+        UPDATE 
+            sub_domains sd
+        SET 
+            current = True
+        FROM
+            root_domains rd
+        WHERE 
+            sd.root_domain_uid = rd.root_domain_uid
+            AND
+            last_seen > (CURRENT_DATE - INTERVAL '3 days')
+            AND
+            organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    LOGGER.info("Marking subdomains as not current if not seen within the last 3 days")
+    cursor.execute(
+        f"""
+        UPDATE 
+            sub_domains sd
+        SET 
+            current = False
+        FROM
+            root_domains rd
+        WHERE 
+            sd.root_domain_uid = rd.root_domain_uid
+            AND
+            (last_seen < (CURRENT_DATE - INTERVAL '3 days') or last_seen isnull)
+            AND
+            organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()
+
+def sqs_identify_ip_sub_changes(staging, org_id):
+    """Identify IP/Subs changes, single organization."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # Execute queries
+    cursor = conn.cursor()
+    LOGGER.info("Marking IPs-subs as current if seen within the last 3 days")
+    cursor.execute(
+        f"""
+        UPDATE 
+            ips_subs
+        SET 
+            current = True
+        FROM
+            ips
+        WHERE 
+            ips_subs.ip_hash = ips.ip_hash
+            AND
+            ips_subs.last_seen > (CURRENT_DATE - INTERVAL '3 days')
+            AND
+            ips.organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    LOGGER.info("Marking IPs-subs as not current if not seen within the last 3 days")
+    cursor.execute(
+        f"""
+        UPDATE 
+            ips_subs
+        SET 
+            current = False
+        FROM
+            ips
+        WHERE 
+            ips_subs.ip_hash = ips.ip_hash
+            AND
+            (ips_subs.last_seen < (CURRENT_DATE - INTERVAL '3 days') or ips_subs.last_seen isnull)
+            AND
+            ips.organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()
+
+def sqs_identified_sub_domains(staging, org_id):
+    """Set sub-domains to identified, single organization."""
+    # Connect to database
+    if staging:
+        conn = pe_db_staging_connect()
+    else:
+        conn = pe_db_connect()
+    # If the sub's root-domain has enumerate=False, then "identified" is True
+    cursor = conn.cursor()
+    LOGGER.info("Marking identified subdomains")
+    cursor.execute(
+        f"""
+        UPDATE 
+            sub_domains sd
+        SET 
+            identified = True
+        FROM
+            root_domains rd
+        WHERE 
+            sd.root_domain_uid = rd.root_domain_uid
+            AND
+            rd.enumerate_subs = false
+            AND
+            rd.organizations_uid = '{org_id}'
+        """
+    )
+    conn.commit()
+    cursor.close()
+    # Close database connection
+    conn.close()

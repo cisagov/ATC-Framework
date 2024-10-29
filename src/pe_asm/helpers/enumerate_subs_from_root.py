@@ -9,17 +9,15 @@ import pandas as pd
 import requests
 
 # cisagov Libraries
-from pe_reports.data.config import whois_xml_api_key
-from pe_reports.data.db_query import (
-    get_data_source_uid,
-)
 from pe_asm.data.cyhy_db_query import (
+    insert_sub_domains,
     pe_db_connect,
     pe_db_staging_connect,
     query_roots,
-    insert_sub_domains,
-    identify_sub_changes,
+    sqs_query_roots,
 )
+from pe_reports.data.config import whois_xml_api_key
+from pe_reports.data.db_query import get_data_source_uid
 
 LOGGER = logging.getLogger(__name__)
 API_WHOIS = whois_xml_api_key()
@@ -72,7 +70,7 @@ def enumerate_roots(root_domain, root_uid):
     return found_subs
 
 
-def get_subdomains(staging=False, roots_df=None):
+def get_subdomains(staging=False, orgs_df=None):
     """Enumerate roots and save subdomains."""
     # Connect to database
     if staging:
@@ -80,9 +78,14 @@ def get_subdomains(staging=False, roots_df=None):
     else:
         conn = pe_db_connect()
 
-    # Query root domains
-    if not isinstance(roots_df, pd.DataFrame):
+    # Get root domains
+    if not isinstance(orgs_df, pd.DataFrame):
+        # If no org specified, get all of them
         roots_df = query_roots(conn)
+    else:
+        # If org specified, only get roots for that org
+        roots_df = sqs_query_roots(conn, orgs_df["organizations_uid"][0])
+
     total_roots = len(roots_df.index)
     LOGGER.info("Got %d root domains.", total_roots)
 
@@ -92,7 +95,7 @@ def get_subdomains(staging=False, roots_df=None):
         # Enumerate for sub-domains
         LOGGER.info("Enumerating this root: %s", root_row["root_domain"])
         subs = enumerate_roots(root_row["root_domain"], root_row["root_domain_uid"])
-        LOGGER.info(subs)
+        # LOGGER.info(subs) # Too much log output
         # Create DataFrame
         subs_df = pd.DataFrame(subs)
 

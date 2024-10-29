@@ -231,7 +231,7 @@ def search(api, query, ip_obj, cidr_uid, org_type):
     """Search Shodan API using query and add IPs to set."""
     # Wrap the request in a try/ except block to catch errors
     try:
-        LOGGER.info(query)
+        # LOGGER.info(query)
         # Search Shodan
         try:
             results = api.search(query)

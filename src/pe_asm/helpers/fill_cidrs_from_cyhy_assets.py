@@ -1,52 +1,47 @@
 """Fill CIDRs table from cyhy assets."""
 
 # Standard Python Libraries
-import logging
 import datetime
+import logging
+
+# Third-Party Libraries
 import pandas as pd
 
 # cisagov Libraries
-from pe_reports.data.db_query import query_cyhy_assets
 from pe_asm.data.cyhy_db_query import (
-    query_pe_report_on_orgs,
     pe_db_connect,
     pe_db_staging_connect,
-    identify_cidr_changes,
+    query_pe_report_on_orgs,
 )
+from pe_reports.data.db_query import query_cyhy_assets
 
 LOGGER = logging.getLogger(__name__)
 
 
-def fill_cidrs(orgs, staging):
+def fill_cidrs(staging, orgs):
     """Fill CIDRs."""
-
     # Connect to database
     if staging:
         conn = pe_db_staging_connect()
     else:
         conn = pe_db_connect()
 
-    # Fetch all reporting on if not specified
+    # Fetch all reported orgs if not specified
     if not isinstance(orgs, pd.DataFrame):
         orgs = query_pe_report_on_orgs(conn)
-
     network_count = 0
     first_seen = datetime.datetime.today().date()
     last_seen = datetime.datetime.today().date()
 
-    if staging:
-        conn = pe_db_staging_connect()
-    else:
-        conn = pe_db_connect()
-
-    # Loop through P&E organizations and insert current CIDRs
+    # Loop through organizations and insert current CIDRs
     for org_index, org_row in orgs.iterrows():
         org_id = org_row["organizations_uid"]
+        # Retrieve cyhy assets for this org
         networks = query_cyhy_assets(org_row["cyhy_db_name"])
         for network_index, network in networks.iterrows():
+            # Insert each cidr into the cidrs table
             network_count += 1
             net = network["network"]
-            print(net)
             cur = conn.cursor()
             try:
                 cur.callproc(
@@ -56,13 +51,8 @@ def fill_cidrs(orgs, staging):
             except Exception as e:
                 print(e)
                 continue
-
-            row = cur.fetchone()
-            print(row)
             conn.commit()
             cur.close()
 
-    # Identify which CIDRs are current
-    LOGGER.info("Identify CIDR changes")
-    identify_cidr_changes(conn)
+    # Close database connection
     conn.close()
