@@ -631,6 +631,11 @@ def report_gen(data_dict, soc_med_included=False):
         ListFlowable(
             [
                 ListItem(
+                    Paragraph("Credentials Leaked/Exposed", body),
+                    leftIndent=35,
+                    value="bulletchar",
+                ),
+                ListItem(
                     Paragraph("Domain Masquerading and Monitoring", body),
                     leftIndent=35,
                     value="bulletchar",
@@ -667,12 +672,12 @@ def report_gen(data_dict, soc_med_included=False):
         )
     )
 
-    Story.append(doHeading("1.2 How to use this report", h2))
+    Story.append(doHeading("1.2 How to Use This Report", h2))
     Story.append(
         Paragraph(
             """While it is not our intent to prescribe to you a particular process for remediating
                             vulnerabilities, we hope you will use this report to strengthen your security posture.
-                            Here is a basic flow:<br/><br/>""",
+                            Here is a recommended work flow:<br/><br/>""",
             body,
         )
     )
@@ -698,7 +703,7 @@ def report_gen(data_dict, soc_med_included=False):
                 ),
                 ListItem(
                     Paragraph(
-                        """Want to see our raw data? Navigate to page 5 where you can open the embedded Excel
+                        """View the raw data used to generate this report by navigating to page 5 where you can open the embedded Excel
                             files. If you are having trouble opening these files, make sure to use Adobe Acrobat.""",
                         body,
                     ),
@@ -706,7 +711,7 @@ def report_gen(data_dict, soc_med_included=False):
                 ),
                 ListItem(
                     Paragraph(
-                        """More questions? Please refer to the Frequently Asked Questions found on page 19. Please
+                        """If you have any questions regarding your report, please refer to the Frequently Asked Questions found on page 19. Please
                             feel free to contact us at vulnerability@cisa.gov with any further questions or concerns.<br/><br/>""",
                         body,
                     ),
@@ -1683,7 +1688,7 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(point12_spacer)
     Story.append(
         Paragraph(
-            """<font face="Franklin_Gothic_Medium_Regular">What should I expect in terms of P&amp;E's Findings? </font><br/>
+            """<font face="Franklin_Gothic_Medium_Regular">What should I expect in terms of P&amp;E's findings? </font><br/>
             The Posture and Exposure team uses numerous tools and open-source intelligence (OSINT) gathering tactics to
             identify the potential weaknesses listed below. The data is then analyzed and complied into a Posture and
             Exposure Report which provides both executive level information and detailed information for analysts that
@@ -1756,19 +1761,6 @@ def report_gen(data_dict, soc_med_included=False):
             P&amp;E does not perform active scanning. The information we gather is through passive collection from numerous
             public and vendor data sources. As such, we collect data on a continual basis, and provide summary reports
             twice a month.
-        """,
-            body,
-        )
-    )
-    Story.append(point12_spacer)
-
-    Story.append(
-        Paragraph(
-            """<font face="Franklin_Gothic_Medium_Regular">Do you perform scans of our networks?</font><br/>
-            P&amp;E does not perform active scanning. The information we gather is through passive collection from numerous
-            public and vendor data sources. As such, we collect data on a continual basis, and provide summary reports
-            twice a month.
-
         """,
             body,
         )
