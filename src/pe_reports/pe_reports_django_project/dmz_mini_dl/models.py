@@ -2667,7 +2667,9 @@ class XpanseBusinessUnits(models.Model):
     xpanse_business_unit_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     entity_name = models.TextField(unique=True, blank=True, null=True)
     cyhy_db_name = models.ForeignKey(
-        "Organization", on_delete=models.CASCADE, db_column="cyhy_db_name", to_field="acronym"
+        "Organization", on_delete=models.CASCADE, db_column="cyhy_db_name", to_field="acronym",
+        null=True,  # Allow NULL values
+        blank=True 
     )
     state = models.TextField(blank=True, null=True)
     county = models.TextField(blank=True, null=True)

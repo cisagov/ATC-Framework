@@ -610,7 +610,36 @@ def insert_or_update_business_unit(business_unit_dict):
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
 
+# --- Issue 699 pe-reports ---
+def get_linked_xpanse_business_units():
+    """
+    Query API to retrieve data for all business units that link to an org.
 
+    Return:
+        All linked xpanse business units
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "linked_xpanse_business_units"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+        
 # --- Issue 682 ---
 def api_xpanse_alert_insert(xpanse_alert_dict):
     """
@@ -1414,7 +1443,7 @@ def query_PE_subs(org_uid):
 
 
 # --- Issue 016 atc-framework ---
-def insert_shodan_assets(dataframe, table, thread, org_name, failed):
+def insert_shodan_assets(asset_data):
     """
     Query API to insert Shodan data into the shodan_assets table.
 
@@ -1422,15 +1451,15 @@ def insert_shodan_assets(dataframe, table, thread, org_name, failed):
         data: Dataframe of the shodan data to be inserted into shodan_assets.
     """
     # Endpoint info
-    endpoint_url = pe_api_url + "shodan_assets_inserts"
+    endpoint_url = pe_api_url + "shodan_assets_insert"
     headers = {
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
-    data = json.dumps({"asset_data": dataframe})
+    data = json.dumps({"asset_data": asset_data})
     try:
         # Call endpoint
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(endpoint_url, headers=headers, data=data).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -1446,7 +1475,7 @@ def insert_shodan_assets(dataframe, table, thread, org_name, failed):
 
 
 # --- Issue 017 atc-framework ---
-def insert_shodan_vulns(dataframe, table, thread, org_name, failed):
+def insert_shodan_vulns(vuln_data):
     """
     Query API to insert Shodan data into the shodan_vulns table.
 
@@ -1459,10 +1488,10 @@ def insert_shodan_vulns(dataframe, table, thread, org_name, failed):
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
-    data = json.dumps({"vuln_data": dataframe})
+    data = json.dumps({"vuln_data": vuln_data})
     try:
         # Call endpoint
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(endpoint_url, headers=headers, data=data).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:

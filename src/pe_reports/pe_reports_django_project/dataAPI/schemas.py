@@ -3039,6 +3039,7 @@ class XpanseBusinessUnitsInsert(BaseModel):
     entity_type: Optional[str] = None
     region: Optional[str] = None
     rating: Optional[int] = None
+    cyhy_db_name: Optional[str] = None  
 
 
 # --- xpanse endpoint, Issue 682 ---
@@ -3929,15 +3930,21 @@ class SubdomainsByOrgUID(BaseModel):
 class ShodanAssetsInsert(BaseModel):
     """ShodanAssetsInsert schema class."""
 
-    email: Optional[str] = None
+    asn: Optional[int] = None
+    domains: Optional[List[str]] = None
+    hostnames: Optional[List[str]] = None
+    ip: Optional[str] = None
+    isn: Optional[str] = None
+    organization: Optional[str] = None
     organizations_uid: Optional[str] = None
-    root_domain: Optional[str] = None
-    sub_domain: Optional[str] = None
-    modified_date: Optional[str] = None
-    breach_name: Optional[str] = None
-    credential_breaches_uid: Optional[str] = None
+    port: Optional[int] = None
+    product: Optional[str] = None
+    protocol: Optional[str] = None
+    tags: Optional[List[str]] = None
+    timestamp: Optional[str] = None
+    country_code: Optional[str] = None
+    location: Optional[str] = None
     data_source_uid: Optional[str] = None
-    name: Optional[str] = None
 
     class Config:
         """ShodanAssetsInsert schema config class."""
@@ -3963,15 +3970,43 @@ class ShodanAssetsInsertInput(BaseModel):
 class ShodanVulnsInsert(BaseModel):
     """ShodanVulnsInsert schema class."""
 
-    email: Optional[str] = None
-    organizations_uid: Optional[str] = None
-    root_domain: Optional[str] = None
-    sub_domain: Optional[str] = None
-    modified_date: Optional[str] = None
-    breach_name: Optional[str] = None
-    credential_breaches_uid: Optional[str] = None
+    
+    organizations_uid:Optional[str]  = None
+    organization:Optional[str]  = None
+    ip:Optional[str]  = None
+    port:Optional[str]  = None
+    protocol:Optional[str]  = None
+    timestamp:Optional[str] = None
+    cve:Optional[str] = None
+    severity:Optional[str] = None
+    cvss:Optional[float] = None
+    summary:Optional[str] = None
+    product:Optional[str] = None
+    attack_vector:Optional[str] = None
+    av_description:Optional[str] = None
+    attack_complexity:Optional[str] = None
+    ac_description:Optional[str] = None
+    confidentiality_impact:Optional[str] = None
+    ci_description:Optional[str] = None
+    integrity_impact:Optional[str] = None
+    ii_description: Optional[str] = None
+    availability_impact: Optional[str] = None
+    ai_description: Optional[str] = None
+    tags: Optional[List[str]] = None
+    domains: Optional[List[str]] = None
+    hostnames: Optional[List[str]] = None   
+    isn: Optional[str] = None
+    asn: Optional[int] = None
     data_source_uid: Optional[str] = None
+    type: Optional[str] = None
     name: Optional[str] = None
+    potential_vulns: Optional[List[str]] = None 
+    mitigation: Optional[str] = None
+    server: Optional[str] = None
+    is_verified: Optional[bool] = None
+    banner: Optional[str] = None
+    version: Optional[str] = None
+    cpe: Optional[List[str]] = None
 
     class Config:
         """ShodanVulnsInsert schema config class."""

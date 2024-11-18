@@ -134,6 +134,19 @@ from home.models import (
     XpanseCveService,
     XpanseServices,
 )
+from dmz_mini_dl.models import(
+    Organization as MDL_Organization,
+    XpanseBusinessUnits as MDL_XpanseBusinessUnits,
+    XpanseAlerts as MDL_XpanseAlerts,
+    XpanseAssetsMdl as MDL_XpanseAssets,
+    XpanseServicesMdl as MDL_XpanseServices,
+    XpanseCvesMdl as MDL_XpanseCves,
+    XpanseCveServiceMdl as MDL_XpanseCveService,
+    ShodanAssets as MDL_ShodanAssets,
+    ShodanVulns as MDL_ShodanVulns,
+    DataSource as MDL_DataSource,
+
+)
 from jose import exceptions, jwt
 from redis import asyncio as aioredis
 from slowapi import Limiter
@@ -5705,7 +5718,7 @@ def cred_exp_intelx_insert(
     "/xpanse_business_unit_insert_or_update",
     dependencies=[Depends(get_api_key)],
     # response_model=Dict[schemas.PshttDataBase],
-    tags=["Update or insert CVE data from NIST"],
+    tags=["Update or insert Xpanse Business Unit"],
 )
 # @transaction.atomic
 def xpanse_business_unit_insert_or_update(
@@ -5718,21 +5731,58 @@ def xpanse_business_unit_insert_or_update(
         try:
             userapiTokenverify(theapiKey=tokens)
             LOGGER.info(f"The api key submitted {tokens}")
+            
+            mapped_org = None
+            mdl_mapped_org = None
+             #TODO: only for fceb for now, need to update for when we add more xpanse stakeholder
+            # match = re.search(r'\((.*?)\)', data.entity_name)
+            if data.cyhy_db_name is not None:
+                try:
+                    mapped_org = Organizations.objects.get(cyhy_db_name=data.cyhy_db_name)
+                except Organizations.DoesNotExist:
+                    mapped_org = None
+                try:
+                    mdl_mapped_org = MDL_Organization.objects.get(acronym=data.cyhy_db_name)
+                except MDL_Organization.DoesNotExist:
+                    mdl_mapped_org = None
+            defaults={
+                "state": data.state,
+                "county": data.county,
+                "city": data.city,
+                "sector": data.sector,
+                "entity_type": data.entity_type,
+                "region": data.region,
+                "rating": data.rating,
+                "cyhy_db_name": mapped_org
+            }
+
+            mdl_defaults={
+                "state": data.state,
+                "county": data.county,
+                "city": data.city,
+                "sector": data.sector,
+                "entity_type": data.entity_type,
+                "region": data.region,
+                "rating": data.rating,
+                "cyhy_db_name": mdl_mapped_org
+            }
+            # if mapped_org is not None:
+            #     defaults["cyhy_db_name"] = mapped_org
+            
+            (
+                mdl_business_unit_object,
+                mdl_created,
+            ) = MDL_XpanseBusinessUnits.objects.update_or_create(
+                entity_name=data.entity_name,
+                defaults=mdl_defaults,
+            )
 
             (
                 business_unit_object,
                 created,
             ) = XpanseBusinessUnits.objects.update_or_create(
                 entity_name=data.entity_name,
-                defaults={
-                    "state": data.state,
-                    "county": data.county,
-                    "city": data.city,
-                    "sector": data.sector,
-                    "entity_type": data.entity_type,
-                    "region": data.region,
-                    "rating": data.rating,
-                },
+                defaults=defaults
             )
             if created:
                 LOGGER.info(
@@ -5753,13 +5803,43 @@ def xpanse_business_unit_insert_or_update(
     else:
         return {"message": "No api key was submitted"}
 
+@api_router.get(
+    "/linked_xpanse_business_units",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    # response_model=List[schemas.OrganizationsFullTable],
+    tags=["Retrieve all Xpanse business units that link to an organization."],
+)
+def linked_xpanse_business_units(tokens: dict = Depends(get_api_key)):
+    """Call API endpoint to get Xpanse business unit that link to an organization."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            xpanse_business_units = list(
+                XpanseBusinessUnits.objects.filter(cyhy_db_name__isnull=False).values()
+            )
+            # Convert data types to match response model
+            for row in xpanse_business_units:
+                row["xpanse_business_unit_uid"] = convert_uuid_to_string(
+                    row["xpanse_business_unit_uid"]
+                )
+            return xpanse_business_units
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+    
 
 # --- xpanse endpoint, Issue 682 ---
 @api_router.put(
     "/xpanse_alert_insert_or_update",
     dependencies=[Depends(get_api_key)],
     # response_model=Dict[schemas.PshttDataBase],
-    tags=["Update or insert CVE data from NIST"],
+    tags=["Update or insert alert data from Xpanse"],
 )
 # @transaction.atomic
 def xpanse_alert_insert_or_update(
@@ -5775,9 +5855,7 @@ def xpanse_alert_insert_or_update(
             LOGGER.info("Got into Xpanse Alert insert")
 
             # vender_prod_dict = data.vender_product
-            alert_object, created = XpanseAlerts.objects.update_or_create(
-                alert_id=data.alert_id,
-                defaults={
+            alert_defaults = {
                     "time_pulled_from_xpanse": data.time_pulled_from_xpanse,
                     # "alert_id": data.alert_id,
                     "detection_timestamp": data.detection_timestamp,
@@ -5818,25 +5896,42 @@ def xpanse_alert_insert_or_update(
                     # business_units: Optional[List[str]] = None
                     # services: Optional[List[XpanseService]] = None
                     # assets : Optional[List[XpanseAsset]] = None
-                },
+                }
+            
+            # Create alerts in both databases
+            alert_object, created = XpanseAlerts.objects.update_or_create(
+                alert_id=data.alert_id,
+                defaults=alert_defaults,
             )
 
             if created:
                 LOGGER.info("new Xpanse alert record created for %s", data.alert_name)
 
+            mdl_alert_object, mdl_alert_created = MDL_XpanseAlerts.objects.update_or_create(
+                alert_id=data.alert_id,
+                defaults=alert_defaults,
+            )
+            if mdl_alert_created:
+                LOGGER.info("new Xpanse alert record created in MDL for %s", data.alert_name)
+                
+
             business_unit_list = []
+            mdl_business_unit_list = []
             for b_u in data.business_units:
                 business_unit_list.append(
                     XpanseBusinessUnits.objects.get(entity_name=b_u)
                 )
-
+                mdl_business_unit_list.append(
+                    MDL_XpanseBusinessUnits.objects.get(entity_name=b_u)
+                )
             alert_object.business_units.set(business_unit_list)
+            mdl_alert_object.business_units.set(mdl_business_unit_list)
+            
 
             asset_list = []
+            mdl_asset_list = []
             for asset_data in data.assets:
-                asset_object, created = XpanseAssets.objects.update_or_create(
-                    asm_id=asset_data.asm_id,
-                    defaults={
+                asset_defaults = {
                         "asset_name": asset_data.asset_name,
                         "asset_type": asset_data.asset_type,
                         "last_observed": asset_data.last_observed,
@@ -5863,17 +5958,25 @@ def xpanse_alert_insert_or_update(
                         "externally_inferred_cves": asset_data.externally_inferred_cves,
                         "explainers": asset_data.explainers,
                         "tags": asset_data.tags,
-                    },
+                    }
+                asset_object, created = XpanseAssets.objects.update_or_create(
+                    asm_id=asset_data.asm_id,
+                    defaults=asset_defaults,
                 )
                 asset_list.append(asset_object)
+                mdl_asset_object, mdl_asset_created = MDL_XpanseAssets.objects.update_or_create(
+                    asm_id=asset_data.asm_id,
+                    defaults=asset_defaults,
+                )
+                mdl_asset_list.append(mdl_asset_object)
 
             alert_object.assets.set(asset_list)
+            mdl_alert_object.assets.set(mdl_asset_list)
 
             services_list = []
+            mdl_services_list = []
             for service_data in data.services:
-                service_object, created = XpanseServices.objects.update_or_create(
-                    service_id=service_data.service_id,
-                    defaults={
+                service_defaults={
                         "service_name": service_data.service_name,
                         "service_type": service_data.service_type,
                         "ip_address": service_data.ip_address,
@@ -5891,30 +5994,35 @@ def xpanse_alert_insert_or_update(
                         "externally_inferred_cves": service_data.externally_inferred_cves,
                         "service_key": service_data.service_key,
                         "service_key_type": service_data.service_key_type,
-                    },
+                    }
+                service_object, created = XpanseServices.objects.update_or_create(
+                    service_id=service_data.service_id,
+                    defaults=service_defaults,
                 )
-                LOGGER.info(service_data)
+                mdl_service_object, mdl_service_created = MDL_XpanseServices.objects.update_or_create(
+                    service_id=service_data.service_id,
+                    defaults=service_defaults,
+                )
+                # LOGGER.info(service_data)
                 if service_data.cves is not None:
                     for cve_data, cve_match_data in service_data.cves:
                         LOGGER.info(cve_data)
                         LOGGER.info(cve_match_data)
-                        cve_object, created = XpanseCves.objects.update_or_create(
-                            cve_id=cve_data.cve_id,
-                            defaults={
+                        cve_defaults = {
                                 "cvss_score_v2": cve_data.cvss_score_v2,
                                 "cve_severity_v2": cve_data.cve_severity_v2,
                                 "cvss_score_v3": cve_data.cvss_score_v3,
                                 "cve_severity_v3": cve_data.cve_severity_v3,
-                            },
+                            }
+                        cve_object, created = XpanseCves.objects.update_or_create(
+                            cve_id=cve_data.cve_id,
+                            defaults=cve_defaults,
                         )
-
-                        (
-                            cve_match_object,
-                            created,
-                        ) = XpanseCveService.objects.update_or_create(
-                            xpanse_inferred_cve=cve_object,
-                            xpanse_service=service_object,
-                            defaults={
+                        mdl_cve_object, mdl_cve_created = MDL_XpanseCves.objects.update_or_create(
+                            cve_id=cve_data.cve_id,
+                            defaults=cve_defaults,
+                        )
+                        cve_service_default = {
                                 "inferred_cve_match_type": cve_match_data.inferred_cve_match_type,
                                 "product": cve_match_data.product,
                                 "confidence": cve_match_data.confidence,
@@ -5923,13 +6031,32 @@ def xpanse_alert_insert_or_update(
                                 "activity_status": cve_match_data.activity_status,
                                 "first_observed": cve_match_data.first_observed,
                                 "last_observed": cve_match_data.last_observed,
-                            },
+                            }
+                        (
+                            cve_match_object,
+                            created,
+                        ) = XpanseCveService.objects.update_or_create(
+                            xpanse_inferred_cve=cve_object,
+                            xpanse_service=service_object,
+                            defaults=cve_service_default,
+                        )
+                        (
+                            mdl_cve_match_object,
+                            mdl_cve_service_created,
+                        ) = MDL_XpanseCveService.objects.update_or_create(
+                            xpanse_inferred_cve=mdl_cve_object,
+                            xpanse_service=mdl_service_object,
+                            defaults=cve_service_default,
                         )
                     services_list.append(service_object)
+                    mdl_services_list.append(mdl_service_object)
 
             alert_object.services.set(services_list)
-
             alert_object.save()
+
+
+            mdl_alert_object.services.set(mdl_services_list)
+            mdl_alert_object.save()
 
             # for vender, product_list in vender_prod_dict.items():
 
@@ -6984,55 +7111,95 @@ def subdomains_by_org_uid(data: schemas.SubdomainsByOrgUIDInput, tokens: dict = 
     tags=["Insert Shodan data into the shodan_assets table."],
 )
 def shodan_assets_insert(
-    data: schemas.ShodanAssetsInsertInput, tokens: dict = Depends(get_api_key)
-):
+    data: schemas.ShodanAssetsInsertInput, tokens: dict = Depends(get_api_key)):
     """Insert Shodan data into the shodan_assets table using the API endpoint."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
             userapiTokenverify(theapiKey=tokens)
-            # If API key valid, insert intelx data
-            create_cnt = 0
-            for row in data.exp_data:
+            # If API key is valid, proceed with the operation
+            update_create_count = 0
+            for row in data.asset_data:
                 row_dict = row.__dict__
+
                 try:
-                    # Check if record already exists
-                    ShodanAssets.objects.get(
-                        organizations_uid=row_dict["organizations_uid"], 
-                        ip=row_dict["ip"], 
-                        port=row_dict["port"], 
-                        protocol=row_dict["protocol"], 
+                    org_instance = Organizations.objects.get(organizations_uid=row_dict["organizations_uid"])
+                    acronym = org_instance.acronym  # Assuming 'acronym' is a field in Organizations model
+                    # Assuming ExternalOrganizations is a model that matches organization acronym to an organization_id
+                    mdl_org = MDL_Organization.objects.get(acronym=acronym)
+                    try:
+                        mdl_data_source = MDL_DataSource.objects.get(name="Shodan")
+                    except DataSource.DoesNotExist:
+                        LOGGER.warning(f"DataSource with UID {row_dict['data_source_uid_id']} not found.")
+                        mdl_data_source = None  # Set to None if DataSource is not found
+                    
+                    mdl_asset_fields = {
+                        "asn": row_dict.get("asn"),
+                        "domains": row_dict.get("domains", []),
+                        "hostnames": row_dict.get("hostnames", []),
+                        "isn": row_dict.get("isn"),
+                        "organization_name": row_dict.get("organization"),
+                        "product": row_dict.get("product"),
+                        "tags": row_dict.get("tags", []),
+                        "country_code": row_dict.get("country_code"),
+                        "location": row_dict.get("location"),
+                        "data_source": mdl_data_source,
+                    }
+                    
+                    mdl_obj, created = MDL_ShodanAssets.objects.update_or_create(
+                        organization=mdl_org,  # Directly use organizations_uid
+                        ip=row_dict["ip"],
+                        port=row_dict["port"],
+                        protocol=row_dict["protocol"],
                         timestamp=row_dict["timestamp"],
+                        defaults=mdl_asset_fields
                     )
-                    # If record already exists, do nothing
-                except CredentialExposures.DoesNotExist:
-                    # If record doesn't exist yet, create one
-                    curr_org_inst = Organizations.objects.get(
-                        organizations_uid=row_dict["organizations_uid"]
+                except:
+                    LOGGER.warning(f"Shodan Asset failed to save to MDL.") 
+
+                try:
+                    # Prepare the fields that will be used for create or update (only non-unique fields here)
+                    asset_fields = {
+                        "asn": row_dict.get("asn"),
+                        "domains": row_dict.get("domains", []),
+                        "hostnames": row_dict.get("hostnames", []),
+                        "isn": row_dict.get("isn"),
+                        "organization": row_dict.get("organization"),
+                        "product": row_dict.get("product"),
+                        "tags": row_dict.get("tags", []),
+                        "country_code": row_dict.get("country_code"),
+                        "location": row_dict.get("location"),
+                        "data_source_uid": row_dict.get("data_source_uid"),
+                    }
+
+                    # Use 'update_or_create' to either create or update the record
+                    obj, created = ShodanAssets.objects.update_or_create(
+                        organizations_uid=row_dict["organizations_uid"],  # Directly use organizations_uid
+                        ip=row_dict["ip"],
+                        port=row_dict["port"],
+                        protocol=row_dict["protocol"],
+                        timestamp=row_dict["timestamp"],
+                        defaults=asset_fields
                     )
-                    ShodanAssets.objects.create(
-                        # Need to fill this out
-                        # credential_exposures_uid=uuid.uuid1(),
-                        email=row_dict["email"],
-                        organizations_uid=curr_org_inst,
-                        root_domain=row_dict["root_domain"],
-                        sub_domain=row_dict["sub_domain"],
-                        modified_date=row_dict["modified_date"],
-                        breach_name=row_dict["breach_name"],
-                        name=row_dict["name"],
-                    )
-                    create_cnt += 1
-            # Return success message
-            return (
-                str(create_cnt)
-                + " records created in the credential_exposures table"
-            )
+
+                    if created:
+                        update_create_count += 1
+                except:
+                    LOGGER.warning(f"Shodan Asset failed to save to PE DB.") 
+                    continue
+
+            # Return the success message with the count of created/updated records
+            return {"message": f"{update_create_count} records created/updated in the shodan_assets table."}
+
         except ObjectDoesNotExist:
-            LOGGER.info("API key expired please try again")
+            LOGGER.info("API key expired or invalid. Please try again.")
+            return {"message": "Invalid API key or expired. Please try again."}
+        except Exception as e:
+            LOGGER.error(f"Error: {str(e)}")
+            return {"message": "An error occurred while processing the request."}
     else:
-        return {"message": "No api key was submitted"}
-    
+        return {"message": "No API key was submitted."}
 
 # --- insert_shodan_vulns(), Issue 017 atc-framework ---
 @api_router.put(
@@ -7053,7 +7220,7 @@ def shodan_vulns_insert(
             userapiTokenverify(theapiKey=tokens)
             # If API key valid, insert intelx data
             create_cnt = 0
-            for row in data.exp_data:
+            for row in data.vuln_data:
                 row_dict = row.__dict__
                 try:
                     CredentialExposures.objects.get(
