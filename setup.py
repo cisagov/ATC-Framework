@@ -129,7 +129,7 @@ setup(
         "matplotlib == 3.3.4",
         "nested-lookup",
         "openpyxl",
-        "pandas == 1.1.5",
+        "pandas",
         "pdfkit",
         "psutil",
         "psycopg2-binary",
