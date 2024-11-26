@@ -2346,24 +2346,25 @@ class PeTeamMembers(models.Model):
 class ShodanAssets(models.Model):
     """Define ShodanAssets model."""
 
-    shodan_asset_uid = models.UUIDField(primary_key=True, default=uuid.uuid1())
+    shodan_asset_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     organization = models.ForeignKey(
-        Organization, on_delete=models.CASCADE, db_column="organization_uid"
+        Organization, on_delete=models.CASCADE, db_column="organization_uid", blank=True, null=True
     )
-    organization = models.TextField(blank=True, null=True)
+    # If you still need to store the organization name or acronym, use a separate field for that
+    organization_name = models.TextField(blank=True, null=True)  # New field to store the name or acronym
     ip = models.TextField(blank=True, null=True)
     port = models.IntegerField(blank=True, null=True)
     protocol = models.TextField(blank=True, null=True)
     timestamp = models.DateTimeField(blank=True, null=True)
     product = models.TextField(blank=True, null=True)
     server = models.TextField(blank=True, null=True)
-    tags = models.TextField(blank=True, null=True)  # This field type is a guess.
-    domains = models.TextField(blank=True, null=True)  # This field type is a guess.
-    hostnames = models.TextField(blank=True, null=True)  # This field type is a guess.
+    tags = models.JSONField(blank=True, null=True)  # Store tags as a list (JSON format)
+    domains = models.JSONField(blank=True, null=True)  # Store domains as a list (JSON format)
+    hostnames = models.JSONField(blank=True, null=True)  # Store hostnames as a list (JSON format)
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
     data_source = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
+        DataSource, on_delete=models.CASCADE, db_column="data_source_uid", blank=True, null=True
     )
     country_code = models.TextField(blank=True, null=True)
     location = models.TextField(blank=True, null=True)
@@ -2420,11 +2421,11 @@ class ShodanAssets(models.Model):
 class ShodanVulns(models.Model):
     """Define ShodanVulns model."""
 
-    shodan_vuln_uid = models.UUIDField(primary_key=True, default=uuid.uuid1())
+    shodan_vuln_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, db_column="organization_uid"
     )
-    organization = models.TextField(blank=True, null=True)
+    organization_name = models.TextField(blank=True, null=True)
     ip = models.TextField(blank=True, null=True)
     port = models.TextField(blank=True, null=True)
     protocol = models.TextField(blank=True, null=True)

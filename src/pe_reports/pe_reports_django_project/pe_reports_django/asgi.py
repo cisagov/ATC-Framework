@@ -8,9 +8,9 @@ https://docs.djangoproject.com/en/4.1/howto/deployment/asgi/
 """
 # Standard Python Libraries
 import os
-
-# Third-Party Libraries
-from dataAPI.views import api_router
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pe_reports_django.settings")
+import django
+django.setup()
 
 # Following 2 lines custom code
 from django.apps import apps
@@ -21,9 +21,10 @@ from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pe_reports_django.settings")
+# Third-Party Libraries
+from dataAPI.views import api_router
 
-application = get_wsgi_application()
+# application = get_wsgi_application()
 
 # Below this comment is custom code
 apps.populate(settings.INSTALLED_APPS)

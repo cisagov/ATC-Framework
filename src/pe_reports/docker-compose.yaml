@@ -1,16 +1,15 @@
----
-version: "3.8"
+version: "3.9"
 services:
-  pe_reports_rabbitmq:
-    container_name: pe_reports_rabbitmq
-    hostname: pe_reports_rabbitmq
+  atc_rabbitmq:
+    container_name: atc_rabbitmq
+    hostname: atc_rabbitmq
     image: rabbitmq:3.8.14-management
     restart: always
     ports:
-      - 15672:15672
-      - 5672:5672
+      - 15674:15672
+      - 5674:5672
     env_file:
-      - ../../src/pe_reports/pe_reports_django_project/.env
+      - ./pe_reports_django_project/.env
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
@@ -24,37 +23,70 @@ services:
       - LANGUAGE=C.UTF-8
       - LC_ALL=C.UTF-8
     volumes:
-      - /home/ubuntu/pe-reports/src/pe_reports/data/rabbitmq/data:/var/lib/rabbitmq/mnesia:rw
-      - /var/www/pe-reports/src/pe_reports/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./pe_reports_django_project/data/rabbitmq/data:/var/lib/rabbitmq/mnesia:rw
+      - ./pe_reports_django_project/config:/etc/rabbitmq:rw
     networks:
-      - pe_reports_rabbitmq_network
+      - atc_network
 
-  pe_reports_redis:
-    container_name: pe_reports_redis
-    hostname: pe_reports_redis
-    image: redis:latest
+  atc_redis:
+    container_name: atc_redis
+    hostname: atc_redis
+    image: redis:7.4.1
     restart: always
     ports:
-      - 6379:6379
+      - 6378:6379
     volumes:
-      - redis_data:/data
+      - ./pe_reports_django_project/redis_data:/data
     networks:
-      - pe_reports_redis_network
+      - atc_network
+
+  web:
+    build: .
+    container_name: atc_web
+    volumes:
+      - ./pe_reports_django_project:/code
+      - ./pe_reports_django_project/config:/code/config
+    ports:
+      - "8002:8000"
+    env_file:
+      - pe_reports_django_project/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE:pe_reports_django.settings
+    networks:
+      - atc_network
+    
+
 
   nginx:
     image: nginx:1.25.0
+    container_name: atc_nginx
     ports:
-      - "8089:8089"
+      - "8091:8091"
     volumes:
-      - ./config/nginx_config_conf.d:/etc/nginx/conf.d
-      - ./pe_reports_django_project/static:/var/www/pe-reports/static
-      - ./pe-reports:/var/www/pe-reports
+      - ./pe_reports_django_project/config/nginx_config_conf.d:/etc/nginx/conf.d
     networks:
-      - pe_reports_nginx_network
+      - atc_network
+    depends_on:
+      - web
+
+  # database:
+  #   image: postgres
+  #   restart: always
+  #   env_file:
+  #     - ./pe_reports_django_project/.env
+  #   networks:
+  #     - atc_network
+  #   volumes:
+  #     - ./pe_reports_django_project/postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - 5437:5432
+  #   container_name: atc_database
 
 networks:
-  pe_reports_network:
+  atc_network:
     driver: bridge
+
+
 
 volumes:
   redis_data: {}

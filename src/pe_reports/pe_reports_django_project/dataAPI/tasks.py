@@ -69,7 +69,7 @@ from pe_reports.helpers import ip_passthrough
 # Import schemas
 from . import schemas
 
-LOGGER = logginng.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 # ---------- Task Helper Functions ----------
 def convert_uuid_to_string(uuid):

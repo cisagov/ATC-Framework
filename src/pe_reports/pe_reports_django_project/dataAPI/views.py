@@ -105,6 +105,7 @@ from home.models import (
     ReportSummaryStats,
     RootDomains,
     ShodanAssets,
+    ShodanVulns,
     SubDomains,
     VwBreachcomp,
     VwBreachcompBreachdetails,
@@ -7170,7 +7171,7 @@ def shodan_assets_insert(
                         "tags": row_dict.get("tags", []),
                         "country_code": row_dict.get("country_code"),
                         "location": row_dict.get("location"),
-                        "data_source_uid": row_dict.get("data_source_uid"),
+                        "data_source_uid_id": row_dict.get("data_source_uid"),
                     }
 
                     # Use 'update_or_create' to either create or update the record
@@ -7223,39 +7224,111 @@ def shodan_vulns_insert(
             for row in data.vuln_data:
                 row_dict = row.__dict__
                 try:
-                    CredentialExposures.objects.get(
-                        breach_name=row_dict["breach_name"],
-                        email=row_dict["email"],
-                    )
-                    # If record already exists, do nothing
-                except CredentialExposures.DoesNotExist:
-                    # If record doesn't exist yet, create one
-                    curr_org_inst = Organizations.objects.get(
-                        organizations_uid=row_dict["organizations_uid"]
-                    )
-                    curr_source_inst = DataSource.objects.get(
-                        data_source_uid=row_dict["data_source_uid"]
-                    )
-                    curr_breach_inst = CredentialBreaches.objects.get(
-                        breach_name=row_dict["breach_name"],
-                    )
-                    CredentialExposures.objects.create(
-                        # credential_exposures_uid=uuid.uuid1(),
-                        email=row_dict["email"],
-                        organizations_uid=curr_org_inst,
-                        root_domain=row_dict["root_domain"],
-                        sub_domain=row_dict["sub_domain"],
-                        modified_date=row_dict["modified_date"],
-                        breach_name=row_dict["breach_name"],
-                        credential_breaches_uid=curr_breach_inst,
-                        data_source_uid=curr_source_inst,
-                        name=row_dict["name"],
-                    )
-                    create_cnt += 1
+                    org_instance = Organizations.objects.get(organizations_uid=row_dict["organizations_uid"])
+                    acronym = org_instance.acronym  # Assuming 'acronym' is a field in Organizations model
+                    # Assuming ExternalOrganizations is a model that matches organization acronym to an organization_id
+                    mdl_org = MDL_Organization.objects.get(acronym=acronym)
+                    try:
+                        mdl_data_source = MDL_DataSource.objects.get(name="Shodan")
+                    except DataSource.DoesNotExist:
+                        LOGGER.warning(f"DataSource with UID {row_dict['data_source_uid_id']} not found.")
+                        mdl_data_source = None  # Set to None if DataSource is not found
+
+                    mdl_vuln_data = {
+                        "organization_name": row_dict.get("organization"),
+                        "cve": row_dict.get("cve"),
+                        "severity": row_dict.get("severity"),
+                        "cvss": row_dict.get("cvss"),
+                        "summary": row_dict.get("summary"),
+                        "product": row_dict.get("product"),
+                        "attack_vector": row_dict.get("attack_vector"),
+                        "av_description": row_dict.get("av_description"),
+                        "attack_complexity": row_dict.get("attack_complexity"),
+                        "ac_description": row_dict.get("ac_description"),
+                        "confidentiality_impact": row_dict.get("confidentiality_impact"),
+                        "ci_description": row_dict.get("ci_description"),
+                        "integrity_impact": row_dict.get("integrity_impact"),
+                        "ii_description": row_dict.get("ii_description"),
+                        "availability_impact": row_dict.get("availability_impact"),
+                        "ai_description": row_dict.get("ai_description"),
+                        "tags": row_dict.get("tags"),
+                        "domains": row_dict.get("domains"),
+                        "hostnames": row_dict.get("hostnames"),
+                        "isn": row_dict.get("isn"),
+                        "asn": row_dict.get("asn"),
+                        "data_source": mdl_data_source,
+                        "type": row_dict.get("type"),
+                        "name": row_dict.get("name"),
+                        "potential_vulns": row_dict.get("potential_vulns"),
+                        "mitigation": row_dict.get("mitigation"),
+                        "server": row_dict.get("server"),
+                        "is_verified": row_dict.get("is_verified"),
+                        "banner": row_dict.get("banner"),
+                        "version": row_dict.get("version"),
+                        "cpe": row_dict.get("cpe")
+                    }
+
+                    mdl_obj, created = MDL_ShodanVulns.objects.update_or_create(
+                        organization=mdl_org,  # Directly use organizations_uid
+                        ip=row_dict["ip"],
+                        port=row_dict["port"],
+                        protocol=row_dict["protocol"],
+                        timestamp=row_dict["timestamp"],
+                        defaults=mdl_vuln_data)
+                except:
+                    LOGGER.warning(f"Shodan Vuln failed to save to MDL.") 
+                    
+                try:
+                    vuln_data = {
+                        "organization": row_dict.get("organization"),
+                        "cve": row_dict.get("cve"),
+                        "severity": row_dict.get("severity"),
+                        "cvss": row_dict.get("cvss"),
+                        "summary": row_dict.get("summary"),
+                        "product": row_dict.get("product"),
+                        "attack_vector": row_dict.get("attack_vector"),
+                        "av_description": row_dict.get("av_description"),
+                        "attack_complexity": row_dict.get("attack_complexity"),
+                        "ac_description": row_dict.get("ac_description"),
+                        "confidentiality_impact": row_dict.get("confidentiality_impact"),
+                        "ci_description": row_dict.get("ci_description"),
+                        "integrity_impact": row_dict.get("integrity_impact"),
+                        "ii_description": row_dict.get("ii_description"),
+                        "availability_impact": row_dict.get("availability_impact"),
+                        "ai_description": row_dict.get("ai_description"),
+                        "tags": row_dict.get("tags"),
+                        "domains": row_dict.get("domains"),
+                        "hostnames": row_dict.get("hostnames"),
+                        "isn": row_dict.get("isn"),
+                        "asn": row_dict.get("asn"),
+                        "data_source_uid_id": row_dict.get("data_source_uid"),
+                        "type": row_dict.get("type"),
+                        "name": row_dict.get("name"),
+                        "potential_vulns": row_dict.get("potential_vulns"),
+                        "mitigation": row_dict.get("mitigation"),
+                        "server": row_dict.get("server"),
+                        "is_verified": row_dict.get("is_verified"),
+                        "banner": row_dict.get("banner"),
+                        "version": row_dict.get("version"),
+                        "cpe": row_dict.get("cpe")
+                    }
+
+                    obj, created = MDL_ShodanVulns.objects.update_or_create(
+                        organizations_uid=org_instance,  # Directly use organizations_uid
+                        ip=row_dict["ip"],
+                        port=row_dict["port"],
+                        protocol=row_dict["protocol"],
+                        timestamp=row_dict["timestamp"],
+                        defaults=vuln_data)
+                    if created:
+                        create_cnt+=1
+                except:
+                    LOGGER.warning(f"Shodan Vuln failed to save to PE DB.") 
+                    continue
             # Return success message
             return (
                 str(create_cnt)
-                + " records created in the credential_exposures table"
+                + " records created in the shodan vulns table"
             )
         except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
