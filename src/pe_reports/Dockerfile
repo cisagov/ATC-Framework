@@ -33,7 +33,6 @@ WORKDIR /code
 # Install dependencies
 COPY --chown=atc_api:atc_api ./pe_reports_django_project/pe_reports_django/requirements.txt /code/
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --upgrade numpy spacy
 # Copy the project code
 COPY --chown=atc_api:atc_api pe_reports_django_project /code
 
@@ -45,5 +44,4 @@ ENV DJANGO_SETTINGS_MODULE=pe_reports_django.settings
 
 # Run the application
 CMD uvicorn --workers 4 pe_reports_django.asgi:app1 --host 0.0.0.0 --port 8000 --reload
-
 

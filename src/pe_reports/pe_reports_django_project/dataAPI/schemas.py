@@ -19,6 +19,13 @@ will error and not be able to report on its data type. In these scenario's use
 the data type "Any" to see what the return is.
 """
 
+class GenInputOrgName(BaseModel):    
+    """GenInputOrgUIDList schema class."""    
+    org_acronym: str    
+    class Config:        
+        """GenInputOrgUIDList config."""        
+        orm_mode = True
+
 
 class OrgType(BaseModel):
     """OrgType schema."""

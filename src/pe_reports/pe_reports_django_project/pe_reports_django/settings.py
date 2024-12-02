@@ -196,7 +196,7 @@ DATABASE_ROUTERS = ['pe_reports_django.db_routers.MyAppRouter']
 CELERY_BROKER_URL = (
     f"amqp://{config('RABBITMQ_USER')}:{config('RABBITMQ_PASS')}@localhost:5672/"
 )
-CELERY_RESULT_BACKEND = "redis://atc_redis:6379"
+CELERY_RESULT_BACKEND = "redis://localhost:6379"
 CELERY_RESULT_EXPIRES = 86400
 CELERY_BEAT_SCHEDULE_FILENAME = os.path.join(BASE_DIR, "celerybeat-schedule.db")
 

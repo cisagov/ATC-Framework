@@ -76,7 +76,7 @@ MAILER_ARN = os.environ.get("MAILER_ARN")
 
 def getUserKey():
     """Get a users API key."""
-    urlIDs = "http://127.0.0.1:8089/apiv1/get_key"
+    urlIDs = "http://127.0.0.1:8091/apiv1/get_key"
     payload = json.dumps({"refresh_token": f'{config("USER_REFRESH_TOKEN")}'})
     headers = {
         "Content-Type": "application/json",
