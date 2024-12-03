@@ -833,7 +833,10 @@ def sqs_query_roots(conn, org_id):
             ON r.organizations_uid = o.organizations_uid
         WHERE
             o.organizations_uid = '{org_id}'
-        """
+            AND
+            r.enumerate_subs = True
+        """ 
+    # *** enumerate_subs = True is important!
     df = pd.read_sql(sql, conn)
     return df
 
@@ -846,25 +849,25 @@ def sqs_identify_ip_changes(staging, org_id):
         conn = pe_db_connect()
     # Execute queries
     cursor = conn.cursor()
-    LOGGER.info("Marking IPs as current if seen within the last 3 days")
+    LOGGER.info("Marking IPs as current if seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE ips
         SET current = True
         WHERE 
-            last_seen > (CURRENT_DATE - INTERVAL '3 days')
+            last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
             organizations_uid = '{org_id}'
         """
     )
     conn.commit()
-    LOGGER.info("Marking IPs as not current if not seen within the last 3 days")
+    LOGGER.info("Marking IPs as not current if not seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE ips
         SET current = False
         WHERE 
-            (last_seen < (CURRENT_DATE - INTERVAL '3 days') or last_seen isnull)
+            (last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull)
             AND
             organizations_uid = '{org_id}'
         """
@@ -883,7 +886,7 @@ def sqs_identify_sub_changes(staging, org_id):
         conn = pe_db_connect()
     # Execute queries
     cursor = conn.cursor()
-    LOGGER.info("Marking subdomains as current if seen within the last 3 days")
+    LOGGER.info("Marking subdomains as current if seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE 
@@ -895,13 +898,13 @@ def sqs_identify_sub_changes(staging, org_id):
         WHERE 
             sd.root_domain_uid = rd.root_domain_uid
             AND
-            last_seen > (CURRENT_DATE - INTERVAL '3 days')
+            last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
             organizations_uid = '{org_id}'
         """
     )
     conn.commit()
-    LOGGER.info("Marking subdomains as not current if not seen within the last 3 days")
+    LOGGER.info("Marking subdomains as not current if not seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE 
@@ -913,7 +916,7 @@ def sqs_identify_sub_changes(staging, org_id):
         WHERE 
             sd.root_domain_uid = rd.root_domain_uid
             AND
-            (last_seen < (CURRENT_DATE - INTERVAL '3 days') or last_seen isnull)
+            (last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull)
             AND
             organizations_uid = '{org_id}'
         """
@@ -932,7 +935,7 @@ def sqs_identify_ip_sub_changes(staging, org_id):
         conn = pe_db_connect()
     # Execute queries
     cursor = conn.cursor()
-    LOGGER.info("Marking IPs-subs as current if seen within the last 3 days")
+    LOGGER.info("Marking IPs-subs as current if seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE 
@@ -944,13 +947,13 @@ def sqs_identify_ip_sub_changes(staging, org_id):
         WHERE 
             ips_subs.ip_hash = ips.ip_hash
             AND
-            ips_subs.last_seen > (CURRENT_DATE - INTERVAL '3 days')
+            ips_subs.last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
             ips.organizations_uid = '{org_id}'
         """
     )
     conn.commit()
-    LOGGER.info("Marking IPs-subs as not current if not seen within the last 3 days")
+    LOGGER.info("Marking IPs-subs as not current if not seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE 
@@ -962,7 +965,7 @@ def sqs_identify_ip_sub_changes(staging, org_id):
         WHERE 
             ips_subs.ip_hash = ips.ip_hash
             AND
-            (ips_subs.last_seen < (CURRENT_DATE - INTERVAL '3 days') or ips_subs.last_seen isnull)
+            (ips_subs.last_seen < (CURRENT_DATE - INTERVAL '15 days') or ips_subs.last_seen isnull)
             AND
             ips.organizations_uid = '{org_id}'
         """
