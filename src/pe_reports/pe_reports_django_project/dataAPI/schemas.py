@@ -19,13 +19,6 @@ will error and not be able to report on its data type. In these scenario's use
 the data type "Any" to see what the return is.
 """
 
-class GenInputOrgName(BaseModel):    
-    """GenInputOrgUIDList schema class."""    
-    org_acronym: str    
-    class Config:        
-        """GenInputOrgUIDList config."""        
-        orm_mode = True
-
 
 class OrgType(BaseModel):
     """OrgType schema."""
@@ -34,6 +27,17 @@ class OrgType(BaseModel):
 
     class Config:
         """OrgType schema configuration."""
+
+        orm_mode = True
+
+
+class GenInputOrgName(BaseModel):
+    """GenInputOrgUIDList schema class."""
+
+    org_acronym: str
+
+    class Config:
+        """GenInputOrgUIDList config."""
 
         orm_mode = True
 
@@ -3046,7 +3050,7 @@ class XpanseBusinessUnitsInsert(BaseModel):
     entity_type: Optional[str] = None
     region: Optional[str] = None
     rating: Optional[int] = None
-    cyhy_db_name: Optional[str] = None  
+    cyhy_db_name: Optional[str] = None
 
 
 # --- xpanse endpoint, Issue 682 ---
@@ -3669,7 +3673,7 @@ class OrganizationsFullTable(BaseModel):
 
     class Config:
         """OrganizationsFullTable schema config class."""
-        
+
         orm_mode = True
 
 
@@ -3766,7 +3770,6 @@ class RootDomainsTable(BaseModel):
         orm_mode = True
 
 
-
 # --- domain_permu_insert_dnstwist(), Issue 706 pe-reports/005 atc-framework ---
 # Insert multiple dnstwist records into the domain_permutations table
 class DomainPermuInsertDNSTwist(BaseModel):
@@ -3810,12 +3813,12 @@ class DomainPermuInsertDNSTwistInput(BaseModel):
 
 # --- get_root_domains(), Issue 707 pe-reports/006 atc-framework ---
 # This function will reuse the schemas from the /rootdomains_by_org_uid endpoint
-    
+
 
 # --- getDataSource(), Issue 708 pe-reports/007 atc-framework ---
 # This function will reuse the schemas from the /data_source_by_name endpoint
 
-        
+
 # --- execute_hibp_breach_values(), Issue 709 pe-reports/008 atc-framework ---
 # Insert bulk HIBP breach data into credential_breaches table
 class CredBreachesHIBPInsert(BaseModel):
@@ -3887,7 +3890,7 @@ class CredExpHIBPInsertInput(BaseModel):
         """CredExpHIBPInsertInput schema config class."""
 
         orm_mode = True
-    
+
 
 # --- get_breach_uids(), Issue 010 atc-framework ---
 # Retrieve all breach names and uids
@@ -3905,7 +3908,7 @@ class BreachUIDs(BaseModel):
 
 # --- query_orgs(), Issue 011 atc-framework ---
 # Reuses OrganizationsFullTable schema
-        
+
 
 # --- query_PE_subs(), Issue 012 atc-framework ---
 class SubdomainsByOrgUIDInput(BaseModel):
@@ -3930,7 +3933,7 @@ class SubdomainsByOrgUID(BaseModel):
         """SubdomainsByOrgUID schema config class."""
 
         orm_mode = True
-        
+
 
 # --- insert_shodan_assets(), Issue 016 atc-framework ---
 # Insert bulk Shodan data into shodan_assets table
@@ -3977,37 +3980,36 @@ class ShodanAssetsInsertInput(BaseModel):
 class ShodanVulnsInsert(BaseModel):
     """ShodanVulnsInsert schema class."""
 
-    
-    organizations_uid:Optional[str]  = None
-    organization:Optional[str]  = None
-    ip:Optional[str]  = None
-    port:Optional[str]  = None
-    protocol:Optional[str]  = None
-    timestamp:Optional[str] = None
-    cve:Optional[str] = None
-    severity:Optional[str] = None
-    cvss:Optional[float] = None
-    summary:Optional[str] = None
-    product:Optional[str] = None
-    attack_vector:Optional[str] = None
-    av_description:Optional[str] = None
-    attack_complexity:Optional[str] = None
-    ac_description:Optional[str] = None
-    confidentiality_impact:Optional[str] = None
-    ci_description:Optional[str] = None
-    integrity_impact:Optional[str] = None
+    organizations_uid: Optional[str] = None
+    organization: Optional[str] = None
+    ip: Optional[str] = None
+    port: Optional[str] = None
+    protocol: Optional[str] = None
+    timestamp: Optional[str] = None
+    cve: Optional[str] = None
+    severity: Optional[str] = None
+    cvss: Optional[float] = None
+    summary: Optional[str] = None
+    product: Optional[str] = None
+    attack_vector: Optional[str] = None
+    av_description: Optional[str] = None
+    attack_complexity: Optional[str] = None
+    ac_description: Optional[str] = None
+    confidentiality_impact: Optional[str] = None
+    ci_description: Optional[str] = None
+    integrity_impact: Optional[str] = None
     ii_description: Optional[str] = None
     availability_impact: Optional[str] = None
     ai_description: Optional[str] = None
     tags: Optional[List[str]] = None
     domains: Optional[List[str]] = None
-    hostnames: Optional[List[str]] = None   
+    hostnames: Optional[List[str]] = None
     isn: Optional[str] = None
     asn: Optional[int] = None
     data_source_uid: Optional[str] = None
     type: Optional[str] = None
     name: Optional[str] = None
-    potential_vulns: Optional[List[str]] = None 
+    potential_vulns: Optional[List[str]] = None
     mitigation: Optional[str] = None
     server: Optional[str] = None
     is_verified: Optional[bool] = None
@@ -4026,7 +4028,7 @@ class ShodanVulnsInsert(BaseModel):
 class ShodanVulnsInsertInput(BaseModel):
     """ShodanVulnsInsertInput schema class."""
 
-    vulns_data: List[ShodanVulnsInsert]
+    vuln_data: List[ShodanVulnsInsert]
 
     class Config:
         """ShodanVulnsInsertInput schema config class."""
@@ -4036,6 +4038,7 @@ class ShodanVulnsInsertInput(BaseModel):
 
 # --- get_demo_orgs(), Issue 018 atc-framework ---
 # Reuses OrganizationsFullTable schema
+
 
 class OrgsAssetsPagedInput(BaseModel):
     """OrgsAssetsPagedInput schema class."""
@@ -4048,9 +4051,10 @@ class OrgsAssetsPagedInput(BaseModel):
 
         orm_mode = True
 
+
 class OrgsWithAssets(BaseModel):
     """OrgsWithAssets schema class."""
-    
+
     org_name: Optional[str] = None
     acronym: Optional[str] = None
     retired: Optional[bool] = None
@@ -4073,7 +4077,6 @@ class OrgsWithAssets(BaseModel):
     parent_acronym: Optional[str] = None
     networks: Optional[List[str]] = None
     root_domains: Optional[List[str]] = None
-    
 
     class Config:
         """OrgsWithAssets schema config class."""
@@ -4081,13 +4084,14 @@ class OrgsWithAssets(BaseModel):
         orm_mode = True
         validate_assignment = True
 
-        
+
 class OrgAssetPagedResult(BaseModel):
     """OrgAssetPagedResult schema class."""
 
     total_pages: int
     current_page: int
     data: List[OrgsWithAssets]
+
 
 class OrgAssetTaskResp(BaseModel):
     """OrgAssetTaskResp schema class."""

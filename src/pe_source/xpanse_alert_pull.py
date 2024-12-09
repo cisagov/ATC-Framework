@@ -19,31 +19,35 @@ Options:
 """
 
 # Standard Python Libraries
-import csv
 import datetime
 import json
 import logging
-import sys
-from typing import Any, Dict
+import time
 
 # Third-Party Libraries
-from _version import __version__
-from data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
+# import docopt
+import pytz
+import requests
+
+# cisagov Libraries
+# import pe_reports
+from pe_reports.data.config import staging_config
+
+# from _version import __version__
+from .data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
     api_xpanse_alert_insert,
     get_linked_xpanse_business_units,
 )
-import docopt
-import pytz
-import requests
-from schema import And, Or, Schema, SchemaError, Use
 
-# cisagov Libraries
-import pe_reports
-from pe_reports.data.config import staging_config
+# import sys
+# from typing import Any, Dict
+
+
+# from schema import And, Or, Schema, SchemaError, Use
+
 
 API_DIC = staging_config(section="xpanse")
 xpanse_url = "https://api-cisa-xpanse.crtx.gv.paloaltonetworks.com/public_api/"
-# "https://api-cisa.crtx.federal.paloaltonetworks.com/public_api/"
 api_key = API_DIC.get("api_key")
 auth_id = API_DIC.get("auth_id")
 
@@ -80,16 +84,12 @@ LOGGER = logging.getLogger(__name__)
 def pull_alerts_data(linked_org_list, business_units_list=[]):
     """Pull alerts data from the Xpanse API."""
     url = xpanse_url + "v2/alerts/get_alerts_multi_events"
-    
+
     if len(business_units_list) == 0:
-        business_units_list = list(map(lambda d: d['entity_name'], linked_org_list))
+        business_units_list = list(map(lambda d: d["entity_name"], linked_org_list))
 
     for org in business_units_list:
-        request_data = {
-            "use_page_token": True,
-            "search_from":0,
-            "search_to": 5000,
-        }
+        request_data = {"use_page_token": True, "search_from": 0, "search_to": 5000}
         filters = []
         LOGGER.info("Running Xpanse alert pull on %s", org)
         filters.append(
@@ -115,6 +115,7 @@ def pull_alerts_data(linked_org_list, business_units_list=[]):
         try:
             response = requests.request("POST", url, headers=headers, data=payload)
             resp_dict = response.json()
+            print(resp_dict)
 
             page_token = resp_dict["reply"]["next_page_token"]
             LOGGER.info(
@@ -122,7 +123,7 @@ def pull_alerts_data(linked_org_list, business_units_list=[]):
             )
 
             formatted_alerts = format_alerts(resp_dict["reply"]["alerts"])
-            
+
             for alert in formatted_alerts:
                 api_xpanse_alert_insert(alert)
 
@@ -140,6 +141,7 @@ def pull_alerts_data(linked_org_list, business_units_list=[]):
                 for alert in formatted_alerts:
                     api_xpanse_alert_insert(alert)
 
+            LOGGER.info("Done Xpanse alert pull on %s", org)
         except Exception as e:
             LOGGER.error("Error querying assets for %s: %s.", org, e)
 
@@ -183,7 +185,7 @@ def pull_alerts_data(linked_org_list, business_units_list=[]):
 #         "tags": asset.get("tags", None),
 #     }
 
-    # return asset_dict
+# return asset_dict
 
 
 def format_alerts(alerts):
@@ -192,9 +194,9 @@ def format_alerts(alerts):
     service_ids = []
     for alert in alerts:
         try:
-            service_ids += alert.get('service_ids', []) 
-            alert_services_dict[alert['alert_id']] = alert.get('service_ids', [])
-        except:
+            service_ids += alert.get("service_ids", [])
+            alert_services_dict[alert["alert_id"]] = alert.get("service_ids", [])
+        except Exception:
             continue
 
     services = []
@@ -206,7 +208,7 @@ def format_alerts(alerts):
 
         for service_chunk in service_id_chunks:
             max_retries = 3
-            retry_delay = 5 
+            retry_delay = 5
             for retry_count in range(max_retries):
                 try:
                     service_response = pull_service_data(service_chunk)
@@ -223,7 +225,6 @@ def format_alerts(alerts):
                     else:
                         # If it's the last retry, set it to None and it will skip to the next chunk
                         service_response = None
-                        
 
             if service_response is None:
                 continue
@@ -264,15 +265,9 @@ def format_alerts(alerts):
                                     "version_number": cve["inferredCve"][
                                         "inferredCveMatchMetadata"
                                     ].get("version", None),
-                                    "activity_status": cve.get(
-                                        "activityStatus", None
-                                    ),
-                                    "first_observed": cve.get(
-                                        "firstObserved", None
-                                    ),
-                                    "last_observed": cve.get(
-                                        "lastObserved", None
-                                    ),
+                                    "activity_status": cve.get("activityStatus", None),
+                                    "first_observed": cve.get("firstObserved", None),
+                                    "last_observed": cve.get("lastObserved", None),
                                 },
                             )
                         )
@@ -331,11 +326,11 @@ def format_alerts(alerts):
                 if tag.startswith("BU:"):
                     business_units_list.append(tag[3:].strip())
                     # print(business_units_list)
-        except:
+        except Exception:
             business_units_list = []
-            
+
         assets = []
-        ##Uncomment to track assets
+        # #Uncomment to track assets
         # asset_ids = alert["asset_ids"]
         # if asset_ids is not None:
         #     asset_id_chunks = [
@@ -348,15 +343,18 @@ def format_alerts(alerts):
         current_services = []
         try:
             for service in alert.get("service_ids", []):
-                service_identified = next((d for d in services if d.get('service_id') == service), None) 
+                service_identified = next(
+                    (d for d in services if d.get("service_id") == service), None
+                )
                 if service_identified:
-                    current_services.append(service_identified) 
-        except:
+                    current_services.append(service_identified)
+        except Exception:
             pass
 
-
         alert_dict = {
-            "time_pulled_from_xpanse": datetime.datetime.utcnow().replace(tzinfo=pytz.utc),
+            "time_pulled_from_xpanse": datetime.datetime.utcnow().replace(
+                tzinfo=pytz.utc
+            ),
             "alert_id": alert.get("alert_id", None),
             "detection_timestamp": alert.get("detection_timestamp", None),
             "alert_name": alert.get("name", None),
@@ -393,8 +391,10 @@ def format_alerts(alerts):
             "matching_status": alert.get("matching_status", None),
             # end_match_attempt_ts ??? null,
             "local_insert_ts": alert.get("local_insert_ts", None),
-            "last_modified_ts": alert.get("last_modified_ts") if alert.get("last_modified_ts") is not None else alert.get("local_insert_ts", None),
-            "case_id": alert.get("case_id", None),  
+            "last_modified_ts": alert.get("last_modified_ts")
+            if alert.get("last_modified_ts") is not None
+            else alert.get("local_insert_ts", None),
+            "case_id": alert.get("case_id", None),
             # deduplicate_tokens ??? null,
             # filter_rule_id ??? null,
             # event_id ??? null,
@@ -453,6 +453,7 @@ def format_alerts(alerts):
         alert_list.append(alert_dict)
     return alert_list
 
+
 def pull_service_data(service_id_list):
     """Pull service info from the Xpanse API using a service_id."""
     url = xpanse_url + "v1/assets/get_external_service"
@@ -481,75 +482,8 @@ def run_xpanse_scans(last_modified, orgs_list):
         orgs_list = []
 
     linked_org_list = get_linked_xpanse_business_units()
-    
+
     pull_alerts_data(linked_org_list, orgs_list)
     # api_pull_xpanse_vulns(orgs_list[0], datetime.datetime(2023, 10, 10, 1, 00))
 
     return 1
-
-
-def main():
-    """Launch Xpanse scans."""
-    args: Dict[str, str] = docopt.docopt(__doc__, version=__version__)
-
-    schema: Schema = Schema(
-        {
-            "--log-level": And(
-                str,
-                Use(str.lower),
-                lambda n: n in ("debug", "info", "warning", "error", "critical"),
-                error="Possible values for --log-level are "
-                + "debug, info, warning, error, and critical.",
-            ),
-            str: object,  # Don't care about other keys, if any
-        }
-    )
-
-    try:
-        validated_args: Dict[str, Any] = schema.validate(args)
-    except SchemaError as err:
-        # Exit because one or more of the arguments were invalid
-        print(err, file=sys.stderr)
-        sys.exit(1)
-
-    # Assign validated arguments to variables
-    log_level: str = validated_args["--log-level"]
-
-    # Set up logging
-    logging.basicConfig(
-        filename=pe_reports.CENTRAL_LOGGING_FILE,
-        filemode="a",
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%m/%d/%Y %I:%M:%S",
-        level=log_level.upper(),
-    )
-
-    run_xpanse_scans(
-        validated_args["--last_modified"],
-        validated_args["--orgs"],
-    )
-
-def print_start_time():
-    global start_time
-    start_time = datetime.datetime.now()
-    print(f"Script started at: {start_time}")
-
-# Function to print the end time and calculate duration
-def print_end_time():
-    end_time = datetime.datetime.now()
-    print(f"Script ended at: {end_time}")
-
-    # Calculate duration
-    duration = end_time - start_time
-
-    # Convert duration to hours, minutes, seconds
-    hours, remainder = divmod(duration.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-
-    print(f"Script took {hours} hours, {minutes} minutes, and {seconds} seconds to run.")
-
-
-if __name__ == "__main__":
-    print_start_time()
-    main()
-    print_end_time()

@@ -731,7 +731,7 @@ class IpsSubs(models.Model):
         """Set IpsSubs model metadata."""
 
         managed = False
-        # db_table = 'ips_subs'
+        db_table = "ips_subs"
         unique_together = (("ip_hash", "sub_domain_uid"),)
 
 
@@ -1049,7 +1049,7 @@ class TeamMembers(models.Model):
 class ShodanAssets(models.Model):
     """Define ShodanAssets model."""
 
-    shodan_asset_uid = models.UUIDField(primary_key=True, default=uuid.uuid1())
+    shodan_asset_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     organizations_uid = models.ForeignKey(
         Organizations, on_delete=models.CASCADE, db_column="organizations_uid"
     )
@@ -1060,9 +1060,11 @@ class ShodanAssets(models.Model):
     timestamp = models.DateTimeField(blank=True, null=True)
     product = models.TextField(blank=True, null=True)
     server = models.TextField(blank=True, null=True)
-    tags = models.TextField(blank=True, null=True)  # This field type is a guess.
-    domains = models.TextField(blank=True, null=True)  # This field type is a guess.
-    hostnames = models.TextField(blank=True, null=True)  # This field type is a guess.
+    tags = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
+    domains = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
+    hostnames = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
     data_source_uid = models.ForeignKey(
@@ -1084,7 +1086,7 @@ class ShodanAssets(models.Model):
 class ShodanInsecureProtocolsUnverifiedVulns(models.Model):
     """Define ShodanInsecureProtocolsUnverifiedVulns model."""
 
-    insecure_product_uid = models.UUIDField(primary_key=True, default=uuid.uuid1())
+    insecure_product_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     organizations_uid = models.ForeignKey(
         Organizations, on_delete=models.CASCADE, db_column="organizations_uid"
     )
@@ -1123,7 +1125,7 @@ class ShodanInsecureProtocolsUnverifiedVulns(models.Model):
 class ShodanVulns(models.Model):
     """Define ShodanVulns model."""
 
-    shodan_vuln_uid = models.UUIDField(primary_key=True, default=uuid.uuid1())
+    shodan_vuln_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     organizations_uid = models.ForeignKey(
         Organizations, on_delete=models.CASCADE, db_column="organizations_uid"
     )
@@ -1149,9 +1151,11 @@ class ShodanVulns(models.Model):
     ii_description = models.TextField(blank=True, null=True)
     availability_impact = models.TextField(blank=True, null=True)
     ai_description = models.TextField(blank=True, null=True)
-    tags = models.TextField(blank=True, null=True)  # This field type is a guess.
-    domains = models.TextField(blank=True, null=True)  # This field type is a guess.
-    hostnames = models.TextField(blank=True, null=True)  # This field type is a guess.
+    tags = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
+    domains = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
+    hostnames = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
     data_source_uid = models.ForeignKey(
@@ -1159,18 +1163,16 @@ class ShodanVulns(models.Model):
     )
     type = models.TextField(blank=True, null=True)
     name = models.TextField(blank=True, null=True)
-    potential_vulns = models.TextField(
-        blank=True, null=True
-    )  # This field type is a guess.
+    potential_vulns = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
     mitigation = models.TextField(blank=True, null=True)
     server = models.TextField(blank=True, null=True)
     is_verified = models.BooleanField(blank=True, null=True)
     banner = models.TextField(blank=True, null=True)
     version = models.TextField(blank=True, null=True)
     mitigation = models.TextField(blank=True, null=True)
-    cpe = ArrayField(
-        models.TextField(blank=True, null=True), blank=True, null=True
-    )
+    cpe = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
 
     class Meta:
         """Set ShodanVulns model metadata."""
@@ -1447,9 +1449,7 @@ class VwShodanvulnsVerified(models.Model):
     data_source = models.TextField(blank=True, null=True)
     banner = models.TextField(blank=True, null=True)
     version = models.TextField(blank=True, null=True)
-    cpe = ArrayField(
-        models.TextField(blank=True, null=True), blank=True, null=True
-    )
+    cpe = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
 
     class Meta:
         """Set VwShodanvulnsVerified model metadata."""
@@ -2116,6 +2116,12 @@ class XpanseBusinessUnits(models.Model):
 
     xpanse_business_unit_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     entity_name = models.TextField(unique=True, blank=True, null=True)
+    cyhy_db_name = models.ForeignKey(
+        "Organizations",
+        on_delete=models.CASCADE,
+        db_column="cyhy_db_name",
+        to_field="cyhy_db_name",
+    )
     state = models.TextField(blank=True, null=True)
     county = models.TextField(blank=True, null=True)
     city = models.TextField(blank=True, null=True)
@@ -2464,28 +2470,30 @@ class CpeProduct(models.Model):
 """
 -- WARNING: It may differ from actual native database DDL
 CREATE TABLE information_schema.was_findings (
-	finding_uid uuid NOT NULL,
-	finding_type varchar(10485760) NULL,
-	webapp_id int4 NULL,
-	was_org_id text NULL,
-	owasp_category varchar(10485760) NULL,
-	severity varchar(10485760) NULL,
-	times_detected int4 NULL,
-	base_score float8 NULL,
-	temporal_score float8 NULL,
-	fstatus varchar(10485760) NULL,
-	last_detected date NULL,
-	first_detected date NULL,
-	is_remidiated bool NULL,
-	potential bool NULL,
-	webapp_url text NULL,
-	webapp_name text NULL,
-	"name" text NULL,
-	cvss_v3_attack_vector text NULL,
-	cwe_list _int4 NULL,
-	wasc_list jsonb NULL
+    finding_uid uuid NOT NULL,
+    finding_type varchar(10485760) NULL,
+    webapp_id int4 NULL,
+    was_org_id text NULL,
+    owasp_category varchar(10485760) NULL,
+    severity varchar(10485760) NULL,
+    times_detected int4 NULL,
+    base_score float8 NULL,
+    temporal_score float8 NULL,
+    fstatus varchar(10485760) NULL,
+    last_detected date NULL,
+    first_detected date NULL,
+    is_remidiated bool NULL,
+    potential bool NULL,
+    webapp_url text NULL,
+    webapp_name text NULL,
+    "name" text NULL,
+    cvss_v3_attack_vector text NULL,
+    cwe_list _int4 NULL,
+    wasc_list jsonb NULL
 );
 """
+
+
 class WasFindings(models.Model):
     """Define WasFindings model."""
 
@@ -2511,7 +2519,9 @@ class WasFindings(models.Model):
         models.IntegerField(blank=True, null=True), blank=True, null=True
     )
     wasc_list = models.JSONField(blank=True, null=True)
+
     class Meta:
         """Set WasFindings model metadata."""
+
         managed = False
         db_table = "was_findings"

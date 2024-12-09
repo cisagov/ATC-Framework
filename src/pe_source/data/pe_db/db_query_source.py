@@ -17,7 +17,7 @@ import psycopg2.extras as extras
 import requests
 
 # cisagov Libraries
-from pe_reports import app
+# from pe_reports import app
 from pe_reports.data.config import config, staging_config
 from pe_reports.data.db_query import task_api_call
 
@@ -610,6 +610,7 @@ def insert_or_update_business_unit(business_unit_dict):
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
 
+
 # --- Issue 699 pe-reports ---
 def get_linked_xpanse_business_units():
     """
@@ -639,7 +640,7 @@ def get_linked_xpanse_business_units():
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
 
-        
+
 # --- Issue 682 ---
 def api_xpanse_alert_insert(xpanse_alert_dict):
     """
@@ -1005,9 +1006,13 @@ def get_orgs():
         # Process data and return
         for row in result:
             if row.get("date_first_reported") is not None:
-                row["date_first_reported"] = datetime.strptime(row.get("date_first_reported"), "%Y-%m-%d")
+                row["date_first_reported"] = datetime.strptime(
+                    row.get("date_first_reported"), "%Y-%m-%d"
+                )
             if row.get("cyhy_period_start") is not None:
-                row["cyhy_period_start"] = datetime.strptime(row.get("cyhy_period_start"), "%Y-%m-%d")
+                row["cyhy_period_start"] = datetime.strptime(
+                    row.get("cyhy_period_start"), "%Y-%m-%d"
+                )
             if row.get("county_fips") is not None:
                 row["county_fips"] = Decimal(row.get("county_fips"))
             if row.get("state_fips") is not None:
@@ -1148,10 +1153,10 @@ def org_root_domains(org_uid):
         result = requests.post(endpoint_url, headers=headers, data=data).json()
         # Process data and return
         result_df = pd.DataFrame.from_dict(result)
-        result_df.rename(columns={
-            "root_domain_uid": "root_uid",
-            "organizations_uid": "org_uid"
-        }, inplace=True)
+        result_df.rename(
+            columns={"root_domain_uid": "root_uid", "organizations_uid": "org_uid"},
+            inplace=True,
+        )
         result_dict_list = result_df.to_dict("records")
         return result_dict_list
     except requests.exceptions.HTTPError as errh:
@@ -1443,7 +1448,7 @@ def query_PE_subs(org_uid):
 
 
 # --- Issue 016 atc-framework ---
-def insert_shodan_assets(asset_data):
+def insert_shodan_assets(asset_data, failed):
     """
     Query API to insert Shodan data into the shodan_assets table.
 
@@ -1464,18 +1469,24 @@ def insert_shodan_assets(asset_data):
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
     except requests.exceptions.ConnectionError as errc:
         LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
     except requests.exceptions.Timeout as errt:
         LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
     except requests.exceptions.RequestException as err:
         LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
 
 
 # --- Issue 017 atc-framework ---
-def insert_shodan_vulns(vuln_data):
+def insert_shodan_vulns(vuln_data, failed):
     """
     Query API to insert Shodan data into the shodan_vulns table.
 
@@ -1483,7 +1494,7 @@ def insert_shodan_vulns(vuln_data):
         data: Dataframe of the shodan data to be inserted into shodan_vulns.
     """
     # Endpoint info
-    endpoint_url = pe_api_url + "shodan_vulns_inserts"
+    endpoint_url = pe_api_url + "shodan_vulns_insert"
     headers = {
         "Content-Type": "application/json",
         "access_token": pe_api_key,
@@ -1496,21 +1507,27 @@ def insert_shodan_vulns(vuln_data):
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
     except requests.exceptions.ConnectionError as errc:
         LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
     except requests.exceptions.Timeout as errt:
         LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
     except requests.exceptions.RequestException as err:
         LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
 
 
 # v ===== ACTIVE TSQL THAT STILL NEEDS CONVERSION ===== v
 
 
 # Conversion in progress
-def get_ips(org_uid):
+def get_ips_old(org_uid):
     """Get IP data."""
     conn = connect()
     sql1 = """SELECT i.ip_hash, i.ip, ct.network FROM ips i
@@ -1545,6 +1562,36 @@ def get_ips(org_uid):
     conn.close()
 
     return ips
+
+
+def get_ips(org_uid):
+    """
+    Query API to get all ips for an org to run through Shodan.
+
+    Return:
+        All ips to run through Shodan
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        print(result)
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
 
 
 # ???
@@ -1930,12 +1977,13 @@ def insert_intelx_credentials_tsql(df):
         conn.rollback()
     cursor.close()
 
+
 # WAS queries
 def getPotential(org_id):
     """Get findings for specific time period in months."""
     conn = connect()
     cur = conn.cursor()
-    sql = """   SELECT COUNT(*) FROM was_findings 
+    sql = """   SELECT COUNT(*) FROM was_findings
                 WHERE was_org_id = '{}' AND potential IS TRUE;
                 """
     cur.execute(sql.format(org_id), conn)
@@ -1956,7 +2004,7 @@ def insertWASIds(listIds):
             ON CONFLICT (was_org_id) DO NOTHING;"""
     cur = conn.cursor()
     for id in listIds:
-        if id[1] == '':
+        if id[1] == "":
             cur.execute(sqlNoUUID.format(id[0]))
         else:
             cur.execute(sql.format(id[0], id[1]))
@@ -1964,18 +2012,20 @@ def insertWASIds(listIds):
     close(conn)
     print("Success adding WAS IDs to database.")
 
-def getPreviousFindingsHistorical(org_id,monthsAgo):
+
+def getPreviousFindingsHistorical(org_id, monthsAgo):
     """Get findings for specific time period in months."""
     conn = connect()
     cur = conn.cursor()
-    sql = """   SELECT * FROM was_findings 
+    sql = """   SELECT * FROM was_findings
                 WHERE was_org_id = '{}';
                 """
-    cur.execute(sql.format(org_id,monthsAgo-1,monthsAgo), conn)
+    cur.execute(sql.format(org_id, monthsAgo - 1, monthsAgo), conn)
     ret = cur.fetchall()
     cur.close()
     close(conn)
     return ret
+
 
 def insertFindingData(findingList):
     """Insert finding data into database."""
@@ -1983,7 +2033,7 @@ def insertFindingData(findingList):
     conn = connect()
     sql = """INSERT INTO was_findings (finding_uid, finding_type, webapp_id, webapp_url, webapp_name, was_org_id, name, owasp_category, severity, times_detected, cvss_v3_attack_vector, base_score, temporal_score, fstatus, last_detected, first_detected, potential, cwe_list, wasc_list)
             VALUES ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}')
-            ON CONFLICT (finding_uid) DO UPDATE 
+            ON CONFLICT (finding_uid) DO UPDATE
             SET is_remidiated = CASE
                 WHEN was_findings.fstatus != 'FIXED' AND excluded.fstatus = 'FIXED' THEN TRUE
                 ELSE was_findings.is_remidiated
@@ -2001,7 +2051,7 @@ def insertFindingData(findingList):
             ;"""
     cur = conn.cursor()
     for finding in findingList:
-        finding['cwe_list'] = '{' + ','.join(map(str,finding["cwe_list"])) + '}'
+        finding["cwe_list"] = "{" + ",".join(map(str, finding["cwe_list"])) + "}"
         try:
             cur.execute(
                 sql.format(
@@ -2023,7 +2073,7 @@ def insertFindingData(findingList):
                     finding["first_detected"],
                     finding["potential"],
                     finding["cwe_list"],
-                    json.dumps(finding["wasc_list"])
+                    json.dumps(finding["wasc_list"]),
                 )
             )
         except KeyError:
@@ -2032,6 +2082,7 @@ def insertFindingData(findingList):
     conn.commit()
     close(conn)
     print("Success adding finding data to database.")
+
 
 def queryVulnWebAppCount(org_id):
     """Query the amount of webapps with vulnerabilities."""
@@ -2051,6 +2102,7 @@ def queryVulnWebAppCount(org_id):
     close(conn)
     return len(set(webIdsList))
 
+
 def queryWASOrgList():
     """Query the list of WAS orgs."""
     # TODO: Dont use was_ord_id to reference orgs, use customer_id once was data become available
@@ -2063,7 +2115,7 @@ def queryWASOrgList():
 
 
 def getPEuuid(org_id):
-    """Query the org uuid given a certain cyhy db name"""
+    """Query the org uuid given a certain cyhy db name."""
     conn = connect()
     sql = """SELECT organizations_uid FROM organizations WHERE cyhy_db_name = '{}'"""
     cur = conn.cursor()
@@ -2072,20 +2124,22 @@ def getPEuuid(org_id):
     close(conn)
     return ret
 
-def getPreviousFindings(org_id,monthsAgo):
+
+def getPreviousFindings(org_id, monthsAgo):
     """Get findings for specific time period in months."""
     conn = connect()
     cur = conn.cursor()
-    sql = """   SELECT * FROM was_findings 
+    sql = """   SELECT * FROM was_findings
                 WHERE was_org_id = '{}'
                 AND last_detected >= date_trunc('month', now() - interval '{} month')
                 AND last_detected < date_trunc('month', now() - interval '{} month');
                 """
-    cur.execute(sql.format(org_id,monthsAgo,monthsAgo-1), conn)
+    cur.execute(sql.format(org_id, monthsAgo, monthsAgo - 1), conn)
     ret = cur.fetchall()
     cur.close()
     close(conn)
     return ret
+
 
 def queryVulnCountAll(org_id):
     """Query the amount of webapps with vulnerabilities."""
@@ -2105,7 +2159,8 @@ def queryVulnCountAll(org_id):
     close(conn)
     return len(webIdsList)
 
-def queryVulnCountSeverity(org_id,severity):
+
+def queryVulnCountSeverity(org_id, severity):
     """Query the amount of webapps with vulnerabilities."""
     # TODO: Dont use was_ord_id to reference orgs, use customer_id once was data become available
     conn = connect()
@@ -2119,10 +2174,11 @@ def queryVulnCountSeverity(org_id,severity):
                     OR fstatus = 'REOPENED'
                 );
         """
-    df = pd.read_sql_query(sql.format(org_id,severity), conn)
+    df = pd.read_sql_query(sql.format(org_id, severity), conn)
     webIdsList = df["webapp_id"].values.tolist()
     close(conn)
     return len(webIdsList)
+
 
 def insertWASVulnData(data):
     """Insert WAS vulnerability data into database."""
@@ -2132,23 +2188,23 @@ def insertWASVulnData(data):
                 VALUES ('{}','{}',{},{},{}, (CASE WHEN {} = 0 THEN NULL ELSE {} END), (CASE WHEN {} = 0 THEN NULL ELSE {} END),'{}',{},{},{},{},{}) """
     cur.execute(
         sql.format(
-            data['was_org_id'],
-            data['date_scanned'],
-            data['vuln_cnt'],
-            data['vuln_webapp_cnt'],
-            data['web_app_cnt'],
-            data['high_rem_time'],
-            data['high_rem_time'],
-            data['crit_rem_time'],
-            data['crit_rem_time'],
-            data['report_period'],
-            data['high_vuln_cnt'],
-            data['crit_vuln_cnt'],
-            data['high_rem_cnt'],
-            data['crit_rem_cnt'],
-            data['total_potential'],
-            )
+            data["was_org_id"],
+            data["date_scanned"],
+            data["vuln_cnt"],
+            data["vuln_webapp_cnt"],
+            data["web_app_cnt"],
+            data["high_rem_time"],
+            data["high_rem_time"],
+            data["crit_rem_time"],
+            data["crit_rem_time"],
+            data["report_period"],
+            data["high_vuln_cnt"],
+            data["crit_vuln_cnt"],
+            data["high_rem_cnt"],
+            data["crit_rem_cnt"],
+            data["total_potential"],
         )
+    )
     conn.commit()
     close(conn)
     print("Success adding finding data to database.")
@@ -2230,7 +2286,7 @@ def getSubdomain_tsql(domain):
         if conn is not None:
             close(conn)
 
-        
+
 # --- 703 pe-reports OLD TSQL ---
 def org_root_domains_tsql(conn, org_uid):
     """Get root domains from database given the org_uid."""
@@ -2291,12 +2347,12 @@ def getDataSource(conn, source):
 
 
 # --- 709 pe-reports/008 atc-framework OLD TSQL ---
-# This TSQL is from the execute_hibp_breach_values() function in 
+# This TSQL is from the execute_hibp_breach_values() function in
 # hibp_latest.py and hibp_latest_rev.py
 
 
 # --- 710 pe-reports/009 atc-framework OLD TSQL ---
-# This TSQL is from the execute_hibp_emails_values() function in 
+# This TSQL is from the execute_hibp_emails_values() function in
 # hibp_latest.py and hibp_latest_rev.py
 
 
@@ -2306,12 +2362,12 @@ def getDataSource(conn, source):
 
 
 # --- 011 atc-framework OLD TSQL ---
-# This TSQL is from the query_orgs() function in 
+# This TSQL is from the query_orgs() function in
 # adhoc/data/run.py
 
 
 # --- 012 atc-framework OLD TSQL ---
-# This TSQL is from the query_PE_subs() function in 
+# This TSQL is from the query_PE_subs() function in
 # hibp_latest.py and hibp_latest_rev.py
 
 
@@ -2320,7 +2376,7 @@ def getDataSource(conn, source):
 def insert_shodan_data(dataframe, table, thread, org_name, failed):
     """Insert Shodan data into database."""
     # get rid of \x00 characters
-    dataframe = dataframe.replace({'\x00': ''}, regex=True)
+    dataframe = dataframe.replace({"\x00": ""}, regex=True)
     conn = connect()
     tpls = [tuple(x) for x in dataframe.to_numpy()]
     cols = ",".join(list(dataframe.columns))

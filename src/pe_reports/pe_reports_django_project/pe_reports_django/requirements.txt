@@ -1,21 +1,23 @@
+crispy-bootstrap5
 Django
-uvicorn
-python-decouple==3.8
 django-celery-beat
 django-crispy-forms
-crispy-bootstrap5
-whitenoise
-elastic-apm
-psycopg2-binary
 django-netfields
-fastapi
--e git+https://github.com/cisagov/ATC-Framework.git@CD-add-CODEOWNERS#egg=pe_reports
-en-core-web-lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.5.0/en_core_web_lg-3.5.0-py3-none-any.whl#sha256=c8ac64840c1eb3e3ca7bd38bd1e1c48fb0faeb2449d54d01d5ce629af4595775
-retry
-email_validator 
-fastapi-limiter
-python-jose
-slowapi
-python-multipart
 docxtpl
+elastic-apm
+email_validator
+en-core-web-lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.5.0/en_core_web_lg-3.5.0-py3-none-any.whl#sha256=c8ac64840c1eb3e3ca7bd38bd1e1c48fb0faeb2449d54d01d5ce629af4595775
+fastapi
+fastapi-limiter
+flower
 numpy==1.23.5
+-e git+https://github.com/cisagov/ATC-Framework.git@CD-add-CODEOWNERS#egg=pe_reports
+psycopg2-binary
+python-decouple==3.8
+python-jose
+python-multipart
+rabbitmq
+retry
+slowapi
+uvicorn
+whitenoise

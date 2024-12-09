@@ -6,7 +6,7 @@ import logging
 import time
 
 # Third-Party Libraries
-import pandas as pd
+# import pandas as pd
 import requests
 import shodan
 
@@ -15,7 +15,7 @@ from pe_source.data.pe_db.db_query_source import (  # get_ips_dhs,; get_ips_hhs,
     get_data_source_uid,
     get_ips,
     insert_shodan_assets,
-    insert_shodan_vulns
+    insert_shodan_vulns,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                             "cpe": d.get("cpe", None),
                                             "banner": d.get("data", None),
                                             "version": d.get("version", None),
-                                            "data_source_uid": source_uid
+                                            "data_source_uid": source_uid,
                                         }
                                     )
                             elif d["_shodan"]["module"] in risky_ports:
@@ -215,7 +215,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                         "cpe": d.get("cpe", None),
                                         "banner": d.get("data", None),
                                         "version": d.get("version", None),
-                                        "data_source_uid": source_uid
+                                        "data_source_uid": source_uid,
                                     }
                                 )
 
@@ -236,7 +236,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                     "timestamp": d["timestamp"],
                                     "country_code": location["country_code"],
                                     "location": str(location),
-                                    "data_source_uid": source_uid
+                                    "data_source_uid": source_uid,
                                 }
                             )
 
@@ -277,12 +277,9 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
     all_vulns = vuln_data + risk_data
     # Grab the data source uid and add to each dataframe
 
-
     # Insert data into the PE database
-    failed = insert_shodan_assets(data, "shodan_assets", thread_name, org_name, failed)
-    failed = insert_shodan_vulns(
-        all_vulns, "shodan_vulns", thread_name, org_name, failed
-    )
+    failed = insert_shodan_assets(data, failed)
+    failed = insert_shodan_vulns(all_vulns, failed)
 
     return failed
 

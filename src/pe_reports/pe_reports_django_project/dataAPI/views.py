@@ -42,6 +42,7 @@ from dataAPI.tasks import (
     get_kev_list_info,
     get_l_stakeholders_info,
     get_m_stakeholders_info,
+    get_orgs_and_assets,
     get_s_stakeholders_info,
     get_ve_info,
     get_vs_info,
@@ -61,7 +62,7 @@ from dataAPI.tasks import (
     sub_domains_by_org_task,
     sub_domains_table_task,
     top_cves_insert_task,
-    was_vulns_task
+    was_vulns_task,
 )
 from decouple import config
 from django.conf import settings
@@ -70,6 +71,20 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.db.models import F, Q
 from django.forms.models import model_to_dict
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from dmz_mini_dl.models import CredentialBreaches as MDL_CredentialBreaches
+from dmz_mini_dl.models import CredentialExposures as MDL_CredentialExposures
+from dmz_mini_dl.models import DataSource as MDL_DataSource
+from dmz_mini_dl.models import Organization as MDL_Organization
+from dmz_mini_dl.models import ShodanAssets as MDL_ShodanAssets
+from dmz_mini_dl.models import ShodanVulns as MDL_ShodanVulns
+from dmz_mini_dl.models import XpanseAlerts as MDL_XpanseAlerts
+from dmz_mini_dl.models import XpanseAssetsMdl as MDL_XpanseAssets
+from dmz_mini_dl.models import XpanseBusinessUnits as MDL_XpanseBusinessUnits
+from dmz_mini_dl.models import XpanseCveServiceMdl as MDL_XpanseCveService
+from dmz_mini_dl.models import XpanseCvesMdl as MDL_XpanseCves
+from dmz_mini_dl.models import XpanseServicesMdl as MDL_XpanseServices
 from fastapi import (
     APIRouter,
     Depends,
@@ -99,6 +114,7 @@ from home.models import (
     DataSource,
     DomainAlerts,
     DomainPermutations,
+    Ips,
     Mentions,
     Organizations,
     PshttResults,
@@ -134,19 +150,6 @@ from home.models import (
     XpanseCves,
     XpanseCveService,
     XpanseServices,
-)
-from dmz_mini_dl.models import(
-    Organization as MDL_Organization,
-    XpanseBusinessUnits as MDL_XpanseBusinessUnits,
-    XpanseAlerts as MDL_XpanseAlerts,
-    XpanseAssetsMdl as MDL_XpanseAssets,
-    XpanseServicesMdl as MDL_XpanseServices,
-    XpanseCvesMdl as MDL_XpanseCves,
-    XpanseCveServiceMdl as MDL_XpanseCveService,
-    ShodanAssets as MDL_ShodanAssets,
-    ShodanVulns as MDL_ShodanVulns,
-    DataSource as MDL_DataSource,
-
 )
 from jose import exceptions, jwt
 from redis import asyncio as aioredis
@@ -266,6 +269,7 @@ def userapiTokenUpdate(expiredaccessToken, user_refresh, theapiKey, user_id):
 def userapiTokenverify(theapiKey):
     """Check to see if api key is expired."""
     tokenRecords = list(apiUser.objects.filter(apiKey=theapiKey))
+    LOGGER.info(f"The user provided key is {theapiKey}")
     user_key = ""
     user_refresh = ""
     user_id = ""
@@ -4248,8 +4252,7 @@ def rss_insert(data: schemas.RSSInsertInput, tokens: dict = Depends(get_api_key)
             try:
                 # Check if record already exists
                 ReportSummaryStats.objects.get(
-                    organizations_uid=specified_org_uid,
-                    start_date=data.start_date
+                    organizations_uid=specified_org_uid, start_date=data.start_date
                 )
                 # If it already exists, update
                 ReportSummaryStats.objects.filter(
@@ -4894,7 +4897,7 @@ def cred_breach_intelx(
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key valid, create task for query
             task = cred_breach_intelx_task.delay(data.source_uid)
             # Return the new task id w/ "Processing" status
@@ -5600,13 +5603,38 @@ def cred_breaches_intelx_insert(
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key valid, insert intelx breach data
             insert_count = 0
             update_count = 0
+
+            try:
+                mdl_source_inst = MDL_DataSource.objects.get(name="IntelX")
+            except MDL_DataSource.DoesNotExist:
+                LOGGER.warning("DataSource IntelX not found.")
+                mdl_source_inst = None  # Set to None if DataSource is not found
+
             for row in data.breach_data:
                 # Check if record already exists
                 row_dict = row.__dict__
+                # mdl_source_inst = MDL_DataSource.objects.get(
+                #         name='IntelX'
+                #     )
+
+                MDL_CredentialBreaches.objects.update_or_create(
+                    breach_name=row_dict["breach_name"],
+                    defaults={
+                        "description": row_dict["description"],
+                        "breach_date": row_dict["breach_date"],
+                        "added_date": row_dict["added_date"],
+                        "modified_date": timezone.make_aware(
+                            parse_datetime(row_dict["modified_date"]),
+                            timezone.timezone.utc,
+                        ),
+                        "password_included": row_dict["password_included"],
+                        "data_source": mdl_source_inst,
+                    },
+                )
                 breach_results = CredentialBreaches.objects.filter(
                     breach_name=row_dict["breach_name"]
                 )
@@ -5620,7 +5648,10 @@ def cred_breaches_intelx_insert(
                         description=row_dict["description"],
                         breach_date=row_dict["breach_date"],
                         added_date=row_dict["added_date"],
-                        modified_date=row_dict["modified_date"],
+                        modified_date=timezone.make_aware(
+                            parse_datetime(row_dict["modified_date"]),
+                            timezone.timezone.utc,
+                        ),
                         password_included=row_dict["password_included"],
                         data_source_uid=curr_data_source_inst,
                     )
@@ -5636,8 +5667,10 @@ def cred_breaches_intelx_insert(
                 + str(update_count)
                 + " records updated in the credential_breaches table"
             )
-        except ObjectDoesNotExist:
-            LOGGER.info("API key expired please try again")
+        # except ObjectDoesNotExist:
+        #     LOGGER.info("API key expired please try again")
+        except Exception as e:
+            LOGGER.info(f"Error: {e}")
     else:
         return {"message": "No api key was submitted"}
 
@@ -5658,12 +5691,20 @@ def cred_exp_intelx_insert(
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key valid, insert intelx data
             create_cnt = 0
             update_cnt = 0
+            try:
+                mdl_source_inst = MDL_DataSource.objects.get(name="IntelX")
+            except MDL_DataSource.DoesNotExist:
+                LOGGER.warning("DataSource with IntelX not found.")
+                mdl_source_inst = None  # Set to None if DataSource is not found
             for row in data.exp_data:
                 row_dict = row.__dict__
+                curr_org_inst = Organizations.objects.get(
+                    organizations_uid=row_dict["organizations_uid"]
+                )
                 try:
                     CredentialExposures.objects.get(
                         breach_name=row_dict["breach_name"],
@@ -5677,9 +5718,7 @@ def cred_exp_intelx_insert(
                     update_cnt += 1
                 except CredentialExposures.DoesNotExist:
                     # If record doesn't exist yet, create one
-                    curr_org_inst = Organizations.objects.get(
-                        organizations_uid=row_dict["organizations_uid"]
-                    )
+
                     curr_source_inst = DataSource.objects.get(
                         data_source_uid=row_dict["data_source_uid"]
                     )
@@ -5693,7 +5732,10 @@ def cred_exp_intelx_insert(
                         root_domain=row_dict["root_domain"],
                         sub_domain=row_dict["sub_domain"],
                         breach_name=row_dict["breach_name"],
-                        modified_date=row_dict["modified_date"],
+                        modified_date=timezone.make_aware(
+                            parse_datetime(row_dict["modified_date"]),
+                            timezone.timezone.utc,
+                        ),
                         data_source_uid=curr_source_inst,
                         password=row_dict["password"],
                         hash_type=row_dict["hash_type"],
@@ -5701,6 +5743,44 @@ def cred_exp_intelx_insert(
                         credential_breaches_uid=curr_breach_inst,
                     )
                     create_cnt += 1
+                try:
+                    MDL_CredentialExposures.objects.get(
+                        breach_name=row_dict["breach_name"],
+                        email=row_dict["email"],
+                    )
+                    MDL_CredentialExposures.objects.filter(
+                        breach_name=row_dict["breach_name"],
+                        email=row_dict["email"],
+                    ).update(modified_date=row_dict["modified_date"])
+
+                except MDL_CredentialExposures.DoesNotExist:
+                    mdl_org_inst = MDL_Organization.objects.get(
+                        acronym=curr_org_inst.cyhy_db_name
+                    )
+                    # mdl_source_inst = MDL_DataSource.objects.get(
+                    #     name='IntelX'
+                    # )
+
+                    mdl_breach_inst = MDL_CredentialBreaches.objects.get(
+                        breach_name=row_dict["breach_name"],
+                    )
+                    MDL_CredentialExposures.objects.create(
+                        # credential_exposures_uid=uuid.uuid1(),
+                        email=row_dict["email"],
+                        organization=mdl_org_inst,
+                        root_domain=row_dict["root_domain"],
+                        sub_domain=row_dict["sub_domain"],
+                        breach_name=row_dict["breach_name"],
+                        modified_date=timezone.make_aware(
+                            parse_datetime(row_dict["modified_date"]),
+                            timezone.timezone.utc,
+                        ),
+                        data_source=mdl_source_inst,
+                        password=row_dict["password"],
+                        hash_type=row_dict["hash_type"],
+                        intelx_system_id=row_dict["intelx_system_id"],
+                        credential_breaches=mdl_breach_inst,
+                    )
             # Return success message
             return (
                 str(create_cnt)
@@ -5708,8 +5788,10 @@ def cred_exp_intelx_insert(
                 + str(update_cnt)
                 + " records updated in the credential_exposures table"
             )
-        except ObjectDoesNotExist:
-            LOGGER.info("API key expired please try again")
+        # except ObjectDoesNotExist:
+        #     LOGGER.info("API key expired please try again")
+        except Exception as e:
+            LOGGER.info(f"Error: {e}")
     else:
         return {"message": "No api key was submitted"}
 
@@ -5730,23 +5812,27 @@ def xpanse_business_unit_insert_or_update(
     """Create API endpoint to create a record in database."""
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             LOGGER.info(f"The api key submitted {tokens}")
-            
+
             mapped_org = None
             mdl_mapped_org = None
-             #TODO: only for fceb for now, need to update for when we add more xpanse stakeholder
+            # TODO: only for fceb for now, need to update for when we add more xpanse stakeholder
             # match = re.search(r'\((.*?)\)', data.entity_name)
             if data.cyhy_db_name is not None:
                 try:
-                    mapped_org = Organizations.objects.get(cyhy_db_name=data.cyhy_db_name)
+                    mapped_org = Organizations.objects.get(
+                        cyhy_db_name=data.cyhy_db_name
+                    )
                 except Organizations.DoesNotExist:
                     mapped_org = None
                 try:
-                    mdl_mapped_org = MDL_Organization.objects.get(acronym=data.cyhy_db_name)
+                    mdl_mapped_org = MDL_Organization.objects.get(
+                        acronym=data.cyhy_db_name
+                    )
                 except MDL_Organization.DoesNotExist:
                     mdl_mapped_org = None
-            defaults={
+            defaults = {
                 "state": data.state,
                 "county": data.county,
                 "city": data.city,
@@ -5754,10 +5840,10 @@ def xpanse_business_unit_insert_or_update(
                 "entity_type": data.entity_type,
                 "region": data.region,
                 "rating": data.rating,
-                "cyhy_db_name": mapped_org
+                "cyhy_db_name": mapped_org,
             }
 
-            mdl_defaults={
+            mdl_defaults = {
                 "state": data.state,
                 "county": data.county,
                 "city": data.city,
@@ -5765,11 +5851,11 @@ def xpanse_business_unit_insert_or_update(
                 "entity_type": data.entity_type,
                 "region": data.region,
                 "rating": data.rating,
-                "cyhy_db_name": mdl_mapped_org
+                "cyhy_db_name": mdl_mapped_org,
             }
             # if mapped_org is not None:
             #     defaults["cyhy_db_name"] = mapped_org
-            
+
             (
                 mdl_business_unit_object,
                 mdl_created,
@@ -5782,8 +5868,7 @@ def xpanse_business_unit_insert_or_update(
                 business_unit_object,
                 created,
             ) = XpanseBusinessUnits.objects.update_or_create(
-                entity_name=data.entity_name,
-                defaults=defaults
+                entity_name=data.entity_name, defaults=defaults
             )
             if created:
                 LOGGER.info(
@@ -5804,6 +5889,7 @@ def xpanse_business_unit_insert_or_update(
     else:
         return {"message": "No api key was submitted"}
 
+
 @api_router.get(
     "/linked_xpanse_business_units",
     dependencies=[
@@ -5818,7 +5904,7 @@ def linked_xpanse_business_units(tokens: dict = Depends(get_api_key)):
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key valid, make query
             xpanse_business_units = list(
                 XpanseBusinessUnits.objects.filter(cyhy_db_name__isnull=False).values()
@@ -5833,7 +5919,7 @@ def linked_xpanse_business_units(tokens: dict = Depends(get_api_key)):
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- xpanse endpoint, Issue 682 ---
 @api_router.put(
@@ -5851,54 +5937,54 @@ def xpanse_alert_insert_or_update(
     """Create API endpoint to create a record in database."""
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             LOGGER.info(f"The api key submitted {tokens}")
             LOGGER.info("Got into Xpanse Alert insert")
 
             # vender_prod_dict = data.vender_product
             alert_defaults = {
-                    "time_pulled_from_xpanse": data.time_pulled_from_xpanse,
-                    # "alert_id": data.alert_id,
-                    "detection_timestamp": data.detection_timestamp,
-                    "alert_name": data.alert_name,
-                    "description": data.description,
-                    "host_name": data.host_name,
-                    "alert_action": data.alert_action,
-                    "action_pretty": data.action_pretty,
-                    "action_country": data.action_country,
-                    "action_remote_port": data.action_remote_port,
-                    "starred": data.starred,
-                    "external_id": data.external_id,
-                    "related_external_id": data.related_external_id,
-                    "alert_occurrence": data.alert_occurrence,
-                    "severity": data.severity,
-                    "matching_status": data.matching_status,
-                    "local_insert_ts": data.local_insert_ts,
-                    "last_modified_ts": data.last_modified_ts,
-                    "case_id": data.case_id,
-                    "event_timestamp": data.event_timestamp,
-                    "alert_type": data.alert_type,
-                    "resolution_status": data.resolution_status,
-                    "resolution_comment": data.resolution_comment,
-                    "tags": data.tags,
-                    "last_observed": data.last_observed,
-                    "country_codes": data.country_codes,
-                    "cloud_providers": data.cloud_providers,
-                    "ipv4_addresses": data.ipv4_addresses,
-                    "domain_names": data.domain_names,
-                    "service_ids": data.service_ids,
-                    "website_ids": data.website_ids,
-                    "asset_ids": data.asset_ids,
-                    "certificate": data.certificate,
-                    "port_protocol": data.port_protocol,
-                    "attack_surface_rule_name": data.attack_surface_rule_name,
-                    "remediation_guidance": data.remediation_guidance,
-                    "asset_identifiers": data.asset_identifiers
-                    # business_units: Optional[List[str]] = None
-                    # services: Optional[List[XpanseService]] = None
-                    # assets : Optional[List[XpanseAsset]] = None
-                }
-            
+                "time_pulled_from_xpanse": data.time_pulled_from_xpanse,
+                # "alert_id": data.alert_id,
+                "detection_timestamp": data.detection_timestamp,
+                "alert_name": data.alert_name,
+                "description": data.description,
+                "host_name": data.host_name,
+                "alert_action": data.alert_action,
+                "action_pretty": data.action_pretty,
+                "action_country": data.action_country,
+                "action_remote_port": data.action_remote_port,
+                "starred": data.starred,
+                "external_id": data.external_id,
+                "related_external_id": data.related_external_id,
+                "alert_occurrence": data.alert_occurrence,
+                "severity": data.severity,
+                "matching_status": data.matching_status,
+                "local_insert_ts": data.local_insert_ts,
+                "last_modified_ts": data.last_modified_ts,
+                "case_id": data.case_id,
+                "event_timestamp": data.event_timestamp,
+                "alert_type": data.alert_type,
+                "resolution_status": data.resolution_status,
+                "resolution_comment": data.resolution_comment,
+                "tags": data.tags,
+                "last_observed": data.last_observed,
+                "country_codes": data.country_codes,
+                "cloud_providers": data.cloud_providers,
+                "ipv4_addresses": data.ipv4_addresses,
+                "domain_names": data.domain_names,
+                "service_ids": data.service_ids,
+                "website_ids": data.website_ids,
+                "asset_ids": data.asset_ids,
+                "certificate": data.certificate,
+                "port_protocol": data.port_protocol,
+                "attack_surface_rule_name": data.attack_surface_rule_name,
+                "remediation_guidance": data.remediation_guidance,
+                "asset_identifiers": data.asset_identifiers
+                # business_units: Optional[List[str]] = None
+                # services: Optional[List[XpanseService]] = None
+                # assets : Optional[List[XpanseAsset]] = None
+            }
+
             # Create alerts in both databases
             alert_object, created = XpanseAlerts.objects.update_or_create(
                 alert_id=data.alert_id,
@@ -5908,13 +5994,17 @@ def xpanse_alert_insert_or_update(
             if created:
                 LOGGER.info("new Xpanse alert record created for %s", data.alert_name)
 
-            mdl_alert_object, mdl_alert_created = MDL_XpanseAlerts.objects.update_or_create(
+            (
+                mdl_alert_object,
+                mdl_alert_created,
+            ) = MDL_XpanseAlerts.objects.update_or_create(
                 alert_id=data.alert_id,
                 defaults=alert_defaults,
             )
             if mdl_alert_created:
-                LOGGER.info("new Xpanse alert record created in MDL for %s", data.alert_name)
-                
+                LOGGER.info(
+                    "new Xpanse alert record created in MDL for %s", data.alert_name
+                )
 
             business_unit_list = []
             mdl_business_unit_list = []
@@ -5927,45 +6017,47 @@ def xpanse_alert_insert_or_update(
                 )
             alert_object.business_units.set(business_unit_list)
             mdl_alert_object.business_units.set(mdl_business_unit_list)
-            
 
             asset_list = []
             mdl_asset_list = []
             for asset_data in data.assets:
                 asset_defaults = {
-                        "asset_name": asset_data.asset_name,
-                        "asset_type": asset_data.asset_type,
-                        "last_observed": asset_data.last_observed,
-                        "first_observed": asset_data.first_observed,
-                        "externally_detected_providers": asset_data.externally_detected_providers,
-                        "created": asset_data.created,
-                        "ips": asset_data.ips,
-                        "active_external_services_types": asset_data.active_external_services_types,
-                        "domain": asset_data.domain,
-                        "certificate_issuer": asset_data.certificate_issuer,
-                        "certificate_algorithm": asset_data.certificate_algorithm,
-                        "certificate_classifications": asset_data.certificate_classifications,
-                        "resolves": asset_data.resolves,
-                        # details
-                        "top_level_asset_mapper_domain": asset_data.top_level_asset_mapper_domain,
-                        "domain_asset_type": asset_data.domain_asset_type,
-                        "is_paid_level_domain": asset_data.is_paid_level_domain,
-                        "domain_details": asset_data.domain_details,
-                        "dns_zone": asset_data.dns_zone,
-                        "latest_sampled_ip": asset_data.latest_sampled_ip,
-                        "recent_ips": asset_data.recent_ips,
-                        "external_services": asset_data.external_services,
-                        "externally_inferred_vulnerability_score": asset_data.externally_inferred_vulnerability_score,
-                        "externally_inferred_cves": asset_data.externally_inferred_cves,
-                        "explainers": asset_data.explainers,
-                        "tags": asset_data.tags,
-                    }
+                    "asset_name": asset_data.asset_name,
+                    "asset_type": asset_data.asset_type,
+                    "last_observed": asset_data.last_observed,
+                    "first_observed": asset_data.first_observed,
+                    "externally_detected_providers": asset_data.externally_detected_providers,
+                    "created": asset_data.created,
+                    "ips": asset_data.ips,
+                    "active_external_services_types": asset_data.active_external_services_types,
+                    "domain": asset_data.domain,
+                    "certificate_issuer": asset_data.certificate_issuer,
+                    "certificate_algorithm": asset_data.certificate_algorithm,
+                    "certificate_classifications": asset_data.certificate_classifications,
+                    "resolves": asset_data.resolves,
+                    # details
+                    "top_level_asset_mapper_domain": asset_data.top_level_asset_mapper_domain,
+                    "domain_asset_type": asset_data.domain_asset_type,
+                    "is_paid_level_domain": asset_data.is_paid_level_domain,
+                    "domain_details": asset_data.domain_details,
+                    "dns_zone": asset_data.dns_zone,
+                    "latest_sampled_ip": asset_data.latest_sampled_ip,
+                    "recent_ips": asset_data.recent_ips,
+                    "external_services": asset_data.external_services,
+                    "externally_inferred_vulnerability_score": asset_data.externally_inferred_vulnerability_score,
+                    "externally_inferred_cves": asset_data.externally_inferred_cves,
+                    "explainers": asset_data.explainers,
+                    "tags": asset_data.tags,
+                }
                 asset_object, created = XpanseAssets.objects.update_or_create(
                     asm_id=asset_data.asm_id,
                     defaults=asset_defaults,
                 )
                 asset_list.append(asset_object)
-                mdl_asset_object, mdl_asset_created = MDL_XpanseAssets.objects.update_or_create(
+                (
+                    mdl_asset_object,
+                    mdl_asset_created,
+                ) = MDL_XpanseAssets.objects.update_or_create(
                     asm_id=asset_data.asm_id,
                     defaults=asset_defaults,
                 )
@@ -5977,30 +6069,33 @@ def xpanse_alert_insert_or_update(
             services_list = []
             mdl_services_list = []
             for service_data in data.services:
-                service_defaults={
-                        "service_name": service_data.service_name,
-                        "service_type": service_data.service_type,
-                        "ip_address": service_data.ip_address,
-                        "domain": service_data.domain,
-                        "externally_detected_providers": service_data.externally_detected_providers,
-                        "is_active": service_data.is_active,
-                        "first_observed": service_data.first_observed,
-                        "last_observed": service_data.last_observed,
-                        "port": service_data.port,
-                        "protocol": service_data.protocol,
-                        "active_classifications": service_data.active_classifications,
-                        "inactive_classifications": service_data.inactive_classifications,
-                        "discovery_type": service_data.discovery_type,
-                        "externally_inferred_vulnerability_score": service_data.externally_inferred_vulnerability_score,
-                        "externally_inferred_cves": service_data.externally_inferred_cves,
-                        "service_key": service_data.service_key,
-                        "service_key_type": service_data.service_key_type,
-                    }
+                service_defaults = {
+                    "service_name": service_data.service_name,
+                    "service_type": service_data.service_type,
+                    "ip_address": service_data.ip_address,
+                    "domain": service_data.domain,
+                    "externally_detected_providers": service_data.externally_detected_providers,
+                    "is_active": service_data.is_active,
+                    "first_observed": service_data.first_observed,
+                    "last_observed": service_data.last_observed,
+                    "port": service_data.port,
+                    "protocol": service_data.protocol,
+                    "active_classifications": service_data.active_classifications,
+                    "inactive_classifications": service_data.inactive_classifications,
+                    "discovery_type": service_data.discovery_type,
+                    "externally_inferred_vulnerability_score": service_data.externally_inferred_vulnerability_score,
+                    "externally_inferred_cves": service_data.externally_inferred_cves,
+                    "service_key": service_data.service_key,
+                    "service_key_type": service_data.service_key_type,
+                }
                 service_object, created = XpanseServices.objects.update_or_create(
                     service_id=service_data.service_id,
                     defaults=service_defaults,
                 )
-                mdl_service_object, mdl_service_created = MDL_XpanseServices.objects.update_or_create(
+                (
+                    mdl_service_object,
+                    mdl_service_created,
+                ) = MDL_XpanseServices.objects.update_or_create(
                     service_id=service_data.service_id,
                     defaults=service_defaults,
                 )
@@ -6010,29 +6105,32 @@ def xpanse_alert_insert_or_update(
                         LOGGER.info(cve_data)
                         LOGGER.info(cve_match_data)
                         cve_defaults = {
-                                "cvss_score_v2": cve_data.cvss_score_v2,
-                                "cve_severity_v2": cve_data.cve_severity_v2,
-                                "cvss_score_v3": cve_data.cvss_score_v3,
-                                "cve_severity_v3": cve_data.cve_severity_v3,
-                            }
+                            "cvss_score_v2": cve_data.cvss_score_v2,
+                            "cve_severity_v2": cve_data.cve_severity_v2,
+                            "cvss_score_v3": cve_data.cvss_score_v3,
+                            "cve_severity_v3": cve_data.cve_severity_v3,
+                        }
                         cve_object, created = XpanseCves.objects.update_or_create(
                             cve_id=cve_data.cve_id,
                             defaults=cve_defaults,
                         )
-                        mdl_cve_object, mdl_cve_created = MDL_XpanseCves.objects.update_or_create(
+                        (
+                            mdl_cve_object,
+                            mdl_cve_created,
+                        ) = MDL_XpanseCves.objects.update_or_create(
                             cve_id=cve_data.cve_id,
                             defaults=cve_defaults,
                         )
                         cve_service_default = {
-                                "inferred_cve_match_type": cve_match_data.inferred_cve_match_type,
-                                "product": cve_match_data.product,
-                                "confidence": cve_match_data.confidence,
-                                "vendor": cve_match_data.vendor,
-                                "version_number": cve_match_data.version_number,
-                                "activity_status": cve_match_data.activity_status,
-                                "first_observed": cve_match_data.first_observed,
-                                "last_observed": cve_match_data.last_observed,
-                            }
+                            "inferred_cve_match_type": cve_match_data.inferred_cve_match_type,
+                            "product": cve_match_data.product,
+                            "confidence": cve_match_data.confidence,
+                            "vendor": cve_match_data.vendor,
+                            "version_number": cve_match_data.version_number,
+                            "activity_status": cve_match_data.activity_status,
+                            "first_observed": cve_match_data.first_observed,
+                            "last_observed": cve_match_data.last_observed,
+                        }
                         (
                             cve_match_object,
                             created,
@@ -6054,7 +6152,6 @@ def xpanse_alert_insert_or_update(
 
             alert_object.services.set(services_list)
             alert_object.save()
-
 
             mdl_alert_object.services.set(mdl_services_list)
             mdl_alert_object.save()
@@ -6442,6 +6539,7 @@ async def get_pshtt_domains_to_run_status(
     else:
         return {"message": "No api key was submitted"}
 
+
 # --- get_orgs(), Issue 699 pe-reports ---
 @api_router.get(
     "/organizations_demo_or_report_on",
@@ -6451,13 +6549,13 @@ async def get_pshtt_domains_to_run_status(
     response_model=List[schemas.OrganizationsFullTable],
     tags=["Retrieve data for all demo or report_on orgs."],
 )
-def organizations_demo(tokens: dict = Depends(get_api_key)):
+def organizations_demo_or_report_on(tokens: dict = Depends(get_api_key)):
     """Call API endpoint to get data for all demo or report_on orgs."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key valid, make query
             organizations_demo_or_report_on_data = list(
                 Organizations.objects.filter(Q(demo=True) | Q(report_on=True)).values()
@@ -6504,7 +6602,6 @@ def pshtt_result_update_or_insert(
             )
             sub_domain_uid = SubDomains.objects.get(sub_domain_uid=data.sub_domain_uid)
 
-            
             pshtt_object, created = PshttResults.objects.update_or_create(
                 sub_domain_uid=data.sub_domain_uid,
                 organizations_uid=data.organizations_uid,
@@ -6594,34 +6691,32 @@ def pshtt_result_update_or_insert(
     response_model=List[schemas.DataSourceFullTable],
     tags=["Retrieve data for specified data source name."],
 )
-def data_source_by_name(data: schemas.DataSourceByNameInput, tokens: dict = Depends(get_api_key)):
+def data_source_by_name(
+    data: schemas.DataSourceByNameInput, tokens: dict = Depends(get_api_key)
+):
     """Call API endpoint to get data for specified data source name."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key valid, make query
             data_source_by_name_data = list(
                 DataSource.objects.filter(name=data.name).values()
             )
             # also update data source record
-            today = dt.today().strftime("%Y-%m-%d")
+            today = datetime.today().strftime("%Y-%m-%d")
             DataSource.objects.filter(name=data.name).update(last_run=today)
             # Convert data types to match response model
             for row in data_source_by_name_data:
-                row["data_source_uid"] = convert_uuid_to_string(
-                    row["data_source_uid"]
-                )
-                row["last_run"] = convert_date_to_string(
-                    row["last_run"]
-                )
+                row["data_source_uid"] = convert_uuid_to_string(row["data_source_uid"])
+                row["last_run"] = convert_date_to_string(row["last_run"])
             return data_source_by_name_data
         except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- get_breaches(), Issue 701 pe-reports ---
 @api_router.get(
@@ -6641,7 +6736,9 @@ def breach_names_and_uids(tokens: dict = Depends(get_api_key)):
             userapiTokenverify(theapiKey=tokens)
             # If API key valid, make query
             breach_names_and_uids_data = list(
-                CredentialBreaches.objects.all().values("breach_name", "credential_breaches_uid")
+                CredentialBreaches.objects.all().values(
+                    "breach_name", "credential_breaches_uid"
+                )
             )
             # Convert data types to match response model
             for row in breach_names_and_uids_data:
@@ -6653,7 +6750,7 @@ def breach_names_and_uids(tokens: dict = Depends(get_api_key)):
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- getSubdomain(), Issue 702 pe-reports ---
 @api_router.post(
@@ -6664,7 +6761,9 @@ def breach_names_and_uids(tokens: dict = Depends(get_api_key)):
     response_model=List[schemas.SubdomainUIDByDomain],
     tags=["Retrieve data for the specified subdomain."],
 )
-def subdomain_by_domain(data: schemas.SubdomainUIDByDomainInput, tokens: dict = Depends(get_api_key)):
+def subdomain_by_domain(
+    data: schemas.SubdomainUIDByDomainInput, tokens: dict = Depends(get_api_key)
+):
     """Call API endpoint to get data for specified subdomain."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
@@ -6673,7 +6772,9 @@ def subdomain_by_domain(data: schemas.SubdomainUIDByDomainInput, tokens: dict = 
             userapiTokenverify(theapiKey=tokens)
             # If API key valid, make query
             subdomain_by_domain_data = list(
-                SubDomains.objects.filter(sub_domain=data.domain).values("sub_domain_uid")
+                SubDomains.objects.filter(sub_domain=data.domain).values(
+                    "sub_domain_uid"
+                )
             )
             # Convert data types to match response model
             for row in subdomain_by_domain_data:
@@ -6683,7 +6784,7 @@ def subdomain_by_domain(data: schemas.SubdomainUIDByDomainInput, tokens: dict = 
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- org_root_domains(), Issue 703 pe-reports ---
 @api_router.post(
@@ -6694,25 +6795,30 @@ def subdomain_by_domain(data: schemas.SubdomainUIDByDomainInput, tokens: dict = 
     response_model=List[schemas.RootDomainsTable],
     tags=["Retrieve root domains for the specified org uid."],
 )
-def rootdomains_by_org_uid(data: schemas.RootdomainsByOrgUIDInput, tokens: dict = Depends(get_api_key)):
+def rootdomains_by_org_uid(
+    data: schemas.RootdomainsByOrgUIDInput, tokens: dict = Depends(get_api_key)
+):
     """Call API endpoint to get root domains for specified org uid."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key valid, make query
             rootdomains_by_org_uid_data = list(
                 RootDomains.objects.filter(
-                    organizations_uid=data.org_uid, 
-                    enumerate_subs=True
+                    organizations_uid=data.org_uid, enumerate_subs=True
                 ).values()
             )
             # Convert data types to match response model
             for row in rootdomains_by_org_uid_data:
                 row["root_domain_uid"] = convert_uuid_to_string(row["root_domain_uid"])
-                row["organizations_uid_id"] = convert_uuid_to_string(row["organizations_uid_id"])
-                row["data_source_uid_id"] = convert_uuid_to_string(row["data_source_uid_id"])
+                row["organizations_uid_id"] = convert_uuid_to_string(
+                    row["organizations_uid_id"]
+                )
+                row["data_source_uid_id"] = convert_uuid_to_string(
+                    row["data_source_uid_id"]
+                )
             return rootdomains_by_org_uid_data
         except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
@@ -6723,25 +6829,22 @@ def rootdomains_by_org_uid(data: schemas.RootdomainsByOrgUIDInput, tokens: dict 
 @api_router.post(
     "/crossfeed_vulns",
     dependencies=[Depends(get_api_key)],
-    #response_model=schemas.PshttDomainToRunTaskResp,TODO, create schema for generlized output
+    # response_model=schemas.PshttDomainToRunTaskResp,TODO, create schema for generlized output
     tags=["Return all vulnerabilites formatted for crossfeed database."],
 )
-def crossfeed_vulns(
-    data: schemas.GenInputOrgName,
-    tokens: dict = Depends(get_api_key)
-    ):
+def crossfeed_vulns(data: schemas.GenInputOrgName, tokens: dict = Depends(get_api_key)):
     """Returna all vulnerabilities for crossfeed database."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         tasks_dict = {}
         shodan_task = shodan_vulns_task.delay(data.org_acronym)
-        tasks_dict['shodan'] = shodan_task.id
+        tasks_dict["shodan"] = shodan_task.id
         cred_task = credential_breach_vulns_task.delay(data.org_acronym)
-        tasks_dict['creds'] = cred_task.id
+        tasks_dict["creds"] = cred_task.id
         was_task = was_vulns_task.delay(data.org_acronym)
-        tasks_dict['was'] = was_task.id
-        #TODO: add task for XPANSE data
+        tasks_dict["was"] = was_task.id
+        # TODO: add task for XPANSE data
         # Return the new task id w/ "Processing" status
         return {"tasks_dict": tasks_dict, "status": "Processing"}
 
@@ -6862,15 +6965,15 @@ def domain_permu_insert_dnstwist(
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- get_root_domains(), Issue 707 pe-reports/006 atc-framework ---
 # This function reuses the /rootdomains_by_org_uid endpoint
-    
+
 
 # --- getDataSource(), Issue 708 pe-reports/007 atc-framework ---
 # This function reuses the /data_source_by_name endpoint
-    
+
 
 # --- execute_hibp_breach_values(), Issue 709/008 atc-framework ---
 @api_router.put(
@@ -6927,7 +7030,7 @@ def cred_breaches_hibp_insert(
                     ).update(
                         modified_daate=row_dict["modified_date"],
                         exposed_cred_count=row_dict["exposed_cred_count"],
-                        password_included=row_dict["password_included"]
+                        password_included=row_dict["password_included"],
                     )
                     update_count += 1
             return (
@@ -6940,7 +7043,7 @@ def cred_breaches_hibp_insert(
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- execute_hibp_emails_values(), Issue 710 pe-reports/009 atc-framework ---
 @api_router.put(
@@ -6995,14 +7098,13 @@ def cred_exp_hibp_insert(
                     create_cnt += 1
             # Return success message
             return (
-                str(create_cnt)
-                + " records created in the credential_exposures table"
+                str(create_cnt) + " records created in the credential_exposures table"
             )
         except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- get_breach_uids(), Issue 010 atc-framework ---
 @api_router.get(
@@ -7023,7 +7125,7 @@ def breach_uids(tokens: dict = Depends(get_api_key)):
             # If API key valid, make query
             breach_uids_data = list(
                 CredentialBreaches.objects.all().values(
-                    "breach_name", 
+                    "breach_name",
                     "credential_breaches_uid",
                 )
             )
@@ -7037,7 +7139,7 @@ def breach_uids(tokens: dict = Depends(get_api_key)):
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-        
+
 
 # --- query_orgs(), Issue 011 atc-framework ---
 @api_router.get(
@@ -7080,7 +7182,9 @@ def reported_orgs(tokens: dict = Depends(get_api_key)):
     response_model=List[schemas.SubdomainsByOrgUID],
     tags=["Retrieve subdomains for the specified org uid."],
 )
-def subdomains_by_org_uid(data: schemas.SubdomainsByOrgUIDInput, tokens: dict = Depends(get_api_key)):
+def subdomains_by_org_uid(
+    data: schemas.SubdomainsByOrgUIDInput, tokens: dict = Depends(get_api_key)
+):
     """Call API endpoint to get subdomains for specified org uid."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
@@ -7089,11 +7193,8 @@ def subdomains_by_org_uid(data: schemas.SubdomainsByOrgUIDInput, tokens: dict = 
             userapiTokenverify(theapiKey=tokens)
             # If API key valid, make query
             subdomains_by_org_uid_data = list(
-                RootDomains.objects.filter(
-                    organizations_uid=data.org_uid
-                ).values(
-                    "root_domains_uid__sub_domain", 
-                    "root_domain"
+                RootDomains.objects.filter(organizations_uid=data.org_uid).values(
+                    "root_domains_uid__sub_domain", "root_domain"
                 )
             )
             return subdomains_by_org_uid_data
@@ -7101,7 +7202,7 @@ def subdomains_by_org_uid(data: schemas.SubdomainsByOrgUIDInput, tokens: dict = 
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- insert_shodan_assets(), Issue 016 atc-framework ---
 @api_router.put(
@@ -7112,29 +7213,35 @@ def subdomains_by_org_uid(data: schemas.SubdomainsByOrgUIDInput, tokens: dict = 
     tags=["Insert Shodan data into the shodan_assets table."],
 )
 def shodan_assets_insert(
-    data: schemas.ShodanAssetsInsertInput, tokens: dict = Depends(get_api_key)):
+    data: schemas.ShodanAssetsInsertInput, tokens: dict = Depends(get_api_key)
+):
     """Insert Shodan data into the shodan_assets table using the API endpoint."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key is valid, proceed with the operation
             update_create_count = 0
+            try:
+                mdl_data_source = MDL_DataSource.objects.get(name="Shodan")
+
+            except MDL_DataSource.DoesNotExist:
+                LOGGER.warning("DataSource 'Shodan' not found.")
+                mdl_data_source = None  # Set to None if DataSource is not found
+
             for row in data.asset_data:
                 row_dict = row.__dict__
 
                 try:
-                    org_instance = Organizations.objects.get(organizations_uid=row_dict["organizations_uid"])
-                    acronym = org_instance.acronym  # Assuming 'acronym' is a field in Organizations model
-                    # Assuming ExternalOrganizations is a model that matches organization acronym to an organization_id
+                    org_instance = Organizations.objects.get(
+                        organizations_uid=row_dict["organizations_uid"]
+                    )
+
+                    acronym = org_instance.cyhy_db_name
+
                     mdl_org = MDL_Organization.objects.get(acronym=acronym)
-                    try:
-                        mdl_data_source = MDL_DataSource.objects.get(name="Shodan")
-                    except DataSource.DoesNotExist:
-                        LOGGER.warning(f"DataSource with UID {row_dict['data_source_uid_id']} not found.")
-                        mdl_data_source = None  # Set to None if DataSource is not found
-                    
+
                     mdl_asset_fields = {
                         "asn": row_dict.get("asn"),
                         "domains": row_dict.get("domains", []),
@@ -7147,17 +7254,19 @@ def shodan_assets_insert(
                         "location": row_dict.get("location"),
                         "data_source": mdl_data_source,
                     }
-                    
+
                     mdl_obj, created = MDL_ShodanAssets.objects.update_or_create(
                         organization=mdl_org,  # Directly use organizations_uid
                         ip=row_dict["ip"],
                         port=row_dict["port"],
                         protocol=row_dict["protocol"],
-                        timestamp=row_dict["timestamp"],
-                        defaults=mdl_asset_fields
+                        timestamp=timezone.make_aware(
+                            parse_datetime(row_dict["timestamp"]), timezone.timezone.utc
+                        ),
+                        defaults=mdl_asset_fields,
                     )
-                except:
-                    LOGGER.warning(f"Shodan Asset failed to save to MDL.") 
+                except Exception as e:
+                    LOGGER.warning(f"Shodan Asset failed to save to MDL: {e}")
 
                 try:
                     # Prepare the fields that will be used for create or update (only non-unique fields here)
@@ -7176,22 +7285,29 @@ def shodan_assets_insert(
 
                     # Use 'update_or_create' to either create or update the record
                     obj, created = ShodanAssets.objects.update_or_create(
-                        organizations_uid=row_dict["organizations_uid"],  # Directly use organizations_uid
+                        organizations_uid=org_instance,  # Directly use organizations_uid
                         ip=row_dict["ip"],
                         port=row_dict["port"],
                         protocol=row_dict["protocol"],
-                        timestamp=row_dict["timestamp"],
-                        defaults=asset_fields
+                        timestamp=timezone.make_aware(
+                            datetime.strptime(
+                                row_dict["timestamp"], "%Y-%m-%dT%H:%M:%S.%f"
+                            ),
+                            timezone.timezone.utc,
+                        ),
+                        defaults=asset_fields,
                     )
 
                     if created:
                         update_create_count += 1
-                except:
-                    LOGGER.warning(f"Shodan Asset failed to save to PE DB.") 
+                except Exception as e:
+                    LOGGER.warning(f"Shodan Asset failed to save to PE DB: {e}")
                     continue
 
             # Return the success message with the count of created/updated records
-            return {"message": f"{update_create_count} records created/updated in the shodan_assets table."}
+            return {
+                "message": f"{update_create_count} records created/updated in the shodan_assets table."
+            }
 
         except ObjectDoesNotExist:
             LOGGER.info("API key expired or invalid. Please try again.")
@@ -7201,6 +7317,7 @@ def shodan_assets_insert(
             return {"message": "An error occurred while processing the request."}
     else:
         return {"message": "No API key was submitted."}
+
 
 # --- insert_shodan_vulns(), Issue 017 atc-framework ---
 @api_router.put(
@@ -7218,21 +7335,23 @@ def shodan_vulns_insert(
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
-            userapiTokenverify(theapiKey=tokens)
+            # userapiTokenverify(theapiKey=tokens)
             # If API key valid, insert intelx data
             create_cnt = 0
+            try:
+                mdl_data_source = MDL_DataSource.objects.get(name="Shodan")
+            except DataSource.DoesNotExist:
+                LOGGER.warning("DataSource for 'Shodan' not found.")
+                mdl_data_source = None  # Set to None if DataSource is not found
             for row in data.vuln_data:
                 row_dict = row.__dict__
                 try:
-                    org_instance = Organizations.objects.get(organizations_uid=row_dict["organizations_uid"])
-                    acronym = org_instance.acronym  # Assuming 'acronym' is a field in Organizations model
-                    # Assuming ExternalOrganizations is a model that matches organization acronym to an organization_id
+                    org_instance = Organizations.objects.get(
+                        organizations_uid=row_dict["organizations_uid"]
+                    )
+                    acronym = org_instance.cyhy_db_name
+
                     mdl_org = MDL_Organization.objects.get(acronym=acronym)
-                    try:
-                        mdl_data_source = MDL_DataSource.objects.get(name="Shodan")
-                    except DataSource.DoesNotExist:
-                        LOGGER.warning(f"DataSource with UID {row_dict['data_source_uid_id']} not found.")
-                        mdl_data_source = None  # Set to None if DataSource is not found
 
                     mdl_vuln_data = {
                         "organization_name": row_dict.get("organization"),
@@ -7245,7 +7364,9 @@ def shodan_vulns_insert(
                         "av_description": row_dict.get("av_description"),
                         "attack_complexity": row_dict.get("attack_complexity"),
                         "ac_description": row_dict.get("ac_description"),
-                        "confidentiality_impact": row_dict.get("confidentiality_impact"),
+                        "confidentiality_impact": row_dict.get(
+                            "confidentiality_impact"
+                        ),
                         "ci_description": row_dict.get("ci_description"),
                         "integrity_impact": row_dict.get("integrity_impact"),
                         "ii_description": row_dict.get("ii_description"),
@@ -7265,7 +7386,7 @@ def shodan_vulns_insert(
                         "is_verified": row_dict.get("is_verified"),
                         "banner": row_dict.get("banner"),
                         "version": row_dict.get("version"),
-                        "cpe": row_dict.get("cpe")
+                        "cpe": row_dict.get("cpe"),
                     }
 
                     mdl_obj, created = MDL_ShodanVulns.objects.update_or_create(
@@ -7273,11 +7394,15 @@ def shodan_vulns_insert(
                         ip=row_dict["ip"],
                         port=row_dict["port"],
                         protocol=row_dict["protocol"],
-                        timestamp=row_dict["timestamp"],
-                        defaults=mdl_vuln_data)
-                except:
-                    LOGGER.warning(f"Shodan Vuln failed to save to MDL.") 
-                    
+                        timestamp=timezone.make_aware(
+                            parse_datetime(row_dict["timestamp"])
+                        ),
+                        defaults=mdl_vuln_data,
+                    )
+
+                except Exception as e:
+                    LOGGER.warning(f"Shodan Vuln failed to save to MDL: {e}")
+
                 try:
                     vuln_data = {
                         "organization": row_dict.get("organization"),
@@ -7290,7 +7415,9 @@ def shodan_vulns_insert(
                         "av_description": row_dict.get("av_description"),
                         "attack_complexity": row_dict.get("attack_complexity"),
                         "ac_description": row_dict.get("ac_description"),
-                        "confidentiality_impact": row_dict.get("confidentiality_impact"),
+                        "confidentiality_impact": row_dict.get(
+                            "confidentiality_impact"
+                        ),
                         "ci_description": row_dict.get("ci_description"),
                         "integrity_impact": row_dict.get("integrity_impact"),
                         "ii_description": row_dict.get("ii_description"),
@@ -7310,31 +7437,34 @@ def shodan_vulns_insert(
                         "is_verified": row_dict.get("is_verified"),
                         "banner": row_dict.get("banner"),
                         "version": row_dict.get("version"),
-                        "cpe": row_dict.get("cpe")
+                        "cpe": row_dict.get("cpe"),
                     }
 
-                    obj, created = MDL_ShodanVulns.objects.update_or_create(
+                    obj, created = ShodanVulns.objects.update_or_create(
                         organizations_uid=org_instance,  # Directly use organizations_uid
                         ip=row_dict["ip"],
                         port=row_dict["port"],
                         protocol=row_dict["protocol"],
-                        timestamp=row_dict["timestamp"],
-                        defaults=vuln_data)
+                        timestamp=timezone.make_aware(
+                            datetime.strptime(
+                                row_dict["timestamp"], "%Y-%m-%dT%H:%M:%S.%f"
+                            )
+                        ),
+                        defaults=vuln_data,
+                    )
+                    LOGGER.info(f"pe vuln created: {created}")
                     if created:
-                        create_cnt+=1
-                except:
-                    LOGGER.warning(f"Shodan Vuln failed to save to PE DB.") 
+                        create_cnt += 1
+                except Exception as e:
+                    LOGGER.warning(f"Shodan Vuln failed to save to PE DB: {e}")
                     continue
             # Return success message
-            return (
-                str(create_cnt)
-                + " records created in the shodan vulns table"
-            )
+            return str(create_cnt) + " records created in the shodan vulns table"
         except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
     else:
         return {"message": "No api key was submitted"}
-    
+
 
 # --- get_demo_orgs(), Issue 018 atc-framework ---
 @api_router.get(
@@ -7367,6 +7497,7 @@ def organizations_demo(tokens: dict = Depends(get_api_key)):
     else:
         return {"message": "No api key was submitted"}
 
+
 # --- Endpoint for Orgs with assets query (no view) ---
 @api_router.post(
     "/orgs_and_assets",
@@ -7376,7 +7507,9 @@ def organizations_demo(tokens: dict = Depends(get_api_key)):
     response_model=schemas.OrgAssetTaskResp,
     tags=["Call API endpoint to get list all orgs and their linked assets."],
 )
-def orgs_and_assets(data: schemas.OrgsAssetsPagedInput, tokens: dict = Depends(get_api_key)):
+def orgs_and_assets(
+    data: schemas.OrgsAssetsPagedInput, tokens: dict = Depends(get_api_key)
+):
     """Call API endpoint to get list all orgs and their linked assets."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
@@ -7401,7 +7534,9 @@ def orgs_and_assets(data: schemas.OrgsAssetsPagedInput, tokens: dict = Depends(g
     response_model=schemas.OrgAssetTaskResp,
     tags=["Get task status for orgs and assets task."],
 )
-async def get_orgs_and_assets_task_status(task_id: str, tokens: dict = Depends(get_api_key)):
+async def get_orgs_and_assets_task_status(
+    task_id: str, tokens: dict = Depends(get_api_key)
+):
     """Get task status for orgs and assets task."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
@@ -7428,6 +7563,53 @@ async def get_orgs_and_assets_task_status(task_id: str, tokens: dict = Depends(g
                 }
             else:
                 return {"task_id": task_id, "status": task.state}
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+
+
+@api_router.get(
+    "/query_shodan_ips/{org_uid}",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    # response_model=List[schemas.OrgsReportOnContacts],
+    tags=["Get all ips to run through Shodan."],
+)
+def query_shodan_ips(org_uid: str, tokens: dict = Depends(get_api_key)):
+    """Create API endpoint to get all ips to run through Shodan.."""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            # userapiTokenverify(theapiKey=tokens)
+            # If API key valid, make query
+            ips_from_cidrs = Ips.objects.filter(
+                origin_cidr__organizations_uid=org_uid,
+                origin_cidr__isnull=False,
+                shodan_results=True,
+                current=True,
+            ).values_list("ip", flat=True)
+
+            ips_from_subs = Ips.objects.filter(
+                ipssubs__sub_domain_uid__root_domain_uid__organizations_uid=org_uid,  # Correct relationship traversal
+                shodan_results=True,  # 'shodan_results' is True
+                ipssubs__sub_domain_uid__current=True,  # 'current' is True for subdomains
+                current=True,  # 'current' is True for Ips
+            ).values_list("ip", flat=True)
+
+            # Convert the QuerySet to sets
+            in_first = set(ips_from_cidrs)
+            in_second = set(ips_from_subs)
+
+            # Find IPs that are in the second query but not in the first
+            in_second_but_not_in_first = in_second - in_first
+
+            # Combine the results
+            ips = list(ips_from_cidrs) + list(in_second_but_not_in_first)
+
+            return ips
         except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
     else:

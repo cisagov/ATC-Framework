@@ -1,13 +1,18 @@
-# Create your models here.
-""" Django ORM models """
-
-from django.db import models
-from django.contrib.postgres.fields import ArrayField
-from django.contrib.auth.models import User as AuthUser
-from netfields import InetAddressField, NetManager
+"""Django ORM models."""
+# Standard Python Libraries
 import uuid
 
+# Third-Party Libraries
+# from django.contrib.auth.models import User as AuthUser
+from django.contrib.postgres.fields import ArrayField
+from django.db import models
+from netfields import InetAddressField
+
+# , NetManager
+
 manage_db = True
+
+
 class ApiKey(models.Model):
     """The ApiKey model."""
 
@@ -24,7 +29,7 @@ class ApiKey(models.Model):
     class Meta:
         """Meta class for ApiKey."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "api_key"
 
@@ -44,7 +49,7 @@ class Assessment(models.Model):
     class Meta:
         """The Meta class for Assessment."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "assessment"
 
@@ -62,7 +67,7 @@ class Category(models.Model):
     class Meta:
         """The Meta class for Category model."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "category"
 
@@ -79,7 +84,7 @@ class Cpe(models.Model):
     class Meta:
         """The Meta class for Cpe."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         db_table = "cpe"
         managed = manage_db  # This ensures Django does not manage the table
         unique_together = (("name", "version", "vendor"),)  # Unique constraint
@@ -94,9 +99,15 @@ class Cve(models.Model):
     modified_at = models.DateTimeField(db_column="modified_at", blank=True, null=True)
     status = models.CharField(blank=True, null=True, max_length=255)
     description = models.TextField(blank=True, null=True)
-    cvss_v2_source = models.CharField(db_column="cvss_v2_source", blank=True, null=True, max_length=255)
-    cvss_v2_type = models.CharField(db_column="cvss_v2_type", blank=True, null=True, max_length=255)
-    cvss_v2_version = models.CharField(db_column="cvss_v2_version", blank=True, null=True, max_length=255)
+    cvss_v2_source = models.CharField(
+        db_column="cvss_v2_source", blank=True, null=True, max_length=255
+    )
+    cvss_v2_type = models.CharField(
+        db_column="cvss_v2_type", blank=True, null=True, max_length=255
+    )
+    cvss_v2_version = models.CharField(
+        db_column="cvss_v2_version", blank=True, null=True, max_length=255
+    )
     cvss_v2_vector_string = models.CharField(
         db_column="cvss_v2_vector_string", blank=True, null=True, max_length=255
     )
@@ -112,9 +123,15 @@ class Cve(models.Model):
     cvss_v2_impact_score = models.CharField(
         db_column="cvss_v2_impact_score", blank=True, null=True, max_length=255
     )
-    cvss_v3_source = models.CharField(db_column="cvss_v3_source", blank=True, null=True, max_length=255)
-    cvss_v3_type = models.CharField(db_column="cvss_v3_type", blank=True, null=True, max_length=255)
-    cvss_v3_version = models.CharField(db_column="cvss_v3_version", blank=True, null=True, max_length=255)
+    cvss_v3_source = models.CharField(
+        db_column="cvss_v3_source", blank=True, null=True, max_length=255
+    )
+    cvss_v3_type = models.CharField(
+        db_column="cvss_v3_type", blank=True, null=True, max_length=255
+    )
+    cvss_v3_version = models.CharField(
+        db_column="cvss_v3_version", blank=True, null=True, max_length=255
+    )
     cvss_v3_vector_string = models.CharField(
         db_column="cvss_v3_vector_string", blank=True, null=True, max_length=255
     )
@@ -130,9 +147,15 @@ class Cve(models.Model):
     cvss_v3_impact_score = models.CharField(
         db_column="cvss_v3_impact_score", blank=True, null=True, max_length=255
     )
-    cvss_v4_source = models.CharField(db_column="cvss_v4_source", blank=True, null=True, max_length=255)
-    cvss_v4_type = models.CharField(db_column="cvss_v4_type", blank=True, null=True, max_length=255)
-    cvss_v4_version = models.CharField(db_column="cvss_v4_version", blank=True, null=True, max_length=255)
+    cvss_v4_source = models.CharField(
+        db_column="cvss_v4_source", blank=True, null=True, max_length=255
+    )
+    cvss_v4_type = models.CharField(
+        db_column="cvss_v4_type", blank=True, null=True, max_length=255
+    )
+    cvss_v4_version = models.CharField(
+        db_column="cvss_v4_version", blank=True, null=True, max_length=255
+    )
     cvss_v4_vector_string = models.CharField(
         db_column="cvss_v4_vector_string", blank=True, null=True, max_length=255
     )
@@ -154,77 +177,76 @@ class Cve(models.Model):
         max_digits=1000, decimal_places=1000, blank=True, null=True
     )
 
-    cpes = models.ManyToManyField(Cpe, related_name='cves', blank=True)
+    cpes = models.ManyToManyField(Cpe, related_name="cves", blank=True)
     # tickets = models.ManyToManyField("Ticket", related_name='cves', blank=True)
     # vuln_scans = models.ManyToManyField("VulnScan", related_name='cves', blank=True)
-
 
     class Meta:
         """The Meta class for Cve."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "cve"
 
+    # This will likely be handled via the many to many field
+    # class CveCpesCpe(models.Model):
+    #     """The CveCpesCpe model."""
 
-# This will likely be handled via the many to many field
-# class CveCpesCpe(models.Model):
-#     """The CveCpesCpe model."""
+    #     cve_id = models.ForeignKey(Cve, on_delete=models.CASCADE, db_column="cve_id")
+    #     cpe_id = models.ForeignKey(Cpe, on_delete=models.CASCADE, db_column="cpe_id")
 
-#     cve_id = models.ForeignKey(Cve, on_delete=models.CASCADE, db_column="cve_id")
-#     cpe_id = models.ForeignKey(Cpe, on_delete=models.CASCADE, db_column="cpe_id")
+    #     class Meta:
+    #         """The Meta class for CveCpesCpe model."""
 
-#     class Meta:
-#         """The Meta class for CveCpesCpe model."""
+    #         db_table = "cve_cpes_cpe"
+    #         managed = False  # This ensures Django does not manage the table
+    #         unique_together = (("cve", "cpe"),)  # Unique constraint
 
-#         db_table = "cve_cpes_cpe"
-#         managed = False  # This ensures Django does not manage the table
-#         unique_together = (("cve", "cpe"),)  # Unique constraint
+    # This is crossfeeds domain model, which lines up better with the pe subdomain table
+    # class Domain(models.Model):
+    #     """The Domain model."""
 
-# This is crossfeeds domain model, which lines up better with the pe subdomain table
-# class Domain(models.Model):
-#     """The Domain model."""
+    #     id = models.UUIDField(primary_key=True)
+    #     created_at = models.DateTimeField(db_column="created_at")
+    #     updated_at = models.DateTimeField(db_column="updated_at")
+    #     synced_at = models.DateTimeField(db_column="synced_at", blank=True, null=True)
+    #     ip = models.CharField(max_length=255, blank=True, null=True)
+    #     from_root_domain = models.CharField(db_column="from_root_domain", blank=True, null=True)
+    #     subdomain_source = models.CharField(
+    #         db_column="subdomain_source", max_length=255, blank=True, null=True
+    #     )
+    #     ip_only = models.BooleanField(db_column="ip_only", default=False)
+    #     reverse_name = models.CharField(db_column="reverse_name", max_length=512)
+    #     name = models.CharField(max_length=512)
+    #     screenshot = models.CharField(max_length=512, blank=True, null=True)
+    #     country = models.CharField(max_length=255, blank=True, null=True)
+    #     asn = models.CharField(max_length=255, blank=True, null=True)
+    #     cloud_hosted = models.BooleanField(db_column="cloud_hosted", default=False)
+    #     ssl = models.JSONField(blank=True, null=True)
+    #     censys_certificates_results = models.JSONField(
+    #         db_column="censys_certificates_results", default=dict
+    #     )
+    #     trustymail_results = models.JSONField(db_column="trustymail_results", default=dict)
+    #     discovered_by = models.ForeignKey(
+    #         "Scan",
+    #         on_delete=models.SET_NULL,
+    #         db_column="discovered_by_id",
+    #         blank=True,
+    #         null=True,
+    #     )
+    #     organization = models.ForeignKey(
+    #         "Organization", on_delete=models.CASCADE, db_column="organization_id"
+    #     )
 
-#     id = models.UUIDField(primary_key=True)
-#     created_at = models.DateTimeField(db_column="created_at")
-#     updated_at = models.DateTimeField(db_column="updated_at")
-#     synced_at = models.DateTimeField(db_column="synced_at", blank=True, null=True)
-#     ip = models.CharField(max_length=255, blank=True, null=True)
-#     from_root_domain = models.CharField(db_column="from_root_domain", blank=True, null=True)
-#     subdomain_source = models.CharField(
-#         db_column="subdomain_source", max_length=255, blank=True, null=True
-#     )
-#     ip_only = models.BooleanField(db_column="ip_only", default=False)
-#     reverse_name = models.CharField(db_column="reverse_name", max_length=512)
-#     name = models.CharField(max_length=512)
-#     screenshot = models.CharField(max_length=512, blank=True, null=True)
-#     country = models.CharField(max_length=255, blank=True, null=True)
-#     asn = models.CharField(max_length=255, blank=True, null=True)
-#     cloud_hosted = models.BooleanField(db_column="cloud_hosted", default=False)
-#     ssl = models.JSONField(blank=True, null=True)
-#     censys_certificates_results = models.JSONField(
-#         db_column="censys_certificates_results", default=dict
-#     )
-#     trustymail_results = models.JSONField(db_column="trustymail_results", default=dict)
-#     discovered_by = models.ForeignKey(
-#         "Scan",
-#         on_delete=models.SET_NULL,
-#         db_column="discovered_by_id",
-#         blank=True,
-#         null=True,
-#     )
-#     organization = models.ForeignKey(
-#         "Organization", on_delete=models.CASCADE, db_column="organization_id"
-#     )
+    #     class Meta:
+    #         """The meta class for Domain."""
 
-#     class Meta:
-#         """The meta class for Domain."""
-
-#         db_table = "domain"
-#         managed = False  # This ensures Django does not manage the table
-#         unique_together = (("name", "organization"),)  # Unique constraint
+    #         db_table = "domain"
+    #         managed = False  # This ensures Django does not manage the table
+    #         unique_together = (("name", "organization"),)  # Unique constraint
 
     def save(self, *args, **kwargs):
+        """Format the model before saving."""
         self.name = self.name.lower()
         self.reverseName = ".".join(reversed(self.name.split(".")))
         super().save(*args, **kwargs)
@@ -244,13 +266,15 @@ class Notification(models.Model):
         db_column="maintenance_type", blank=True, null=True, max_length=255
     )
     status = models.CharField(blank=True, null=True, max_length=255)
-    updated_by = models.CharField(db_column="updated_by", blank=True, null=True, max_length=255)
+    updated_by = models.CharField(
+        db_column="updated_by", blank=True, null=True, max_length=255
+    )
     message = models.TextField(blank=True, null=True)
 
     class Meta:
         """The Meta class for Notification."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "notification"
 
@@ -265,20 +289,30 @@ class Organization(models.Model):
     retired = models.BooleanField(default=False, null=True, blank=True)
     name = models.CharField(max_length=255)
     root_domains = ArrayField(
-        models.TextField(blank=True, null=True), blank=True, null=True, db_column="root_domains"
+        models.TextField(blank=True, null=True),
+        blank=True,
+        null=True,
+        db_column="root_domains",
     )
     ip_blocks = models.TextField(db_column="ip_blocks")  # This field type is a guess.
     is_passive = models.BooleanField(db_column="is_passive")
     pending_domains = ArrayField(
-        models.TextField(blank=True, null=True), blank=True, null=True, db_column="pending_domains"
-    ) # This field type is a guess
+        models.TextField(blank=True, null=True),
+        blank=True,
+        null=True,
+        db_column="pending_domains",
+    )  # This field type is a guess
     date_pe_first_reported = models.DateTimeField(blank=True, null=True)
     country = models.TextField(blank=True, null=True)
     country_name = models.TextField(blank=True, null=True)
     state = models.CharField(blank=True, null=True, max_length=255)
-    region_id = models.CharField(db_column="region_id", blank=True, null=True, max_length=255)
+    region_id = models.CharField(
+        db_column="region_id", blank=True, null=True, max_length=255
+    )
     state_fips = models.IntegerField(db_column="state_fips", blank=True, null=True)
-    state_name = models.CharField(db_column="state_name", blank=True, null=True, max_length=255)
+    state_name = models.CharField(
+        db_column="state_name", blank=True, null=True, max_length=255
+    )
     county = models.TextField(blank=True, null=True)
     county_fips = models.IntegerField(db_column="county_fips", blank=True, null=True)
     type = models.CharField(blank=True, null=True, max_length=255)
@@ -298,15 +332,25 @@ class Organization(models.Model):
     receives_cybex_report = models.BooleanField(blank=True, null=True)
     init_stage = models.CharField(max_length=255, null=True, blank=True)
     scheduler = models.CharField(max_length=255, null=True, blank=True)
-    enrolled_in_vs_timestamp = models.DateTimeField(db_column="enrolled_in_vs_timestamp", auto_now=True)
-    period_start_vs_timestamp = models.DateTimeField(db_column="period_start_vs_timestamp", auto_now=True)
+    enrolled_in_vs_timestamp = models.DateTimeField(
+        db_column="enrolled_in_vs_timestamp", auto_now=True
+    )
+    period_start_vs_timestamp = models.DateTimeField(
+        db_column="period_start_vs_timestamp", auto_now=True
+    )
     report_types = models.JSONField(null=True, blank=True, default=list)
     scan_types = models.JSONField(null=True, blank=True, default=list)
     scan_windows = models.JSONField(null=True, blank=True, default=list)
     scan_limits = models.JSONField(null=True, blank=True, default=list)
     password = models.TextField(blank=True, null=True)
     cyhy_period_start = models.DateField(blank=True, null=True)
-    location = models.ForeignKey("Location", related_name='organizations', on_delete=models.SET_NULL, null=True, blank=True)
+    location = models.ForeignKey(
+        "Location",
+        related_name="organizations",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     # sectors = models.ManyToManyField("Sector", related_name='organizations', blank=True) covered in sectors table already
     # cidrs = models.ManyToManyField("Cidr", related_name='organizations', blank=True) covered in the cidr table already
     # vuln_scans = models.ManyToManyField("VulnScan", related_name='organizations', blank=True)
@@ -325,10 +369,11 @@ class Organization(models.Model):
         blank=True,
         null=True,
     )
+
     class Meta:
         """The meta class for Organization."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "organization"
 
@@ -340,13 +385,17 @@ class OrganizationTag(models.Model):
     created_at = models.DateTimeField(db_column="created_at")
     updated_at = models.DateTimeField(db_column="updated_at")
     name = models.CharField(unique=True, max_length=255)
-    organization = models.ManyToManyField("Organization", related_name='organization_tags', blank=True)
+    organization = models.ManyToManyField(
+        "Organization", related_name="organization_tags", blank=True
+    )
+
     class Meta:
         """The Meta class for OrganizationTag."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "organization_tag"
+
 
 # Probably can be removed and merged with a many to many relationship
 # class OrganizationTagOrganizationsOrganization(models.Model):
@@ -372,6 +421,7 @@ class OrganizationTag(models.Model):
 
 class QueryResultCache(models.Model):
     """The QueryResultCache model."""
+
     id = models.UUIDField(primary_key=True)
     identifier = models.CharField(blank=True, null=True, max_length=255)
     time = models.BigIntegerField()
@@ -382,7 +432,7 @@ class QueryResultCache(models.Model):
     class Meta:
         """The Meta class for QueryResultCache."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "query-result-cache"
 
@@ -403,9 +453,10 @@ class Question(models.Model):
         """The Meta class for Question."""
 
         db_table = "question"
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         unique_together = (("category", "number"),)
+
 
 # Created via Many to Many field
 # Question and Resource many-to-many
@@ -435,12 +486,12 @@ class Resource(models.Model):
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=255)
     url = models.TextField(unique=True)
-    questions = models.ManyToManyField(Question, related_name='resources', blank=True)
+    questions = models.ManyToManyField(Question, related_name="resources", blank=True)
 
     class Meta:
         """The Meta class for Resource."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "resource"
 
@@ -460,7 +511,7 @@ class Response(models.Model):
     class Meta:
         """The Meta class for Resource."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "response"
         unique_together = (("assessment_id", "question_id"),)
@@ -504,7 +555,7 @@ class Role(models.Model):
     class Meta:
         """The Meta class for Role."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "role"
         unique_together = (("user_id", "organization_id"),)
@@ -532,7 +583,7 @@ class SavedSearch(models.Model):
     class Meta:
         """The Meta class for SavedSearch."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "saved_search"
 
@@ -556,15 +607,20 @@ class Scan(models.Model):
     created_by = models.ForeignKey(
         "User", models.DO_NOTHING, db_column="created_by", blank=True, null=True
     )
-    organizations = models.ManyToManyField(Organization, related_name="scans", blank=True)
-    organization_tags = models.ManyToManyField(OrganizationTag, related_name="scans", blank=True)
+    organizations = models.ManyToManyField(
+        Organization, related_name="scans", blank=True
+    )
+    organization_tags = models.ManyToManyField(
+        OrganizationTag, related_name="scans", blank=True
+    )
 
     class Meta:
         """The Meta class for Scan."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "scan"
+
 
 # Taken Care of via many to many field
 # class ScanOrganizationsOrganization(models.Model):
@@ -611,7 +667,9 @@ class ScanTask(models.Model):
     updated_at = models.DateTimeField(db_column="updated_at")
     status = models.TextField()
     type = models.TextField()
-    fargate_task_arn = models.TextField(db_column="fargate_task_arn", blank=True, null=True)
+    fargate_task_arn = models.TextField(
+        db_column="fargate_task_arn", blank=True, null=True
+    )
     input = models.TextField(blank=True, null=True)
     output = models.TextField(blank=True, null=True)
     requested_at = models.DateTimeField(db_column="requested_at", blank=True, null=True)
@@ -628,14 +686,17 @@ class ScanTask(models.Model):
     scan = models.ForeignKey(
         Scan, models.DO_NOTHING, db_column="scan_id", blank=True, null=True
     )
-    organization_tags = models.ManyToManyField(OrganizationTag, related_name="scan_tasks", blank=True)
+    organization_tags = models.ManyToManyField(
+        OrganizationTag, related_name="scan_tasks", blank=True
+    )
 
     class Meta:
         """The Meta class for ScanTask."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "scan_task"
+
 
 # Managed via many to many
 # class ScanTaskOrganizationsOrganization(models.Model):
@@ -683,10 +744,11 @@ class Service(models.Model):
     class Meta:
         """The Meta class for Service."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "service"
         unique_together = (("port", "domain"),)
+
 
 # ????Not sure if this is necessary since we are removing typeorm?????
 # class TypeormMetadata(models.Model):
@@ -714,7 +776,7 @@ class User(models.Model):
         db_column="cognitoId", unique=True, blank=True, null=True, max_length=255
     )
     login_gov_id = models.CharField(
-        db_column="login_gov_id", unique=True, blank=True, null=True, max_length=255    
+        db_column="login_gov_id", unique=True, blank=True, null=True, max_length=255
     )
     created_at = models.DateTimeField(db_column="created_at")
     updated_at = models.DateTimeField(db_column="updated_at")
@@ -732,16 +794,22 @@ class User(models.Model):
     accepted_terms_version = models.TextField(
         db_column="accepted_terms_version", blank=True, null=True
     )
-    last_logged_in = models.DateTimeField(db_column="last_logged_in", blank=True, null=True)
+    last_logged_in = models.DateTimeField(
+        db_column="last_logged_in", blank=True, null=True
+    )
     user_type = models.TextField(db_column="user_type")
-    region_id = models.CharField(db_column="region_id", blank=True, null=True, max_length=255)
+    region_id = models.CharField(
+        db_column="region_id", blank=True, null=True, max_length=255
+    )
     state = models.CharField(blank=True, null=True, max_length=255)
-    okta_id = models.CharField(db_column="okta_id", unique=True, blank=True, null=True, max_length=255)
+    okta_id = models.CharField(
+        db_column="okta_id", unique=True, blank=True, null=True, max_length=255
+    )
 
     class Meta:
         """The Meta class for User."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "user"
 
@@ -759,9 +827,7 @@ class Vulnerability(models.Model):
     cpe = models.TextField(blank=True, null=True)
     description = models.TextField()
     references = models.JSONField()
-    cvss = models.DecimalField(
-        max_digits=100, decimal_places=5, blank=True, null=True
-    )
+    cvss = models.DecimalField(max_digits=100, decimal_places=5, blank=True, null=True)
     severity = models.TextField(blank=True, null=True)
     needs_population = models.BooleanField(db_column="needs_population")
     state = models.TextField()
@@ -782,7 +848,7 @@ class Vulnerability(models.Model):
     class Meta:
         """The Meta class for Vulnerability."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "vulnerability"
         unique_together = (("domain", "title"),)
@@ -817,38 +883,58 @@ class Webpage(models.Model):
     class Meta:
         """The Meta class for Webpage."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "webpage"
         unique_together = (("url", "domain"),)
 
 
-#########  VS Models  #########
+# ########  VS Models  #########
 class TicketEvent(models.Model):
+    """The TicketEvent model."""
+
     id = models.UUIDField(primary_key=True, editable=False)
     reference = models.CharField(max_length=255, null=True, blank=True)
-    vuln_scan = models.ForeignKey("VulnScan", on_delete=models.CASCADE, db_column = "vuln_scan_id", null=True, blank=True, related_name='ticket_events')
+    vuln_scan = models.ForeignKey(
+        "VulnScan",
+        on_delete=models.CASCADE,
+        db_column="vuln_scan_id",
+        null=True,
+        blank=True,
+        related_name="ticket_events",
+    )
     action = models.CharField(max_length=255, null=True, blank=True)
     reason = models.CharField(max_length=255, null=True, blank=True)
     event_timestamp = models.DateTimeField(null=True, blank=True)
     delta = models.JSONField(default=list)
-    ticket = models.ForeignKey("Ticket", on_delete=models.CASCADE, db_column = "ticket_id",null=True, blank=True, related_name='ticket_events')
+    ticket = models.ForeignKey(
+        "Ticket",
+        on_delete=models.CASCADE,
+        db_column="ticket_id",
+        null=True,
+        blank=True,
+        related_name="ticket_events",
+    )
 
     class Meta:
         """The Meta class for TicketEvent."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "ticket_event"
-        unique_together = ('event_timestamp', 'ticket', 'action')
+        unique_together = ("event_timestamp", "ticket", "action")
+
 
 class VulnScan(models.Model):
     """The VS Vuln Scan model."""
+
     id = models.CharField(max_length=255, primary_key=True)
     cert_id = models.CharField(max_length=255, blank=True, null=True)
     cpe = models.CharField(max_length=255, blank=True, null=True)
     cve_string = models.CharField(max_length=255, blank=True, null=True)
-    cve = models.ForeignKey(Cve, related_name='vuln_scans', on_delete=models.CASCADE, blank=True, null=True)
+    cve = models.ForeignKey(
+        Cve, related_name="vuln_scans", on_delete=models.CASCADE, blank=True, null=True
+    )
     cvss_base_score = models.CharField(max_length=255, blank=True, null=True)
     cvss_temporal_score = models.CharField(max_length=255, blank=True, null=True)
     cvss_temporal_vector = models.CharField(max_length=255, blank=True, null=True)
@@ -857,11 +943,19 @@ class VulnScan(models.Model):
     exploit_available = models.CharField(max_length=255, blank=True, null=True)
     exploitability_ease = models.CharField(max_length=255, blank=True, null=True)
     ip_string = models.CharField(max_length=255, blank=True, null=True)
-    ip = models.ForeignKey("Ip", related_name='vuln_scans', on_delete=models.CASCADE, blank=True, null=True)
+    ip = models.ForeignKey(
+        "Ip", related_name="vuln_scans", on_delete=models.CASCADE, blank=True, null=True
+    )
     latest = models.BooleanField(default=False)
     owner = models.CharField(max_length=255, blank=True, null=True)
     osvdb_id = models.CharField(max_length=255, blank=True, null=True)
-    organization = models.ForeignKey(Organization, related_name='vuln_scans', on_delete=models.CASCADE, blank=True, null=True)
+    organization = models.ForeignKey(
+        Organization,
+        related_name="vuln_scans",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
     patch_publication_timestamp = models.DateTimeField(blank=True, null=True)
     cisa_known_exploited = models.DateTimeField(blank=True, null=True)
     port = models.IntegerField(blank=True, null=True)
@@ -883,10 +977,14 @@ class VulnScan(models.Model):
     thorough_tests = models.BooleanField(default=False)
     cvss_score_rationale = models.CharField(max_length=255, blank=True, null=True)
     cvss_score_source = models.CharField(max_length=255, blank=True, null=True)
-    cvss3_base_score = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    cvss3_base_score = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True
+    )
     cvss3_vector = models.CharField(max_length=255, blank=True, null=True)
     cvss3_temporal_vector = models.CharField(max_length=255, blank=True, null=True)
-    cvss3_temporal_score = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    cvss3_temporal_score = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True
+    )
     asset_inventory = models.BooleanField(default=False)
     plugin_id = models.CharField(max_length=255, blank=True, null=True)
     plugin_modification_date = models.DateTimeField(blank=True, null=True)
@@ -902,17 +1000,23 @@ class VulnScan(models.Model):
     # ticket_events = models.ManyToManyField(TicketEvent, related_name='vuln_scans')
     other_findings = models.JSONField(default=dict, blank=True)
 
-class Meta:
-        """The Meta class for VulnScan."""
 
-        app_label = 'dmz_mini_dl'
-        managed = manage_db
-        db_table = "vuln_scan"
-        
+class Meta:
+    """The Meta class for VulnScan."""
+
+    app_label = "dmz_mini_dl"
+    managed = manage_db
+    db_table = "vuln_scan"
+
+
 class Cidr(models.Model):
+    """The Cidr Model."""
+
     id = models.UUIDField(primary_key=True, editable=False)
     created_date = models.DateTimeField(auto_now_add=True)
-    network = InetAddressField(null=True, blank=True, unique=True) #models.TextField()  # This field type is a guess.
+    network = InetAddressField(
+        null=True, blank=True, unique=True
+    )  # models.TextField()  # This field type is a guess.
     start_ip = InetAddressField(null=True, blank=True)
     end_ip = InetAddressField(null=True, blank=True)
     retired = models.BooleanField(null=True, blank=True)
@@ -929,20 +1033,22 @@ class Cidr(models.Model):
         null=True,
     )
 
-    organizations = models.ManyToManyField(Organization, related_name='cidrs', blank=True)
+    organizations = models.ManyToManyField(
+        Organization, related_name="cidrs", blank=True
+    )
 
     class Meta:
+        """The Meta class for Cidr."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "cidr"
-        indexes = [
-            models.Index(fields=['network'])
-        ]
-
+        indexes = [models.Index(fields=["network"])]
 
 
 class Location(models.Model):
+    """The Location model."""
+
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
     name = models.CharField(max_length=255, null=True, blank=True)
     country_abrv = models.CharField(max_length=255, null=True, blank=True)
@@ -955,41 +1061,55 @@ class Location(models.Model):
     state = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        app_label = 'dmz_mini_dl'
+        """The Meta class for Location."""
+
+        app_label = "dmz_mini_dl"
         managed = manage_db
-        db_table = 'location'
-        indexes = [
-            models.Index(fields=['gnis_id'])
-        ]
+        db_table = "location"
+        indexes = [models.Index(fields=["gnis_id"])]
+
 
 class Sector(models.Model):
+    """The Sector model."""
+
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
     name = models.CharField(max_length=255, null=True, blank=True)
     acronym = models.CharField(max_length=255, null=True, blank=True, unique=True)
     retired = models.BooleanField(null=True, blank=True)
 
-    organizations = models.ManyToManyField(Organization, related_name='sectors', blank=True)
+    organizations = models.ManyToManyField(
+        Organization, related_name="sectors", blank=True
+    )
 
     class Meta:
-        app_label = 'dmz_mini_dl'
+        """The Meta class for Sector."""
+
+        app_label = "dmz_mini_dl"
         managed = manage_db
-        db_table = 'sector'
-        indexes = [
-            models.Index(fields=['acronym'])
-        ]
+        db_table = "sector"
+        indexes = [models.Index(fields=["acronym"])]
+
 
 class Host(models.Model):
+    """The Host model."""
+
     id = models.CharField(max_length=255, primary_key=True)
     ip_string = models.CharField(max_length=255, null=True, blank=True)
-    ip = models.ForeignKey("Ip", related_name='hosts', on_delete=models.SET_NULL, null=True, blank=True)
+    ip = models.ForeignKey(
+        "Ip", related_name="hosts", on_delete=models.SET_NULL, null=True, blank=True
+    )
     updated_timestamp = models.DateTimeField(null=True, blank=True)
     latest_netscan_1_timestamp = models.DateTimeField(null=True, blank=True)
     latest_netscan_2_timestamp = models.DateTimeField(null=True, blank=True)
     latest_vulnscan_timestamp = models.DateTimeField(null=True, blank=True)
     latest_portscan_timestamp = models.DateTimeField(null=True, blank=True)
     latest_scan_completion_timestamp = models.DateTimeField(null=True, blank=True)
-    location_longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
-    location_latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    location_longitude = models.DecimalField(
+        max_digits=10, decimal_places=6, null=True, blank=True
+    )
+    location_latitude = models.DecimalField(
+        max_digits=10, decimal_places=6, null=True, blank=True
+    )
     priority = models.IntegerField(null=True, blank=True)
     next_scan_timestamp = models.DateTimeField(null=True, blank=True)
     rand = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
@@ -997,20 +1117,33 @@ class Host(models.Model):
     host_live = models.BooleanField(null=True, blank=True)
     host_live_reason = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=255, null=True, blank=True)
-    organization = models.ForeignKey(Organization, related_name='hosts', on_delete=models.CASCADE, null=True, blank=True)
+    organization = models.ForeignKey(
+        Organization,
+        related_name="hosts",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
 
     class Meta:
-        app_label = 'dmz_mini_dl'
+        """The Meta class for Host."""
+
+        app_label = "dmz_mini_dl"
         managed = manage_db
-        db_table = 'host'
+        db_table = "host"
         indexes = [
-            models.Index(fields=['ip_string']),
+            models.Index(fields=["ip_string"]),
         ]
 
+
 class Ip(models.Model):
+    """The Ip model."""
+
     # id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
     ip_hash = models.TextField(primary_key=True)
-    organization = models.ForeignKey(Organization, related_name='ips', on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization, related_name="ips", on_delete=models.CASCADE
+    )
     created_timestamp = models.DateTimeField(auto_now_add=True)
     updated_timestamp = models.DateTimeField(null=True, blank=True, auto_now=True)
     last_seen_timestamp = models.DateTimeField(null=True, blank=True)
@@ -1020,15 +1153,15 @@ class Ip(models.Model):
     from_cidr = models.BooleanField(null=True, blank=True)
     retired = models.BooleanField(null=True, blank=True)
     last_reverse_lookup = models.DateTimeField(blank=True, null=True)
-    from_cidr = models.BooleanField(blank=True, null=True) 
-    
+    from_cidr = models.BooleanField(blank=True, null=True)
+
     # domains = models.ManyToManyField("SubDomains", related_name='ips', blank=True)
     # host_scans = models.ManyToManyField("HostScan", related_name='ips', blank=True)
     # hosts = models.ManyToManyField(Host, related_name='ips', blank=True)
     # tickets = models.ManyToManyField("Ticket", related_name='ips', blank=True)
     # vuln_scans = models.ManyToManyField(VulnScan, related_name='ips', blank=True)
     # port_scans = models.ManyToManyField("PortScan", related_name='ips', blank=True)
-    sub_domains = models.ManyToManyField("SubDomains", related_name='ips', blank=True)
+    sub_domains = models.ManyToManyField("SubDomains", related_name="ips", blank=True)
     has_shodan_results = models.BooleanField(blank=True, null=True)
     origin_cidr = models.ForeignKey(
         Cidr, on_delete=models.CASCADE, db_column="origin_cidr", blank=True, null=True
@@ -1036,34 +1169,58 @@ class Ip(models.Model):
     current = models.BooleanField(blank=True, null=True)
 
     class Meta:
-        app_label = 'dmz_mini_dl'
+        """The Meta class for Ip."""
+
+        app_label = "dmz_mini_dl"
         managed = manage_db
-        db_table = 'ip'
-        indexes = [
-            models.Index(fields=['ip', 'organization'])
-        ]
-        unique_together = ['ip', 'organization']
+        db_table = "ip"
+        indexes = [models.Index(fields=["ip", "organization"])]
+        unique_together = ["ip", "organization"]
 
 
 class Ticket(models.Model):
-    id = models.CharField(max_length=255, primary_key=True)  # Assuming the UUID is represented as a string
+    """The Ticket model."""
+
+    id = models.CharField(
+        max_length=255, primary_key=True
+    )  # Assuming the UUID is represented as a string
     cve_string = models.CharField(max_length=255, null=True, blank=True)
-    cve = models.ForeignKey(Cve, related_name='tickets', null=True, blank=True, on_delete=models.CASCADE)
-    cvss_base_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    cve = models.ForeignKey(
+        Cve, related_name="tickets", null=True, blank=True, on_delete=models.CASCADE
+    )
+    cvss_base_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
     cvss_version = models.CharField(max_length=255, null=True, blank=True)
     # kev = models.ForeignKey(Kev, related_name='tickets', null=True, blank=True, on_delete=models.CASCADE)
     vuln_name = models.CharField(max_length=255, null=True, blank=True)
     cvss_score_source = models.CharField(max_length=255, null=True, blank=True)
-    cvss_severity = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    vpr_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    cvss_severity = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    vpr_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
     false_positive = models.BooleanField(null=True, blank=True)
     ip_string = models.CharField(max_length=255, null=True, blank=True)
-    ip = models.ForeignKey(Ip, related_name='tickets', null=True, blank=True, on_delete=models.CASCADE)
+    ip = models.ForeignKey(
+        Ip, related_name="tickets", null=True, blank=True, on_delete=models.CASCADE
+    )
     updated_timestamp = models.DateTimeField(null=True, blank=True)
-    location_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    location_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    location_longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    location_latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
     found_in_latest_host_scan = models.BooleanField(null=True, blank=True)
-    organization = models.ForeignKey(Organization, related_name='tickets', null=True, blank=True, on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization,
+        related_name="tickets",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
     vuln_port = models.IntegerField(null=True, blank=True)
     port_protocol = models.CharField(max_length=255, null=True, blank=True)
     snapshots_bool = models.BooleanField(null=True, blank=True)
@@ -1075,15 +1232,24 @@ class Ticket(models.Model):
     # ticket_events = models.ManyToManyField(TicketEvent, related_name='tickets', blank=True)
 
     class Meta:
-        app_label = 'dmz_mini_dl'
+        """The Meta class for Ticket."""
+
+        app_label = "dmz_mini_dl"
         managed = manage_db
-        db_table = 'ticket'
-        unique_together = ['id']
+        db_table = "ticket"
+        unique_together = ["id"]
+
 
 class PortScan(models.Model):
-    id = models.CharField(max_length=255, primary_key=True)  # Assuming UUIDs are stored as strings
+    """The PortScan model."""
+
+    id = models.CharField(
+        max_length=255, primary_key=True
+    )  # Assuming UUIDs are stored as strings
     ip_string = models.CharField(max_length=255, null=True, blank=True)
-    ip = models.ForeignKey(Ip, related_name='port_scans', null=True, blank=True, on_delete=models.CASCADE)
+    ip = models.ForeignKey(
+        Ip, related_name="port_scans", null=True, blank=True, on_delete=models.CASCADE
+    )
     latest = models.BooleanField(default=False)
     port = models.IntegerField(null=True, blank=True)
     protocol = models.CharField(max_length=255, null=True, blank=True)
@@ -1096,14 +1262,24 @@ class PortScan(models.Model):
     state = models.CharField(max_length=255, null=True, blank=True)
     time_scanned = models.DateTimeField(null=True, blank=True)
     # snapshots = models.ManyToManyField(Snapshot, related_name='port_scans', blank=True)
-    organization = models.ForeignKey(Organization, related_name='port_scans', null=True, blank=True, on_delete=models.CASCADE)
- 
-    class Meta:
+    organization = models.ForeignKey(
+        Organization,
+        related_name="port_scans",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
 
-        app_label = 'dmz_mini_dl'
+    class Meta:
+        """The Meta class for PortScan."""
+
+        app_label = "dmz_mini_dl"
         managed = manage_db
-        db_table = 'port_scan'
-#########  WAS Models  #########
+        db_table = "port_scan"
+
+
+# #######  WAS Models  #########
+
 
 class WasTrackerCustomerdata(models.Model):
     """Define WasTrackerCustomerdata model."""
@@ -1135,35 +1311,38 @@ class WasTrackerCustomerdata(models.Model):
     class Meta:
         """Set WasTrackerCustomerdata model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "was_tracker_customer_data"
+
 
 """
 -- WARNING: It may differ from actual native database DDL
 CREATE TABLE information_schema.was_findings (
-	finding_uid uuid NOT NULL,
-	finding_type varchar(10485760) NULL,
-	webapp_id int4 NULL,
-	was_org_id text NULL,
-	owasp_category varchar(10485760) NULL,
-	severity varchar(10485760) NULL,
-	times_detected int4 NULL,
-	base_score float8 NULL,
-	temporal_score float8 NULL,
-	fstatus varchar(10485760) NULL,
-	last_detected date NULL,
-	first_detected date NULL,
-	is_remediated bool NULL,
-	potential bool NULL,
-	webapp_url text NULL,
-	webapp_name text NULL,
-	"name" text NULL,
-	cvss_v3_attack_vector text NULL,
-	cwe_list _int4 NULL,
-	wasc_list jsonb NULL
+    finding_uid uuid NOT NULL,
+    finding_type varchar(10485760) NULL,
+    webapp_id int4 NULL,
+    was_org_id text NULL,
+    owasp_category varchar(10485760) NULL,
+    severity varchar(10485760) NULL,
+    times_detected int4 NULL,
+    base_score float8 NULL,
+    temporal_score float8 NULL,
+    fstatus varchar(10485760) NULL,
+    last_detected date NULL,
+    first_detected date NULL,
+    is_remediated bool NULL,
+    potential bool NULL,
+    webapp_url text NULL,
+    webapp_name text NULL,
+    "name" text NULL,
+    cvss_v3_attack_vector text NULL,
+    cwe_list _int4 NULL,
+    wasc_list jsonb NULL
 );
 """
+
+
 class WasFindings(models.Model):
     """Define WasFindings model."""
 
@@ -1195,15 +1374,18 @@ class WasFindings(models.Model):
     url = models.TextField(blank=True, null=True)
     qid = models.IntegerField(blank=True, null=True)
     response = models.TextField(blank=True, null=True)
+
     class Meta:
         """Set WasFindings model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "was_findings"
 
-class WasHistory(models.Model): 
+
+class WasHistory(models.Model):
     """Define WasHistory model."""
+
     was_org_id = models.TextField(blank=True, null=True)
     date_scanned = models.DateField()
     vuln_cnt = models.IntegerField(blank=True, null=True)
@@ -1217,28 +1399,35 @@ class WasHistory(models.Model):
     high_rem_cnt = models.IntegerField(blank=True, null=True)
     crit_rem_cnt = models.IntegerField(blank=True, null=True)
     total_potential = models.IntegerField(blank=True, null=True)
+
     class Meta:
         """Set WasHistory model metadata."""
-        app_label = 'dmz_mini_dl'
+
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "was_history"
-        unique_together = (('was_org_id', 'date_scanned'),)
-        
+        unique_together = (("was_org_id", "date_scanned"),)
+
 
 class WasMap(models.Model):
     """Define WasMap model."""
+
     was_org_id = models.TextField(blank=True, primary_key=True)
     pe_org_id = models.UUIDField(blank=True, null=True)
     report_on = models.BooleanField(blank=True, null=True)
     last_scanned = models.DateField(blank=True, null=True)
+
     class Meta:
         """Set WasMap model metadata."""
-        app_label = 'dmz_mini_dl'
+
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "was_map"
 
 
 class WasReport(models.Model):
+    """The WasReport model."""
+
     org_name = models.TextField(blank=True, null=True)
     date_pulled = models.DateTimeField(blank=True, null=True)
     last_scan_date = models.DateTimeField(blank=True, null=True)
@@ -1289,13 +1478,15 @@ class WasReport(models.Model):
     pdf_obj = models.BinaryField(blank=True, null=True)
 
     class Meta:
-        db_table = 'was_report'
-        unique_together = ('last_scan_date', 'org_was_acronym')
-        app_label = 'dmz_mini_dl'
+        """The Meta class for WasReport."""
+
+        db_table = "was_report"
+        unique_together = ("last_scan_date", "org_was_acronym")
+        app_label = "dmz_mini_dl"
         managed = manage_db
 
 
-######### PE Models #########
+# ######## PE Models #########
 class PeUsers(models.Model):
     """Define Users model."""
 
@@ -1310,9 +1501,10 @@ class PeUsers(models.Model):
     class Meta:
         """Set User model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "pe_users"
+
 
 # ?????? not sure if we use this anywhere
 class AlembicVersion(models.Model):
@@ -1323,9 +1515,10 @@ class AlembicVersion(models.Model):
     class Meta:
         """Set AlembicVersion model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "alembic_version"
+
 
 class SixgillAlerts(models.Model):
     """Define Alerts model."""
@@ -1357,7 +1550,7 @@ class SixgillAlerts(models.Model):
     class Meta:
         """Set Alerts model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "sixgill_alerts"
 
@@ -1374,9 +1567,10 @@ class Alias(models.Model):
     class Meta:
         """Set Alias model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "alias"
+
 
 # ??????
 class AssetHeaders(models.Model):
@@ -1400,10 +1594,11 @@ class AssetHeaders(models.Model):
     class Meta:
         """Set AssetHeaders model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "asset_headers"
         unique_together = (("organization", "sub_url"),)
+
 
 # # ?????? no data currently
 # class AuthGroup(models.Model):
@@ -1536,6 +1731,7 @@ class AssetHeaders(models.Model):
 #         db_table = "cidrs"
 #         unique_together = (("organization_uid", "network"),)
 
+
 class CredentialBreaches(models.Model):
     """Define CredentialBreaches model."""
 
@@ -1548,7 +1744,7 @@ class CredentialBreaches(models.Model):
     modified_date = models.DateTimeField(blank=True, null=True)
     data_classes = ArrayField(
         models.TextField(blank=True, null=True), blank=True, null=True
-    ) # This field type is a guess.
+    )  # This field type is a guess.
     password_included = models.BooleanField(blank=True, null=True)
     is_verified = models.BooleanField(blank=True, null=True)
     is_fabricated = models.BooleanField(blank=True, null=True)
@@ -1556,13 +1752,17 @@ class CredentialBreaches(models.Model):
     is_retired = models.BooleanField(blank=True, null=True)
     is_spam_list = models.BooleanField(blank=True, null=True)
     data_source = models.ForeignKey(
-        "DataSource", on_delete=models.CASCADE, db_column="data_source_uid"
+        "DataSource",
+        on_delete=models.CASCADE,
+        db_column="data_source_uid",
+        blank=True,
+        null=True,
     )
 
     class Meta:
         """Set CredentialBreaches model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "credential_breaches"
 
@@ -1572,7 +1772,7 @@ class CredentialExposures(models.Model):
 
     credential_exposures_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     email = models.TextField()
-    organization_uid = models.ForeignKey(
+    organization = models.ForeignKey(
         "Organization", on_delete=models.CASCADE, db_column="organization_uid"
     )
     root_domain = models.TextField(blank=True, null=True)
@@ -1585,7 +1785,11 @@ class CredentialExposures(models.Model):
         db_column="credential_breaches_uid",
     )
     data_source = models.ForeignKey(
-        "DataSource", on_delete=models.CASCADE, db_column="data_source_uid"
+        "DataSource",
+        on_delete=models.CASCADE,
+        db_column="data_source_uid",
+        blank=True,
+        null=True,
     )
     name = models.TextField(blank=True, null=True)
     login_id = models.TextField(blank=True, null=True)
@@ -1597,10 +1801,11 @@ class CredentialExposures(models.Model):
     class Meta:
         """Set CredentialExposures model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "credential_exposures"
         unique_together = (("breach_name", "email"),)
+
 
 # needs merging
 # class CveInfo(models.Model):
@@ -1628,6 +1833,7 @@ class CredentialExposures(models.Model):
 #         managed = False
 #         db_table = "cve_info"
 
+
 class CyhyContacts(models.Model):
     """Define CyhyContacts model."""
 
@@ -1648,10 +1854,11 @@ class CyhyContacts(models.Model):
     class Meta:
         """Set CyhyContacts model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "cyhy_contacts"
         unique_together = (("org_id", "contact_type", "email", "name"),)
+
 
 class CyhyDbAssets(models.Model):
     """Define CyhyDbAssets model."""
@@ -1674,10 +1881,11 @@ class CyhyDbAssets(models.Model):
     class Meta:
         """Set CyhyDbAssets model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "cyhy_db_assets"
         unique_together = (("org_id", "network"),)
+
 
 # Probably included in VS models
 # class CyhyPortScans(models.Model):
@@ -1736,9 +1944,10 @@ class DataSource(models.Model):
     class Meta:
         """Set DataSource model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "data_source"
+
 
 # # ??????
 # class DjangoAdminLog(models.Model):
@@ -1806,6 +2015,7 @@ class DataSource(models.Model):
 #         app_label = 'dmz_mini_dl'
 #         managed = manage_db
 #         db_table = "django_session"
+
 
 class DnsRecords(models.Model):
     """Define DnsRecords model."""
@@ -1893,9 +2103,10 @@ class DnsRecords(models.Model):
     class Meta:
         """Set DnsRecords model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "dns_records"
+
 
 # Possibly shodan
 class DomainAlerts(models.Model):
@@ -1918,10 +2129,11 @@ class DomainAlerts(models.Model):
     class Meta:
         """Set DomainAlerts model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "domain_alerts"
         unique_together = (("alert_type", "sub_domain", "date", "new_value"),)
+
 
 class DomainPermutations(models.Model):
     """Define DomainPermutations model."""
@@ -1958,10 +2170,11 @@ class DomainPermutations(models.Model):
     class Meta:
         """Set DomainPermutations model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "domain_permutations"
         unique_together = (("domain_permutation", "organization"),)
+
 
 class DotgovDomains(models.Model):
     """Define DotgovDomains model."""
@@ -1978,9 +2191,10 @@ class DotgovDomains(models.Model):
     class Meta:
         """Set DotgovDomains model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "dotgov_domains"
+
 
 class Executives(models.Model):
     """Define Executives model."""
@@ -1994,9 +2208,10 @@ class Executives(models.Model):
     class Meta:
         """Set Executives model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "executives"
+
 
 # merged with vs's IP table
 # class Ips(models.Model):
@@ -2040,6 +2255,7 @@ class Executives(models.Model):
 #         # db_table = 'ips_subs'
 #         unique_together = (("ip_hash", "sub_domain_uid"),)
 
+
 class Mentions(models.Model):
     """Define Mentions model."""
 
@@ -2072,9 +2288,10 @@ class Mentions(models.Model):
     class Meta:
         """Set Mentions model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "mentions"
+
 
 # Likely can be removed
 class OrgIdMap(models.Model):
@@ -2087,7 +2304,7 @@ class OrgIdMap(models.Model):
     class Meta:
         """Set OrgIdMap model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "org_id_map"
         unique_together = (("cyhy_id", "pe_org_id"),)
@@ -2102,7 +2319,7 @@ class OrgType(models.Model):
     class Meta:
         """Set OrgType model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "org_type"
 
@@ -2249,11 +2466,10 @@ class PshttResults(models.Model):
     class Meta:
         """Set PshttResults model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "pshtt_results"
         unique_together = (("organization", "sub_domain"),)
-
 
 
 class PeReportSummaryStats(models.Model):
@@ -2296,10 +2512,11 @@ class PeReportSummaryStats(models.Model):
     class Meta:
         """Set ReportSummaryStats model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "pe_report_summary_stats"
         unique_together = (("organization", "start_date"),)
+
 
 class RootDomains(models.Model):
     """Define RootDomains model."""
@@ -2318,7 +2535,7 @@ class RootDomains(models.Model):
     class Meta:
         """Set RootDomains model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "root_domains"
         unique_together = (("root_domain", "organization"),)
@@ -2339,19 +2556,26 @@ class PeTeamMembers(models.Model):
     class Meta:
         """Set TeamMembers model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "pe_team_members"
+
 
 class ShodanAssets(models.Model):
     """Define ShodanAssets model."""
 
     shodan_asset_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     organization = models.ForeignKey(
-        Organization, on_delete=models.CASCADE, db_column="organization_uid", blank=True, null=True
+        Organization,
+        on_delete=models.CASCADE,
+        db_column="organization_uid",
+        blank=True,
+        null=True,
     )
     # If you still need to store the organization name or acronym, use a separate field for that
-    organization_name = models.TextField(blank=True, null=True)  # New field to store the name or acronym
+    organization_name = models.TextField(
+        blank=True, null=True
+    )  # New field to store the name or acronym
     ip = models.TextField(blank=True, null=True)
     port = models.IntegerField(blank=True, null=True)
     protocol = models.TextField(blank=True, null=True)
@@ -2359,12 +2583,20 @@ class ShodanAssets(models.Model):
     product = models.TextField(blank=True, null=True)
     server = models.TextField(blank=True, null=True)
     tags = models.JSONField(blank=True, null=True)  # Store tags as a list (JSON format)
-    domains = models.JSONField(blank=True, null=True)  # Store domains as a list (JSON format)
-    hostnames = models.JSONField(blank=True, null=True)  # Store hostnames as a list (JSON format)
+    domains = models.JSONField(
+        blank=True, null=True
+    )  # Store domains as a list (JSON format)
+    hostnames = models.JSONField(
+        blank=True, null=True
+    )  # Store hostnames as a list (JSON format)
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
     data_source = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid", blank=True, null=True
+        DataSource,
+        on_delete=models.CASCADE,
+        db_column="data_source_uid",
+        blank=True,
+        null=True,
     )
     country_code = models.TextField(blank=True, null=True)
     location = models.TextField(blank=True, null=True)
@@ -2372,12 +2604,11 @@ class ShodanAssets(models.Model):
     class Meta:
         """Set ShodanAssets model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "shodan_assets"
-        unique_together = (
-            ("organization", "ip", "port", "protocol", "timestamp"),
-        )
+        unique_together = (("organization", "ip", "port", "protocol", "timestamp"),)
+
 
 # class ShodanInsecureProtocolsUnverifiedVulns(models.Model):
 #     """Define ShodanInsecureProtocolsUnverifiedVulns model."""
@@ -2455,7 +2686,7 @@ class ShodanVulns(models.Model):
     )  # This field type is a guess.
     hostnames = ArrayField(
         models.TextField(blank=True, null=True), blank=True, null=True
-    )   # This field type is a guess.
+    )  # This field type is a guess.
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
     data_source = models.ForeignKey(
@@ -2472,25 +2703,22 @@ class ShodanVulns(models.Model):
     banner = models.TextField(blank=True, null=True)
     version = models.TextField(blank=True, null=True)
     mitigation = models.TextField(blank=True, null=True)
-    cpe = ArrayField(
-        models.TextField(blank=True, null=True), blank=True, null=True
-    )
+    cpe = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
 
     class Meta:
         """Set ShodanVulns model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "shodan_vulns"
-        unique_together = (
-            ("organization", "ip", "port", "protocol", "timestamp"),
-        )
+        unique_together = (("organization", "ip", "port", "protocol", "timestamp"),)
+
 
 class SubDomains(models.Model):
     """Define SubDomains model."""
 
     sub_domain_uid = models.UUIDField(primary_key=True, default=uuid.uuid1())
-    sub_domain = models.TextField()# Crossfeed Domains name field
+    sub_domain = models.TextField()  # Crossfeed Domains name field
     root_domain = models.ForeignKey(
         RootDomains, on_delete=models.CASCADE, db_column="root_domain_uid"
     )
@@ -2511,33 +2739,47 @@ class SubDomains(models.Model):
     updated_at = models.DateTimeField(db_column="updated_at")
     current = models.BooleanField(blank=True, null=True)
     identified = models.BooleanField(blank=True, null=True)
-    ip_address = models.TextField(blank=True, null=True)# XFD column
-    synced_at = models.DateTimeField(db_column="synced_at", blank=True, null=True)# XFD column
-    from_root_domain = models.TextField(db_column="from_root_domain", blank=True, null=True)# XFD column
+    ip_address = models.TextField(blank=True, null=True)  # XFD column
+    synced_at = models.DateTimeField(
+        db_column="synced_at", blank=True, null=True
+    )  # XFD column
+    from_root_domain = models.TextField(
+        db_column="from_root_domain", blank=True, null=True
+    )  # XFD column
     subdomain_source = models.TextField(
         db_column="subdomain_source", max_length=255, blank=True, null=True
-    )# XFD column
+    )  # XFD column
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, db_column="organization_uid"
     )
-    ip_only = models.BooleanField(db_column="ip_only", default=False)# XFD column
-    reverse_name = models.CharField(db_column="reverse_name", max_length=512)# XFD column
-    screenshot = models.CharField(max_length=512, blank=True, null=True)# XFD Crossfeed Domains screenshot field
-    country = models.CharField(max_length=255, blank=True, null=True)# XFD column
-    asn = models.CharField(max_length=255, blank=True, null=True)# XFD column
-    cloud_hosted = models.BooleanField(db_column="cloud_hosted", default=False)# XFD column
-    ssl = models.JSONField(blank=True, null=True)# XFD columnv
+    ip_only = models.BooleanField(db_column="ip_only", default=False)  # XFD column
+    reverse_name = models.CharField(
+        db_column="reverse_name", max_length=512
+    )  # XFD column
+    screenshot = models.CharField(
+        max_length=512, blank=True, null=True
+    )  # XFD Crossfeed Domains screenshot field
+    country = models.CharField(max_length=255, blank=True, null=True)  # XFD column
+    asn = models.CharField(max_length=255, blank=True, null=True)  # XFD column
+    cloud_hosted = models.BooleanField(
+        db_column="cloud_hosted", default=False
+    )  # XFD column
+    ssl = models.JSONField(blank=True, null=True)  # XFD columnv
     censys_certificates_results = models.JSONField(
         db_column="censys_certificates_results", default=dict
-    )# XFD column
-    trustymail_results = models.JSONField(db_column="trustymail_results", default=dict)# XFD column
+    )  # XFD column
+    trustymail_results = models.JSONField(
+        db_column="trustymail_results", default=dict
+    )  # XFD column
+
     class Meta:
         """Set SubDomains model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "sub_domains"
         unique_together = (("sub_domain", "root_domain"),)
+
 
 class TopCves(models.Model):
     """Define TopCves model."""
@@ -2555,10 +2797,11 @@ class TopCves(models.Model):
     class Meta:
         """Set TopCves model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "top_cves"
         unique_together = (("cve_id", "date"),)
+
 
 # Not sure if this is still used
 class TopicTotals(models.Model):
@@ -2572,9 +2815,10 @@ class TopicTotals(models.Model):
     class Meta:
         """Set TopicTotals model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "topic_totals"
+
 
 # Not sure if this is still used
 class UniqueSoftware(models.Model):
@@ -2588,9 +2832,10 @@ class UniqueSoftware(models.Model):
     class Meta:
         """Set UniqueSoftware model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "unique_software"
+
 
 class WebAssets(models.Model):
     """Define WebAssets model."""
@@ -2614,10 +2859,11 @@ class WebAssets(models.Model):
     class Meta:
         """Set WebAssets model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "web_assets"
         unique_together = (("asset", "organization"),)
+
 
 class WeeklyStatusesMdl(models.Model):
     """Define WeeklyStatusesMdl model."""
@@ -2640,7 +2886,7 @@ class WeeklyStatusesMdl(models.Model):
 
         # unique_together = (('week_ending', 'user_status'),)
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "weekly_statuses_mdl"
 
@@ -2657,7 +2903,7 @@ class CyhyKevs(models.Model):
     class Meta:
         """Set CyhyKevs model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "cyhy_kevs"
 
@@ -2668,9 +2914,12 @@ class XpanseBusinessUnits(models.Model):
     xpanse_business_unit_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
     entity_name = models.TextField(unique=True, blank=True, null=True)
     cyhy_db_name = models.ForeignKey(
-        "Organization", on_delete=models.CASCADE, db_column="cyhy_db_name", to_field="acronym",
+        "Organization",
+        on_delete=models.CASCADE,
+        db_column="cyhy_db_name",
+        to_field="acronym",
         null=True,  # Allow NULL values
-        blank=True 
+        blank=True,
     )
     state = models.TextField(blank=True, null=True)
     county = models.TextField(blank=True, null=True)
@@ -2683,7 +2932,7 @@ class XpanseBusinessUnits(models.Model):
     class Meta:
         """Set XpanseBusinessUnits metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "xpanse_business_units"
 
@@ -2736,7 +2985,7 @@ class XpanseAssetsMdl(models.Model):
     class Meta:
         """Set XpanseAssetsMdl metdata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "xpanse_assets_mdl"
 
@@ -2758,7 +3007,7 @@ class XpanseCvesMdl(models.Model):
     class Meta:
         """Set XpanseCvesMdl metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "xpanse_cves_mdl"
 
@@ -2803,7 +3052,7 @@ class XpanseServicesMdl(models.Model):
     class Meta:
         """Set XpanseServicesMdl metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "xpanse_services_mdl"
 
@@ -2825,7 +3074,7 @@ class XpanseCveServiceMdl(models.Model):
     class Meta:
         """Set XpanseCveServiceMdl metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "xpanse_cve_services_mdl"
         unique_together = (("xpanse_inferred_cve", "xpanse_service"),)
@@ -2934,7 +3183,7 @@ class XpanseAlerts(models.Model):
     class Meta:
         """Set XpanseAlerts model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "xpanse_alerts_mdl"
 
@@ -2948,7 +3197,7 @@ class CpeVender(models.Model):
     class Meta:
         """Set CpeVender model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "cpe_vender"
 
@@ -2969,13 +3218,13 @@ class CpeProduct(models.Model):
     class Meta:
         """Set CpeProduct model metadata."""
 
-        app_label = 'dmz_mini_dl'
+        app_label = "dmz_mini_dl"
         managed = manage_db
         db_table = "cpe_product_mdl"
         unique_together = (("cpe_product_name", "version_number"),)
 
 
-# # THese are all views, so they shouldn't be generated via the ORM 
+# # THese are all views, so they shouldn't be generated via the ORM
 
 # # This should be a view not a table
 # class VwPshttDomainsToRun(models.Model):
@@ -3735,4 +3984,3 @@ class CpeProduct(models.Model):
 
 #         managed = False
 #         db_table = "vw_iscore_orgs_ip_counts"""" Django ORM models """
-
