@@ -197,11 +197,11 @@ class DNSMonitor:
 
         # Output any warnings
         if len(warnings) > 0:
-            LOGGER.warning("Warnings: %s", warnings)
+            print("Warnings: %s", warnings)
 
         # Output any failures
         if len(failed) > 0:
-            LOGGER.error("Failures: %s", failed)
+            print("Failures: %s", failed)
 
         # Output summary stats
         num_no_domain_monitor = sum('No domains being monitored' in s for s in warnings)

@@ -146,6 +146,10 @@ from dmz_mini_dl.models import(
     ShodanAssets as MDL_ShodanAssets,
     ShodanVulns as MDL_ShodanVulns,
     DataSource as MDL_DataSource,
+    SubDomains as MDL_SubDomains,
+    RootDomains as MDL_RootDomains,
+    DomainPermutations as MDL_DomainPermutations,
+    DomainAlerts as MDL_DomainAlerts
 
 )
 from jose import exceptions, jwt
@@ -288,6 +292,7 @@ def userapiTokenverify(theapiKey):
         LOGGER.info(f"The api key was alright {theapiKey}")
 
     except exceptions.JWTError:
+        print("The access token has expired and will be updated")
         LOGGER.warning("The access token has expired and will be updated")
         userapiTokenUpdate(user_key, user_refresh, theapiKey, user_id)
 
@@ -5311,12 +5316,12 @@ def domain_permu_insert(
     """Insert multiple DNSMonitor records into the domain_permutations table through the API."""
     # Check for API key
     LOGGER.info(f"The api key submitted {tokens}")
+    create_ct = 0
+    update_ct = 0
     if tokens:
         try:
             userapiTokenverify(theapiKey=tokens)
             # If API key valid, proceed
-            create_ct = 0
-            update_ct = 0
             for record in data.insert_data:
                 # convert to dict
                 record_dict = dict(record)
@@ -5363,8 +5368,79 @@ def domain_permu_insert(
                         data_source_uid=curr_source_inst,
                     )
                     create_ct += 1
+        except ObjectDoesNotExist:
+            LOGGER.error('')
+        except Exception as error:
+            LOGGER.error('Unknown exception', error)
+        # Do the same as above - But for the MDL
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, proceed
+            for record in data.insert_data:
+                # convert to dict
+                record_dict = dict(record)
+                # 
+                curr_org_inst = Organizations.objects.get(
+                    organizations_uid=record_dict["organizations_uid"]
+                )
+                curr_source_inst = DataSource.objects.get(
+                    data_source_uid=record_dict["data_source_uid"]
+                )
+                curr_subdomain_inst = SubDomains.objects.get(
+                    sub_domain_uid=record_dict["sub_domain_uid"]
+                )
+                
+
+                curr_org_mdl_inst = MDL_Organization.objects.get(
+                    acronym=curr_org_inst.cyhy_db_name
+                )
+                curr_source_mdl_inst = MDL_DataSource.objects.get(
+                    name=curr_source_inst.name
+                )
+                curr_subdomain_mdl_inst = MDL_SubDomains.objects.get(
+                    sub_domain=curr_subdomain_inst.sub_domain
+                )
+                # 
+                # Insert each row of data, on conflict update existing
+                print('here')
+                try:
+                    print('Attempting insertion into MDL')
+                    MDL_DomainPermutations.objects.get(
+                        organization=curr_org_mdl_inst,
+                        domain_permutation=record_dict["domain_permutation"],
+                    )
+                    # If record already exists, update
+                    MDL_DomainPermutations.objects.filter(
+                        organization=curr_org_mdl_inst,
+                        domain_permutation=record_dict["domain_permutation"],
+                    ).update(
+                        ipv4=record_dict["ipv4"],
+                        ipv6=record_dict["ipv6"],
+                        date_observed=record_dict["date_observed"],
+                        mail_server=record_dict["mail_server"],
+                        name_server=record_dict["name_server"],
+                        sub_domain=curr_subdomain_mdl_inst,
+                        data_source=curr_source_mdl_inst,
+                    )
+                    update_ct += 1
+                except MDL_DomainPermutations.DoesNotExist:
+                    # Otherwise, create new record
+                    MDL_DomainPermutations.objects.create(
+                        organization=curr_org_mdl_inst,
+                        domain_permutation=record_dict["domain_permutation"],
+                        ipv4=record_dict["ipv4"],
+                        ipv6=record_dict["ipv6"],
+                        date_observed=record_dict["date_observed"],
+                        mail_server=record_dict["mail_server"],
+                        name_server=record_dict["name_server"],
+                        sub_domain=curr_subdomain_mdl_inst,
+                        data_source=curr_source_mdl_inst,
+                    )
+                    create_ct += 1
+                except Exception as error:
+                    print('Error inserting permutations to MDL', error)
             return (
-                "New DNSMonitor data in the domain_permutations table: "
+                "MDL - New DNSMonitor data in the domain_permutations table: "
                 + str(create_ct)
                 + " created, "
                 + str(update_ct)
@@ -5372,6 +5448,8 @@ def domain_permu_insert(
             )
         except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
+        except MDL_SubDomains.DoesNotExist:
+            LOGGER.info("Sub domain missing")
     else:
         return {"message": "No api key was submitted"}
 
@@ -5420,6 +5498,59 @@ def domain_alerts_insert(
                         organizations_uid=record_dict["organizations_uid"],
                         sub_domain_uid=curr_sub_inst,
                         data_source_uid=curr_source_inst,
+                        alert_type=record_dict["alert_type"],
+                        message=record_dict["message"],
+                        previous_value=record_dict["previous_value"],
+                        new_value=record_dict["new_value"],
+                        date=record_dict["date"],
+                    )
+                    create_ct += 1
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+        except Exception as error:
+            LOGGER.info('Error inserting into pe db')
+        # Do the same for the above but for MDL
+        try:
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, proceed
+            create_ct = 0
+            for record in data.insert_data:
+                # convert to dict
+                record_dict = dict(record)
+                curr_sub_inst = SubDomains.objects.get(
+                    sub_domain_uid=record_dict["sub_domain_uid"]
+                )
+                curr_source_inst = DataSource.objects.get(
+                    data_source_uid=record_dict["data_source_uid"]
+                )
+                curr_org_inst = Organizations.objects.get(
+                    organizations_uid=record_dict["organizations_uid"]
+                )
+                curr_org_mdl_inst = MDL_Organization.objects.get(
+                    acronym=curr_org_inst.cyhy_db_name
+                )
+                curr_sub_mdl_inst = MDL_SubDomains.objects.get(
+                    sub_domain=curr_sub_inst.sub_domain
+                )
+                curr_source_mdl_inst = MDL_DataSource.objects.get(
+                    name=curr_source_inst.name
+                )
+                # Insert each row of data, on conflict do nothing
+                try:
+                    MDL_DomainAlerts.objects.get(
+                        alert_type=record_dict["alert_type"],
+                        sub_domain=curr_sub_mdl_inst,
+                        date=record_dict["date"],
+                        new_value=record_dict["new_value"],
+                    )
+                    # If record already exists, do nothing
+                except MDL_DomainAlerts.DoesNotExist:
+                    # Otherwise, create new record
+                    MDL_DomainAlerts.objects.create(
+                        domain_alert_uid=uuid.uuid1(),
+                        organization_uid=curr_org_mdl_inst.id,
+                        sub_domain=curr_sub_mdl_inst,
+                        data_source=curr_source_mdl_inst,
                         alert_type=record_dict["alert_type"],
                         message=record_dict["message"],
                         previous_value=record_dict["previous_value"],
@@ -5505,6 +5636,7 @@ def sub_domains_single_insert(
 ):
     """Create API endpoint to insert a single sub domain into the sub_domains table."""
     # Check for API key
+    print('data', data)
     LOGGER.info(f"The api key submitted {tokens}")
     if tokens:
         try:
@@ -5521,8 +5653,8 @@ def sub_domains_single_insert(
             org_name = Organizations.objects.filter(
                 organizations_uid=data.pe_org_uid
             ).values("cyhy_db_name")[0]["cyhy_db_name"]
-            create_ct = 0
-            update_ct = 0
+            pe_db_create_ct = 0
+            pe_db_update_ct = 0
             # Check if sub domain already exists in table
             sub_domain_results = SubDomains.objects.filter(
                 sub_domain=data.domain,
@@ -5552,6 +5684,7 @@ def sub_domains_single_insert(
                 )
                 # Create subdomain record now that root exists
                 SubDomains.objects.create(
+                    sub_domain_uid=uuid.uuid4(),
                     sub_domain=data.domain,
                     root_domain_uid=root_inst,
                     data_source_uid=findomain_inst,
@@ -5559,7 +5692,7 @@ def sub_domains_single_insert(
                     last_seen=curr_date,
                     identified=False,
                 )
-                create_ct += 1
+                pe_db_create_ctcreate_ct += 1
             else:
                 # If subdomain record already exists, update
                 SubDomains.objects.filter(
@@ -5569,8 +5702,84 @@ def sub_domains_single_insert(
                     last_seen=curr_date,
                     identified=False,
                 )
+                pe_db_update_ct += 1
+            print('Succesfully created stuff in PE DB')
+            # Return status message
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+        # Do the same as above but for the Mini-data lake
+        try:
+            print('WE ARE HERE - Insert handler')
+            userapiTokenverify(theapiKey=tokens)
+            # If API key valid, proceed
+            if data.root:
+                # If sub domain is also a root domain
+                curr_root = data.domain
+            else:
+                # If sub domain is not a root domain
+                curr_root = data.domain.split(".")[-2]
+                curr_root = ".".join(curr_root)
+            curr_date = datetime.today().strftime("%Y-%m-%d")
+            org_name = Organizations.objects.filter(
+                organizations_uid=data.pe_org_uid
+            ).values("cyhy_db_name")[0]["cyhy_db_name"]
+            org_mdl_inst = MDL_Organization.objects.get(
+                acronym=org_name
+            )
+            print('org exists', org_mdl_inst)
+            create_ct = 0
+            update_ct = 0
+            # Check if sub domain already exists in table
+            sub_domain_results = MDL_SubDomains.objects.filter(
+                sub_domain=data.domain,
+                organization=org_mdl_inst,
+            )
+            if not sub_domain_results.exists():
+                # If not, insert new record
+                # Get data_source instance of "findomain"
+                findomain_inst = MDL_DataSource.objects.get(name="findomain")
+                # Check if root domain already exists
+                root_results = MDL_RootDomains.objects.filter(
+                    organization=org_mdl_inst, root_domain=curr_root
+                )
+                if not root_results.exists():
+                    # If root domain does not exist, create a new record
+                    print('Creating RootDomain', curr_root)
+                    MDL_RootDomains.objects.create(
+                        root_domain_uid=uuid.uuid4(),
+                        organization=org_mdl_inst,
+                        root_domain=curr_root,
+                        data_source=findomain_inst,
+                        enumerate_subs=False,
+                    )
+                # Get root_domains instance of specified root domain
+                root_inst = MDL_RootDomains.objects.get(
+                    organization=org_mdl_inst, root_domain=curr_root
+                )
+                # Create subdomain record now that root exists
+                print('Creating SubDomain', data.domain)
+                MDL_SubDomains.objects.create(
+                    sub_domain_uid=uuid.uuid4(),
+                    sub_domain=data.domain,
+                    root_domain=root_inst,
+                    data_source=findomain_inst,
+                    first_seen=curr_date,
+                    last_seen=curr_date,
+                    identified=False,
+                )
+                create_ct += 1
+            else:
+                # If subdomain record already exists, update
+                MDL_SubDomains.objects.filter(
+                    sub_domain=data.domain,
+                    organization=org_mdl_inst,
+                ).update(
+                    last_seen=curr_date,
+                    identified=False,
+                )
                 update_ct += 1
             # Return status message
+            print('Succesfully created stuff in MDL DB')
             return (
                 str(create_ct)
                 + " records created, "

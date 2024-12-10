@@ -30,7 +30,6 @@ from .data.sixgill.source import (
     root_domains,
     top_cves,
 )
-from .data.helpers.redact_pii import redact_pii, redact_pii_new
 
 # Set todays date formatted YYYY-MM-DD and the start_date 30 days prior
 TODAY = date.today()
