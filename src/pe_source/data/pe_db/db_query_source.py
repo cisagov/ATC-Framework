@@ -1155,6 +1155,27 @@ def execute_dnsmonitor_data(df):
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
 
+def execute_dnstwist_data(df):
+    endpoint_url = pe_api_url + 'domain_permu_single_insert'
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key
+    }
+    data = json.dumps(df)
+    try:
+        result = requests.put(endpoint_url, headers=headers, data=data)
+        return result.json()
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
 
 # --- 660 ---
 def execute_dnsmonitor_alert_data(df):

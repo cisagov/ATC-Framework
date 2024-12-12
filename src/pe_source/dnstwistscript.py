@@ -1,30 +1,12 @@
 """Use DNS twist to fuzz domain names and cross check with a blacklist."""
 # Standard Python Libraries
-import os 
-import sys
-import django
 import contextlib
 import datetime
 import json
 import logging
 import pathlib
 import traceback
-import uuid
 
-# Dynamically resolve the root directory of the Django project
-current_file_path = os.path.dirname(os.path.abspath(__file__))  # Path of the current script
-project_root = os.path.join(current_file_path, '../pe_reports/pe_reports_django_project')  # Adjust relative to `pe_reports`
-# Add the resolved project root to sys.path
-sys.path.append(project_root)
-
-# Set the Django settings module
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pe_reports_django.settings')
-
-# Initialize Django
-django.setup()
-
-from dmz_mini_dl.models import DataSource as MDLDataSource, SubDomains as MDLSubDomains, Organization as MDLOrganization, DomainPermutations as MDLDomainPermutations
-from home.models import DataSource, SubDomains, DnsRecords, Organizations
 
 # Third-Party Libraries
 import dnstwist
@@ -36,6 +18,7 @@ import requests
 from .data.pe_db.db_query_source import (
     addSubdomain,
     connect,
+    execute_dnstwist_data,
     get_data_source_uid,
     get_orgs,
     getSubdomain,
@@ -232,7 +215,7 @@ def run_dnstwist(orgs_list):
             """Collect DNSTwist data from Crossfeed"""
             try:
                 # Get root domains
-                root_dict = org_root_domains(PE_conn, pe_org_uid)
+                root_dict = org_root_domains(pe_org_uid)
                 domain_list = []
                 perm_list = []
                 for root in root_dict:
@@ -250,7 +233,7 @@ def run_dnstwist(orgs_list):
                     sub_domain = root_domain
                     try:
                         sub_domain_uid = getSubdomain(sub_domain)
-                    except Exception:
+                    except Exception as error:
                         # TODO: Create custom exceptions.
                         # Issue 265: https://github.com/cisagov/pe-reports/issues/265
                         # Add and then get it
@@ -265,7 +248,7 @@ def run_dnstwist(orgs_list):
                         )
                         if domain_dict is not None:
                             domain_list.append(domain_dict)
-            except Exception:
+            except Exception as error:
                 # TODO: Create custom exceptions.
                 # Issue 265: https://github.com/cisagov/pe-reports/issues/265
                 LOGGER.info("Failed selecting DNSTwist data.")
@@ -274,81 +257,14 @@ def run_dnstwist(orgs_list):
 
             """Insert cleaned data into PE database."""
             try:
-                cursor = PE_conn.cursor()
-                try:
-                    columns = domain_list[0].keys()
-                except Exception:
-                    LOGGER.critical("No data in the domain list.")
-                    failures.append(org_name)
-                    continue
-                table = "domain_permutations"
-                sql = """INSERT INTO {}({}) VALUES %s
-                ON CONFLICT (domain_permutation,organizations_uid)
-                DO UPDATE SET malicious = EXCLUDED.malicious,
-                    blocklist_attack_count = EXCLUDED.blocklist_attack_count,
-                    blocklist_report_count = EXCLUDED.blocklist_report_count,
-                    dshield_record_count = EXCLUDED.dshield_record_count,
-                    dshield_attack_count = EXCLUDED.dshield_attack_count,
-                    data_source_uid = EXCLUDED.data_source_uid,
-                    date_active = EXCLUDED.date_active;"""
-
-                values = [[value for value in dict.values()] for dict in domain_list]
-                extras.execute_values(
-                    cursor,
-                    sql.format(
-                        table,
-                        ",".join(columns),
-                    ),
-                    values,
-                )
-                PE_conn.commit()
-                LOGGER.info("Data inserted using execute_values() successfully..")
-                LOGGER.info("Completed DNSTwist for %s", pe_org_id)
-
+                for domain in domain_list:
+                    execute_dnstwist_data(domain)
             except Exception:
                 # TODO: Create custom exceptions.
                 # Issue 265: https://github.com/cisagov/pe-reports/issues/265
                 LOGGER.info("Failure inserting data into database.")
                 failures.append(org_name)
                 LOGGER.info(traceback.format_exc())
-            try:
-                mdl_organization = MDLOrganization.objects.get(acronym=org['cyhy_db_name'])
-                for domain in domain_list:
-                    mdl_data_source = None
-                    mdl_subdomain = None
-                    try:
-                        data_source = DataSource.objects.get(data_source_uid=domain['data_source_uid'])
-                        mdl_data_source = MDLDataSource.objects.get(name=data_source.name)
-                        sub_domain = SubDomains.objects.get(sub_domain_uid=domain['sub_domain_uid'])
-                        mdl_subdomain = MDLSubDomains.objects.get(sub_domain=sub_domain.sub_domain)
-                    except MDLSubDomains.DoesNotExist:
-                        mdl_subdomain = None
-                    except MDLDataSource.DoesNotExist:
-                        mdl_domain_permutation = None
-                    except Exception:
-                        print('unknown error occurred')
-                    mdl_domain_permutation = MDLDomainPermutations.objects.create(
-                        organization=mdl_organization,
-                        data_source=mdl_data_source,
-                        sub_domain=mdl_subdomain,
-                        domain_permutation=domain['domain_permutation'],
-                        ipv4=domain['ipv4'],
-                        ipv6=domain['ipv6'],
-                        mail_server=domain['mail_server'],
-                        name_server=domain['name_server'],
-                        fuzzer=domain['fuzzer'],
-                        blocklist_attack_count=domain['blocklist_attack_count'],
-                        blocklist_report_count=domain['blocklist_report_count'],
-                        malicious=domain['malicious'],
-                        ssdeep_score=domain['ssdeep_score'],
-                        dshield_record_count=domain['dshield_record_count'],
-                        dshield_attack_count=domain['dshield_attack_count'],
-                        date_active=domain['date_active']
-                        )
-                    print('mdl perm',mdl_domain_permutation)
-            except Exception as error:
-                print('Error inserting data into data lake', error)
-                LOGGER.info("Failure inserting data into data lake")
 
     PE_conn.close()
     if failures != []:
@@ -358,3 +274,5 @@ def run_dnstwist(orgs_list):
 
 if __name__ == "__main__":
     run_dnstwist("all")
+
+
