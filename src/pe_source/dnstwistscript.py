@@ -7,15 +7,18 @@ import logging
 import pathlib
 import traceback
 
+
 # Third-Party Libraries
 import dnstwist
 import dshield
 import psycopg2.extras as extras
 import requests
 
+
 from .data.pe_db.db_query_source import (
     addSubdomain,
     connect,
+    execute_dnstwist_data,
     get_data_source_uid,
     get_orgs,
     getSubdomain,
@@ -212,7 +215,7 @@ def run_dnstwist(orgs_list):
             """Collect DNSTwist data from Crossfeed"""
             try:
                 # Get root domains
-                root_dict = org_root_domains(PE_conn, pe_org_uid)
+                root_dict = org_root_domains(pe_org_uid)
                 domain_list = []
                 perm_list = []
                 for root in root_dict:
@@ -230,7 +233,7 @@ def run_dnstwist(orgs_list):
                     sub_domain = root_domain
                     try:
                         sub_domain_uid = getSubdomain(sub_domain)
-                    except Exception:
+                    except Exception as error:
                         # TODO: Create custom exceptions.
                         # Issue 265: https://github.com/cisagov/pe-reports/issues/265
                         # Add and then get it
@@ -245,7 +248,7 @@ def run_dnstwist(orgs_list):
                         )
                         if domain_dict is not None:
                             domain_list.append(domain_dict)
-            except Exception:
+            except Exception as error:
                 # TODO: Create custom exceptions.
                 # Issue 265: https://github.com/cisagov/pe-reports/issues/265
                 LOGGER.info("Failed selecting DNSTwist data.")
@@ -254,37 +257,8 @@ def run_dnstwist(orgs_list):
 
             """Insert cleaned data into PE database."""
             try:
-                cursor = PE_conn.cursor()
-                try:
-                    columns = domain_list[0].keys()
-                except Exception:
-                    LOGGER.critical("No data in the domain list.")
-                    failures.append(org_name)
-                    continue
-                table = "domain_permutations"
-                sql = """INSERT INTO {}({}) VALUES %s
-                ON CONFLICT (domain_permutation,organizations_uid)
-                DO UPDATE SET malicious = EXCLUDED.malicious,
-                    blocklist_attack_count = EXCLUDED.blocklist_attack_count,
-                    blocklist_report_count = EXCLUDED.blocklist_report_count,
-                    dshield_record_count = EXCLUDED.dshield_record_count,
-                    dshield_attack_count = EXCLUDED.dshield_attack_count,
-                    data_source_uid = EXCLUDED.data_source_uid,
-                    date_active = EXCLUDED.date_active;"""
-
-                values = [[value for value in dict.values()] for dict in domain_list]
-                extras.execute_values(
-                    cursor,
-                    sql.format(
-                        table,
-                        ",".join(columns),
-                    ),
-                    values,
-                )
-                PE_conn.commit()
-                LOGGER.info("Data inserted using execute_values() successfully..")
-                LOGGER.info("Completed DNSTwist for %s", pe_org_id)
-
+                for domain in domain_list:
+                    execute_dnstwist_data(domain)
             except Exception:
                 # TODO: Create custom exceptions.
                 # Issue 265: https://github.com/cisagov/pe-reports/issues/265
@@ -300,3 +274,5 @@ def run_dnstwist(orgs_list):
 
 if __name__ == "__main__":
     run_dnstwist("all")
+
+

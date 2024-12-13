@@ -54,7 +54,7 @@ def close(conn):
     conn.close()
 
 
-def get_orgs():
+def get_orgs_tsql():
     """Query organizations table."""
     conn = connect()
     try:
@@ -73,8 +73,45 @@ def get_orgs():
         if conn is not None:
             close(conn)
 
+def get_orgs():
+    """
+    Query API to retrieve data for all demo or report_on orgs.
 
-def get_ips(org_uid):
+    Return:
+        All demo or report_on org data as list of tuples
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "organizations_demo_or_report_on"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        for row in result:
+            if row.get("date_first_reported") is not None:
+                row["date_first_reported"] = datetime.strptime(row.get("date_first_reported"), "%Y-%m-%d")
+            if row.get("cyhy_period_start") is not None:
+                row["cyhy_period_start"] = datetime.strptime(row.get("cyhy_period_start"), "%Y-%m-%d")
+            if row.get("county_fips") is not None:
+                row["county_fips"] = Decimal(row.get("county_fips"))
+            if row.get("state_fips") is not None:
+                row["state_fips"] = Decimal(row.get("state_fips"))
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+def get_ips_tsql(org_uid):
     """Get IP data."""
     conn = connect()
     sql1 = """SELECT i.ip_hash, i.ip, ct.network FROM ips i
@@ -110,6 +147,61 @@ def get_ips(org_uid):
 
     return ips
 
+def get_ips(org_uid):
+    """
+    Query API to get all ips for an org to run through Shodan.
+    Return:
+        All ips to run through Shodan
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        print(result)
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        
+def get_ips(org_uid):
+    """
+    Query API to get all ips for an org to run through Shodan.
+    Return:
+        All ips to run through Shodan
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        print(result)
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
 
 def get_ips_dhs(org_uid):
     """Get IP data. Pull in IPs for DHS_UNKNOWN, DHS_OIG, and DHS_HQ also."""
@@ -232,7 +324,7 @@ def get_ips_hhs(org_uid):
     return ips
 
 
-def get_data_source_uid(source):
+def get_data_source_uid_tsql(source):
     """Get data source uid."""
     conn = connect()
     cur = conn.cursor()
@@ -249,6 +341,40 @@ def get_data_source_uid(source):
     cur.close()
     close(conn)
     return source
+
+# --- Issue 700 pe-reports ---
+def get_data_source_uid(source):
+    """
+    Query API to get the uid for the specified data source.
+
+    Args:
+        source: The name of the specified data source
+
+    Return:
+        Data for the specified data source
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "data_source_by_name"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"name": source})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        return tup_result[0][0]
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
 
 
 def get_breaches():
@@ -301,6 +427,78 @@ def insert_shodan_data(dataframe, table, thread, org_name, failed):
     cursor.close()
     return failed
 
+# --- Issue 016 atc-framework ---
+def insert_shodan_assets(asset_data, failed):
+    """
+    Query API to insert Shodan data into the shodan_assets table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_assets.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_assets_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"asset_data": asset_data})
+    try:
+        # Call endpoint
+        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
+
+def insert_shodan_vulns(vuln_data, failed):
+    """
+    Query API to insert Shodan data into the shodan_vulns table.
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_vulns.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_vulns_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"vuln_data": vuln_data})
+    try:
+        # Call endpoint
+        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
+
 
 def getRootdomain(domain):
     """Get root domain."""
@@ -314,7 +512,7 @@ def getRootdomain(domain):
     return root
 
 
-def org_root_domains(conn, org_uid):
+def org_root_domains_tsql(conn, org_uid):
     """Get root domains from database given the org_uid."""
     conn = connect()
     try:
@@ -341,6 +539,76 @@ def org_root_domains(conn, org_uid):
         if conn is not None:
             close(conn)
 
+def org_root_domains(org_uid):
+    """
+    Query API to get the root domains for the specified org uid.
+
+    Args:
+        org_uid: The uid of the specified organization
+
+    Return:
+        root domains for the specified org uid
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "rootdomains_by_org_uid"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"org_uid": org_uid})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        result_df = pd.DataFrame.from_dict(result)
+        result_df.rename(columns={
+            "root_domain_uid": "root_uid",
+            "organizations_uid": "org_uid"
+        }, inplace=True)
+        result_dict_list = result_df.to_dict("records")
+        return result_dict_list
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+def get_root_domains_api(org_uid):
+    """
+    Query API to get the root domains for the specified org uid.
+
+    Args:
+        org_uid: The uid of the specified organization
+
+    Return:
+        root domains for the specified org uid as dataframe
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "rootdomains_by_org_uid"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"org_uid": org_uid})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        result_df = pd.DataFrame.from_dict(result)
+        return result_df
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
 
 def get_root_domains(conn, org_uid):
     """Get root domains from database given the org_uid."""
@@ -881,6 +1149,27 @@ def execute_dnsmonitor_data(df):
         result = requests.put(endpoint_url, headers=headers, data=data).json()
         # Process data and return
         LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+def execute_dnstwist_data(df):
+    endpoint_url = pe_api_url + 'domain_permu_single_insert'
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key
+    }
+    data = json.dumps(df)
+    try:
+        result = requests.put(endpoint_url, headers=headers, data=data)
+        return result.json()
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
@@ -1849,7 +2138,7 @@ def get_linked_xpanse_business_units():
     headers = {
         "access_token": pe_api_key,
         "Authorization": cf_api_key,
-        'Content-Type': '' 
+        'Content-Type': 'application/json' 
     }
     try:
         result = requests.get(endpoint_url, headers=headers).json()

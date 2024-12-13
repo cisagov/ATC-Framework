@@ -203,6 +203,35 @@ def get_demo_orgs(conn):
         if conn is not None:
             close(conn)
 
+# --- Issue 018 atc-framework ---
+def get_demo_orgs_api():
+    """
+    Query API to retrieve data for all demo orgs.
+
+    Return:
+        All demo org data as list of tuples
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "organizations_demo"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return, convert to tuple list
+        return [tuple(dic.values()) for dic in result]
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
 
 def get_orgs_pass(conn, password):
     """Get all org passwords."""
