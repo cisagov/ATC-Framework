@@ -81,9 +81,9 @@ def search_circl(cve):
 def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
     """Search IPs in the Shodan API."""
     # Initialize lists to store Shodan results
-    data = []
-    risk_data = []
-    vuln_data = []
+    # data = []
+    # risk_data = []
+    # vuln_data = []
 
     # Build dictionaries for naming conventions and definitions
     risky_ports, name_dict, risk_dict, av_dict, ac_dict, ci_dict = get_shodan_dicts()
@@ -106,6 +106,9 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
         while try_count < 7:
             try:
                 results = api.host(ip_chunk)
+                data = []
+                risk_data = []
+                vuln_data = []
                 for r in results:
                     for d in r["data"]:
                         # Convert Shodan date string to UTC datetime
@@ -234,7 +237,10 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                     "data_source_uid": source_uid,
                                 }
                             )
-
+                all_vulns = vuln_data + risk_data
+                # Grab the data source uid and add to each dataframe
+                failed.append(insert_shodan_assets(data, failed))
+                failed.append(insert_shodan_vulns(all_vulns, failed))
                 time.sleep(1)
                 break
             except shodan.APIError as e:
@@ -266,13 +272,13 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                 )
                 failed.append("{} chunk {} failed and skipped".format(org_name, count))
                 break
-
+            
         LOGGER.info("{} {}/{} complete - {}".format(thread_name, count, tot, org_name))
 
-    all_vulns = vuln_data + risk_data
-    # Grab the data source uid and add to each dataframe
-    failed = insert_shodan_assets(data, failed)
-    failed = insert_shodan_vulns(all_vulns, failed)
+    # all_vulns = vuln_data + risk_data
+    # # Grab the data source uid and add to each dataframe
+    # failed = insert_shodan_assets(data, failed)
+    # failed = insert_shodan_vulns(all_vulns, failed)
 
     return failed
 
