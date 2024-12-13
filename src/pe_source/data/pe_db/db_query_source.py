@@ -372,8 +372,9 @@ def api_pshtt_domains_to_run():
     check_task_url = pe_api_url + "pshtt_unscanned_domains/task/"
 
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
 
     try:
@@ -449,8 +450,9 @@ def api_pshtt_insert(pshtt_dict):
     # Endpoint info
     endpoint_url = pe_api_url + "pshtt_result_update_or_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps(pshtt_dict, default=str)
 
@@ -517,8 +519,9 @@ def api_cve_insert(cve_dict):
     # Endpoint info
     endpoint_url = pe_api_url + "cve_insert_or_update"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps(cve_dict, default=str)
 
@@ -555,8 +558,9 @@ def get_cve_and_products(cve_name):
     # Endpoint info
     endpoint_url = pe_api_url + "get_cve"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps({"cve_name": cve_name})
     try:
@@ -863,8 +867,9 @@ def execute_dnsmonitor_data(df):
     # Endpoint info
     endpoint_url = pe_api_url + "domain_permu_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     # Adjust data types and convert to list of dictionaries
     df["date_observed"] = pd.to_datetime(df["date_observed"])
@@ -899,8 +904,9 @@ def execute_dnsmonitor_alert_data(df):
     # Endpoint info
     endpoint_url = pe_api_url + "domain_alerts_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     # Adjust data types and convert to list of dictionaries
     df["date"] = pd.to_datetime(df["date"])
@@ -938,8 +944,9 @@ def addRootdomain(root_domain, pe_org_uid, source_uid, org_name):
     # Endpoint info
     endpoint_url = pe_api_url + "root_domains_single_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps(
         {
@@ -979,8 +986,9 @@ def addSubdomain(domain, pe_org_uid, root):
     # Endpoint info
     endpoint_url = pe_api_url + "sub_domains_single_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps(
         {
@@ -1017,8 +1025,9 @@ def insert_intelx_breaches(df):
     # Endpoint info
     endpoint_url = pe_api_url + "cred_breaches_intelx_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     # Remove duplicates and convert to list of dictionaries
     df = df.drop_duplicates(subset=["breach_name"])
@@ -1055,8 +1064,9 @@ def insert_intelx_credentials(df):
     # Endpoint info
     endpoint_url = pe_api_url + "cred_exp_intelx_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     # Remove duplicates and convert to list of dictionaries
     df = df.drop_duplicates(subset=["breach_name", "email"])
@@ -1469,8 +1479,9 @@ def insert_or_update_business_unit(business_unit_dict):
     # Endpoint info
     endpoint_url = pe_api_url + "xpanse_business_unit_insert_or_update"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps(business_unit_dict, default=str)
 
@@ -1507,9 +1518,9 @@ def get_xpanse_business_unit(cyhy_db_name):
     # Endpoint info
     endpoint_url = pe_api_url + "get_xpanse_business_unit"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
-        "Authorization": cf_api_key
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps({"cyhy_db_name": cyhy_db_name})
 
@@ -1582,8 +1593,9 @@ def api_pull_xpanse_vulns(business_unit, modified_date):
     check_task_url = pe_api_url + "xpanse_vulns/task/"
 
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps(
         {"business_unit": business_unit, "modified_datetime": modified_date},
