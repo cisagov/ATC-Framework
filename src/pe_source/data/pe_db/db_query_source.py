@@ -3,6 +3,7 @@
 
 # Standard Python Libraries
 from datetime import datetime
+from decimal import Decimal
 import json
 import logging
 import socket
