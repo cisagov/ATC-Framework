@@ -46,6 +46,8 @@ from .intelx_identity import IntelX
 from .pshtt_wrapper import launch_pe_pshtt
 from .shodan_wrapper import Get_shodan
 from .xpanse_alert_pull import run_xpanse_scans
+from .was_findings_sync import run_was_findings_sync
+from .was_report_pull import run_was_report_pull
 
 LOGGER = logging.getLogger(__name__)
 
@@ -84,6 +86,10 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
         hibp.run_hibp()
     elif source == "xpanse":
         run_xpanse_scans('',orgs_list)
+    elif source == "was-findings-sync":
+        run_was_findings_sync()
+    elif source == "was-report-pull":
+        run_was_report_pull()
     else:
         logging.error(
             "Not a valid source name. Correct values are cybersixgill or shodan."

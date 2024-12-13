@@ -31,6 +31,7 @@ CONN_PARAMS_DIC_STAGING = staging_config()
 API_DIC = staging_config(section="pe_api")
 pe_api_url = API_DIC.get("pe_api_url")
 pe_api_key = API_DIC.get("pe_api_key")
+cf_api_key = API_DIC.get("cf_api_key")
 
 
 def task_api_call(task_url, check_url, data={}, retry_time=3):
@@ -44,8 +45,9 @@ def task_api_call(task_url, check_url, data={}, retry_time=3):
     create_task_url = pe_api_url + task_url
     check_task_url = pe_api_url + check_url
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     task_status = "Pending"
     check_task_resp = ""

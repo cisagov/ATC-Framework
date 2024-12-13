@@ -1853,3 +1853,97 @@ def get_linked_xpanse_business_units():
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
+
+def api_was_finding_insert(finding_dict):
+    """
+    Insert a was finding record into the was_finding table.
+
+    On conflict, update the old record with the new data
+
+    Args:
+        finding_dict: Dictionary of column names and values to be inserted
+
+    Return:
+        Status on if the record was inserted successfully
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "was_finding_insert_or_update"
+    headers = {
+        "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
+    }
+    data = json.dumps(finding_dict, default=str)
+
+    try:
+        # Call endpoint
+        was_finding_insert_result = requests.put(
+            endpoint_url, headers=headers, data=data
+        ).json()
+        
+        return was_finding_insert_result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+    except Exception as errg:
+        LOGGER.error(errg)
+
+def api_was_report_insert(was_report_dict):
+    """
+    Insert an was report record.
+
+    On conflict on last_scan_date, update the old record with the new data
+
+    Args:
+        was_report_dict: Dictionary of column names and values to be inserted
+
+    Return:
+        Status on if the record was inserted successfully
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "was_report_insert_or_update"
+    headers = {
+        "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
+    }
+    # print(was_report_dict)
+    data = json.dumps(was_report_dict, default=str)
+    print(len(data.encode('utf-8')))
+    print("converted_Success")
+    # print(data)
+
+    # LOGGER.info(data)
+    try:
+        # Call endpoint
+        task_url = "was_report_insert_or_update"
+        status_url = "was_report_insert_or_update/task/"
+        # Make API call
+        was_report_insert_result = task_api_call(task_url, status_url, data, 3)
+
+        # was_report_insert_result = requests.put(
+        #     endpoint_url, headers=headers, data=data
+        # )
+        # print(was_report_insert_result)
+        # was_report_insert_result = was_report_insert_result.json()
+        # LOGGER.info(
+        #     "Successfully inserted new record in xpanse_alerts table with associated assets and services"
+        # )
+        return was_report_insert_result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)

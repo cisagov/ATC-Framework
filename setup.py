@@ -145,6 +145,7 @@ setup(
         "openpyxl == 3.1.2",
         "pandas == 2.2.2",
         "pdfkit ==  1.0.0",
+        "pdfrw  ==  0.4",
         "psutil == 5.9.6",
         "psycopg2-binary == 2.9.9",
         "publicsuffixlist[update]>=0.9.2 ",
