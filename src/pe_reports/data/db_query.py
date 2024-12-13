@@ -214,8 +214,9 @@ def get_demo_orgs_api():
     # Endpoint info
     endpoint_url = pe_api_url + "organizations_demo"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     try:
         result = requests.get(endpoint_url, headers=headers).json()

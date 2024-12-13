@@ -83,8 +83,9 @@ def get_orgs():
     # Endpoint info
     endpoint_url = pe_api_url + "organizations_demo_or_report_on"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     try:
         result = requests.get(endpoint_url, headers=headers).json()
@@ -156,8 +157,9 @@ def get_ips(org_uid):
     # Endpoint info
     endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     try:
         result = requests.get(endpoint_url, headers=headers).json()
@@ -184,8 +186,9 @@ def get_ips(org_uid):
     # Endpoint info
     endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     try:
         result = requests.get(endpoint_url, headers=headers).json()
@@ -356,8 +359,9 @@ def get_data_source_uid(source):
     # Endpoint info
     endpoint_url = pe_api_url + "data_source_by_name"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps({"name": source})
     try:
@@ -438,8 +442,9 @@ def insert_shodan_assets(asset_data, failed):
     # Endpoint info
     endpoint_url = pe_api_url + "shodan_assets_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps({"asset_data": asset_data})
     try:
@@ -473,8 +478,9 @@ def insert_shodan_vulns(vuln_data, failed):
     # Endpoint info
     endpoint_url = pe_api_url + "shodan_vulns_insert"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps({"vuln_data": vuln_data})
     try:
@@ -552,8 +558,9 @@ def org_root_domains(org_uid):
     # Endpoint info
     endpoint_url = pe_api_url + "rootdomains_by_org_uid"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
     try:
@@ -590,8 +597,9 @@ def get_root_domains_api(org_uid):
     # Endpoint info
     endpoint_url = pe_api_url + "rootdomains_by_org_uid"
     headers = {
-        "Content-Type": "application/json",
         "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
     try:
@@ -1163,8 +1171,9 @@ def execute_dnsmonitor_data(df):
 def execute_dnstwist_data(df):
     endpoint_url = pe_api_url + 'domain_permu_single_insert'
     headers = {
-        "Content-Type": "application/json",
-        "access_token": pe_api_key
+        "access_token": pe_api_key,
+        "Authorization": cf_api_key,
+        'Content-Type': '' 
     }
     data = json.dumps(df)
     try:
@@ -2138,7 +2147,7 @@ def get_linked_xpanse_business_units():
     headers = {
         "access_token": pe_api_key,
         "Authorization": cf_api_key,
-        'Content-Type': 'application/json' 
+        'Content-Type': '' 
     }
     try:
         result = requests.get(endpoint_url, headers=headers).json()
