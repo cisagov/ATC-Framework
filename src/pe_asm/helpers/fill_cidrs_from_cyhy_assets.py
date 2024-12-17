@@ -9,7 +9,6 @@ import pandas as pd
 
 # cisagov Libraries
 from pe_asm.data.cyhy_db_query import (
-    identify_cidr_changes,
     pe_db_connect,
     pe_db_staging_connect,
     query_pe_report_on_orgs,
@@ -19,7 +18,7 @@ from pe_reports.data.db_query import query_cyhy_assets
 LOGGER = logging.getLogger(__name__)
 
 
-def fill_cidrs(orgs, staging):
+def fill_cidrs(staging, orgs):
     """Fill CIDRs."""
     # Connect to database
     if staging:

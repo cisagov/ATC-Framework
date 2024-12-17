@@ -139,7 +139,7 @@ def connect_subs_from_ips(staging, orgs_df=None):
     conn.close()
 
     # Loop through orgs
-    org_count = 0
+    org_count = 1
     for org_index, org in orgs_df.iloc[::-1].iterrows():
         # Connect to database
         if staging:

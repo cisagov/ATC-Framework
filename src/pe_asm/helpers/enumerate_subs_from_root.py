@@ -14,6 +14,7 @@ from pe_asm.data.cyhy_db_query import (
     pe_db_connect,
     pe_db_staging_connect,
     query_roots,
+    sqs_query_roots,
 )
 from pe_reports.data.config import whois_xml_api_key
 from pe_reports.data.db_query import get_data_source_uid
@@ -69,7 +70,7 @@ def enumerate_roots(root_domain, root_uid):
     return found_subs
 
 
-def get_subdomains(staging=False, roots_df=None):
+def get_subdomains(staging=False, orgs_df=None):
     """Enumerate roots and save subdomains."""
     # Connect to database
     if staging:
@@ -77,9 +78,14 @@ def get_subdomains(staging=False, roots_df=None):
     else:
         conn = pe_db_connect()
 
-    # Query root domains if none provided
-    if not isinstance(roots_df, pd.DataFrame):
+    # Get root domains
+    if not isinstance(orgs_df, pd.DataFrame):
+        # If no org specified, get all roots
         roots_df = query_roots(conn)
+    else:
+        # If org specified, only get roots for that org
+        roots_df = sqs_query_roots(conn, orgs_df["organizations_uid"][0])
+
     total_roots = len(roots_df.index)
     LOGGER.info("Got %d root domains.", total_roots)
 
