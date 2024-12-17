@@ -69,6 +69,9 @@ class IntelX:
                 else:
                     continue
 
+        # alphabetize orgs for consistent order
+        pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
+
         success = 0
         failed = 0
         for org_idx, pe_org in enumerate(pe_orgs_final):
@@ -78,6 +81,7 @@ class IntelX:
             # Verify the org is in the list of orgs to scan
             if cyhy_org_id in orgs_list or orgs_list == "all" or orgs_list == "DEMO":
                 LOGGER.info(f"Running IntelX on {cyhy_org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                print(f"Running IntelX on {cyhy_org_id} ({org_idx+1} of {len(pe_orgs_final)})")
                 if self.get_credentials(cyhy_org_id, pe_org_uid) == 1:
                     LOGGER.error("Failed to get credentials for %s", cyhy_org_id)
                     failed += 1

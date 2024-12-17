@@ -63,6 +63,9 @@ class DNSMonitor:
                 else:
                     continue
 
+        # alphabetize orgs for consistent order
+        pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
+
         # Fetch the bearer token
         token = dnsmonitor_token()
         # Get all of the Domains being monitored

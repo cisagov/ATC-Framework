@@ -63,6 +63,8 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
         cybersix_methods = cybersix_methods.split(",")
 
     # LOGGER.info("Running %s on these orgs: %s", source, orgs_list)
+    first_org = orgs_list[0]
+    final_org = orgs_list[-1]
 
     if source == "cybersixgill":
         if sixgill_scan_name == "Topcves":
@@ -73,7 +75,7 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
         cybersix = Cybersixgill(orgs_list, cybersix_methods, soc_med_included)
         cybersix.run_cybersixgill()
         sixgill_end_time = time.time()
-        LOGGER.info(f"Execution time for Cybersixgill {sixgill_scan_name} scan: {str(timedelta(seconds=(sixgill_end_time - sixgill_start_time)))} (H:M:S)")
+        LOGGER.info(f"Execution time for Cybersixgill {sixgill_scan_name} scan ({first_org} - {final_org}): {str(timedelta(seconds=(sixgill_end_time - sixgill_start_time)))} (H:M:S)")
         LOGGER.info(f"--- Cybersixgill {sixgill_scan_name} Scan Complete ---")
     elif source == "shodan":
         LOGGER.info("--- Shodan Scan Starting ---")
@@ -108,7 +110,7 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
         intelx = IntelX(orgs_list)
         intelx.run_intelx()
         intelx_end_time = time.time()
-        LOGGER.info(f"Execution time for IntelX scan: {str(timedelta(seconds=(intelx_end_time - intelx_start_time)))} (H:M:S)")
+        LOGGER.info(f"Execution time for IntelX scan ({first_org} - {final_org}): {str(timedelta(seconds=(intelx_end_time - intelx_start_time)))} (H:M:S)")
         LOGGER.info("--- IntelX Scan Complete ---")
     elif source == "pshtt":
         launch_pe_pshtt()

@@ -30,7 +30,7 @@ def get_sixgill_organizations():
     retry_count, max_retries, time_delay = 0, 10, 5
     while orgs.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint, attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         orgs = requests.get(url, headers=headers)
         retry_count += 1
@@ -58,7 +58,7 @@ def org_assets(org_id):
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint, attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=payload)
         retry_count += 1
@@ -93,7 +93,7 @@ def intel_post(auth, query, frm, scroll, result_size):
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint, attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         resp = requests.post(url, headers=headers, json=payload)
         retry_count += 1
@@ -152,7 +152,7 @@ def alerts_count(auth, organization_id):
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint, attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=payload)
         retry_count += 1
@@ -176,7 +176,7 @@ def alerts_content(auth, organization_id, alert_id):
     retry_count, max_retries, time_delay = 0, 10, 5
     while content.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /actionable_alert_content endpoint, attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /actionable_alert_content endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         content = requests.get(url, headers=headers, params=payload)
         retry_count += 1
@@ -221,7 +221,7 @@ def dve_top_cves():
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint, attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         resp = requests.post(url, headers=headers, data=data)
         retry_count += 1
@@ -263,7 +263,7 @@ def credential_auth(params):
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint, attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=params)
         retry_count += 1
@@ -402,7 +402,7 @@ def get_bulk_cve_resp(cve_list):
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint, attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=params)
         retry_count += 1

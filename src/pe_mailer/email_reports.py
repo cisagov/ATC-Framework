@@ -271,6 +271,7 @@ def send_pe_reports(ses_client, pe_report_dir, to):
 
             # to_emails should contain at least one email
             if not to_emails:
+                reports_not_mailed += 1
                 continue
 
             # Find and mail the Posture and Exposure report, if necessary
@@ -317,7 +318,6 @@ def send_pe_reports(ses_client, pe_report_dir, to):
                 print("Report File:", pe_report_filename)
                 print("ASM Summary File", pe_asm_filename, "\n")
                 
-
                 try:
                     agencies_emailed_pe_reports = send_message(
                         ses_client, message, agencies_emailed_pe_reports
