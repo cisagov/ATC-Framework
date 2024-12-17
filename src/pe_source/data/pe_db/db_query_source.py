@@ -17,7 +17,7 @@ import psycopg2.extras as extras
 import requests
 
 # cisagov Libraries
-from pe_reports import app
+# from pe_reports import app
 from pe_reports.data.config import config, staging_config
 from pe_reports.data.db_query import task_api_call
 
