@@ -180,6 +180,9 @@ def generate_reports(datestring, output_directory, soc_med_included=False, demo=
 
     # Iterate over organizations
     if pe_orgs:
+        # Sort organizations by cyhy_db_name for easier management
+        pe_orgs = sorted(pe_orgs, key=lambda x: x[2])
+
         # Generate PE scores for all stakeholders WIP
         # LOGGER.info("Calculating P&E Scores")
         # pe_scores_df = get_pe_scores(datestring, 12)

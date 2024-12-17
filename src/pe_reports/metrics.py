@@ -101,6 +101,8 @@ class Credentials:
         breach_det_df.sort_values(
             by=["Number of Creds", "Date Reported"], ascending=False, inplace=True
         )
+        # convert 1/0 values to boolean for displaying
+        breach_det_df["Password Included"] = breach_det_df["Password Included"].astype(bool)
         return breach_det_df
 
     def password(self):

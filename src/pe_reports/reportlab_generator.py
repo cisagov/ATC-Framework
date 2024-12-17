@@ -677,7 +677,7 @@ def report_gen(data_dict, soc_med_included=False):
         Paragraph(
             """While it is not our intent to prescribe to you a particular process for remediating
                             vulnerabilities, we hope you will use this report to strengthen your security posture.
-                            Here is a recommended work flow:<br/><br/>""",
+                            Here is a recommended workflow:<br/><br/>""",
             body,
         )
     )

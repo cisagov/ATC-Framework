@@ -54,9 +54,8 @@ def build_kpi_string(value, last_value):
     value_diff = value - last_value
     if value_diff > 0:
         string = f" <font size=18> {value}</font><br></br> Increase of {value_diff}"
-
     elif value_diff < 0:
-        string = f" <font size=18> {value}</font><br></br> Decrease of {value_diff}"
+        string = f" <font size=18> {value}</font><br></br> Decrease of {abs(value_diff)}" # added abs() to remove sign
     else:
         string = f" <font size=18> {value}</font><br></br> No Change"
     return string
@@ -321,7 +320,7 @@ def create_summary(org_uid, final_output, data_dict, file_name, json_filename, e
     new_pdf = PdfFileReader(packet)
 
     # Read existing PDF template
-    existing_pdf = PdfFileReader(open(BASE_DIR + "/assets_asm/empty_asm_2024-04-15.pdf", "rb"))
+    existing_pdf = PdfFileReader(open(BASE_DIR + "/assets_asm/empty_asm_2024-11-19.pdf", "rb"))
     output = PdfFileWriter()
 
     # Add the "watermark" (which is the new pdf) on the existing page

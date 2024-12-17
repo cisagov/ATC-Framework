@@ -645,7 +645,7 @@ def core_report_gen(data_dict):
         Paragraph(
             """While it is not our intent to prescribe to you a particular process for remediating
                             vulnerabilities, we hope you will use this report to strengthen your security posture.
-                            Here is a basic flow:<br/><br/>""",
+                            Here is a recommended workflow:<br/><br/>""",
             body,
         )
     )
@@ -655,8 +655,8 @@ def core_report_gen(data_dict):
                 ListItem(
                     Paragraph(
                         """Review the Summary of Findings on page 5. This section gives a quick overview of key
-                            results including the number of credential exposures, domain masquerading alerts, Shodan
-                            verified vulnerabilites, and dark web alerts.""",
+                            results including the number of credential exposures, domain masquerading alerts, and Shodan
+                            verified vulnerabilites.""",
                         body,
                     ),
                     leftIndent=35,
@@ -671,16 +671,18 @@ def core_report_gen(data_dict):
                 ),
                 ListItem(
                     Paragraph(
-                        """Want to see our raw data? Navigate to page 5 where you can open the embedded Excel
-                            files. If you are having trouble opening these files, make sure to use Adobe Acrobat.""",
+                        """View the raw data used to generate this report by navigating to page 5 where you
+                            can open the embedded Excel files. If you are having trouble opening these files,
+                            make sure to use Adobe Acrobat.""",
                         body,
                     ),
                     leftIndent=35,
                 ),
                 ListItem(
                     Paragraph(
-                        """More questions? Please refer to the Frequently Asked Questions found on page 19. Please
-                            feel free to contact us at vulnerability@cisa.gov with any further questions or concerns.<br/><br/>""",
+                        """If you have any questions regarding your report, please refer to the Frequently
+                            Asked Questions found on page 19. Please feel free to contact us at
+                            vulnerability@cisa.gov with any further questions or concerns.<br/><br/>""",
                         body,
                     ),
                     leftIndent=35,
@@ -1358,21 +1360,8 @@ def core_report_gen(data_dict):
 
     Story.append(
         Paragraph(
-            """<font face="Franklin_Gothic_Medium_Regular">Do you perform scans of our networks?</font><br/>
-            P&amp;E does not perform active scanning. The information we gather is through passive collection from numerous
-            public and vendor data sources. As such, we collect data on a continual basis, and provide summary reports
-            twice a month.
-
-        """,
-            body,
-        )
-    )
-    Story.append(point12_spacer)
-
-    Story.append(
-        Paragraph(
             """<font face="Franklin_Gothic_Medium_Regular">How will the results be provided to me?</font><br/>
-            P&E will provide twice monthly P&E reports as password-protected attachments to emails from
+            P&amp;E will provide twice monthly P&amp;E reports as password-protected attachments to emails from
             vulnerability@cisa.dhs.gov. The attachments will contain a PDF—providing a summary of the findings,
             tables, graphs, as charts—as well as a JSON file containing the raw data used to generate the PDF
             report to facilitate your agencies own analysis.
@@ -1401,7 +1390,7 @@ def core_report_gen(data_dict):
             """<font face="Franklin_Gothic_Medium_Regular">Who do I contact if there are any issues or updates that need to be addressed for my reports?</font><br/>
             The general notification process is the same as all of the CyHy components. Simply send an email to
             vulnerability@cisa.dhs.gov identifying the requested changes. In this instance, make sure to identify
-            “P&E Report Delivery” in the subject to ensure the issue is routed to our team.
+            “P&amp;E Report Delivery” in the subject to ensure the issue is routed to our team.
         """,
             body,
         )
