@@ -234,7 +234,6 @@ def insert_sectors(conn, sectors_list):
     password = db_password_key()
     for sector in sectors_list:
         try:
-            print(sector)
             cur = conn.cursor()
             sql = """
             INSERT INTO sectors(id, acronym, name, email, contact_name, retired, first_seen, last_seen, password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, PGP_SYM_ENCRYPT(%s, %s))
@@ -469,7 +468,7 @@ def execute_ips(conn, df):
         cursor = conn.cursor()
         extras.execute_values(cursor, sql.format(table, cols), tpls, page_size=100000)
         conn.commit()
-        LOGGER.info("%s new IPs successfully upserted into ip table...", len(df))
+        # LOGGER.info("%s new IPs successfully upserted into ip table...", len(df)) # reducing log output
     except (Exception, psycopg2.DatabaseError) as err:
         # Show error and close connection if failed
         LOGGER.error("There was a problem with your database query %s", err)
@@ -490,7 +489,7 @@ def insert_sub_domains(conn, df):
     try:
         # Execute insert query
         df = df.drop_duplicates()
-        df["current"] = True
+        df.insert(len(df.columns), "current", True)
         tpls = [tuple(x) for x in df.to_numpy()]
         cols = ",".join(list(df.columns))
         table = "sub_domains"
@@ -564,7 +563,7 @@ def update_shodan_ips(conn, df):
     try:
         extras.execute_values(cursor, sql.format(table, cols), tpls)
         conn.commit()
-        print("Data inserted using execute_values() successfully..")
+        LOGGER.info("Shodan data inserted using execute_values() successfully..")
     except (Exception, psycopg2.DatabaseError) as err:
         show_psycopg2_exception(err)
         cursor.close()

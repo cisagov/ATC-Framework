@@ -43,7 +43,6 @@ def link_ip_from_domain(sub, root_uid, org_uid, data_source, conn):
         (DATE, ip_hash, ip, org_uid, sub, data_source, root_uid, None),
     )
     row = cur.fetchone()
-    print(row)
     conn.commit()
     cur.close()
     return 1
@@ -66,7 +65,7 @@ def connect_ips_from_subs(staging, orgs_df=None):
     conn.close()
 
     # Loop through orgs
-    org_count = 0
+    org_count = 1
     for org_index, org_row in orgs_df.iterrows():
         # Connect to database
         if staging:
@@ -74,13 +73,12 @@ def connect_ips_from_subs(staging, orgs_df=None):
         else:
             conn = pe_db_connect()
         LOGGER.info(
-            "Running on %s. %d/%d complete.",
+            "Running on %s, %d/%d",
             org_row["cyhy_db_name"],
             org_count,
             num_orgs,
         )
         org_uid = org_row["organizations_uid"]
-        print(org_uid)
 
         # Query sub-domains
         subs_df = query_subs(str(org_uid), conn)

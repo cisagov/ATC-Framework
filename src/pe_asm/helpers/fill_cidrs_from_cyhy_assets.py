@@ -49,7 +49,7 @@ def fill_cidrs(staging, orgs):
                     (network["network"], org_id, "cyhy_db", first_seen, last_seen),
                 )
             except Exception as e:
-                print(e)
+                LOGGER.error(e)
                 continue
             conn.commit()
             cur.close()

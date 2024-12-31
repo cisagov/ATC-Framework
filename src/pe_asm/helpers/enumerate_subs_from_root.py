@@ -3,6 +3,7 @@
 import datetime
 import json
 import logging
+import time
 
 # Third-Party Libraries
 import pandas as pd
@@ -36,12 +37,18 @@ def enumerate_roots(root_domain, root_uid):
     )
     headers = {"Content-Type": "application/json"}
     response = requests.request("POST", url, headers=headers, data=payload)
+
+    # Retry clause
+    retry_count, max_retries, time_delay = 1, 10, 5
+    while response.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})")
+        time.sleep(time_delay)
+        response = requests.request("POST", url, headers=headers, data=payload)
+        retry_count += 1
+
     data = response.json()
     sub_domains = data["domainsList"]
-    print(len(sub_domains))
-
     data_source = get_data_source_uid("WhoisXML")
-
     # First add the root domain to the subs table
     found_subs = [
         {
@@ -87,7 +94,7 @@ def get_subdomains(staging=False, orgs_df=None):
         roots_df = sqs_query_roots(conn, orgs_df["organizations_uid"][0])
 
     total_roots = len(roots_df.index)
-    LOGGER.info("Got %d root domains.", total_roots)
+    LOGGER.info("Found %d root domains.", total_roots)
 
     # Loop through roots
     count = 0
@@ -104,7 +111,7 @@ def get_subdomains(staging=False, orgs_df=None):
 
         count += 1
         if count % 10 == 0 or count == total_roots:
-            LOGGER.info("\t\t%d/%d complete.", count, total_roots)
+            LOGGER.info("\t\t%d/%d roots enumerated", count, total_roots)
 
     # Close database connection
     conn.close()
