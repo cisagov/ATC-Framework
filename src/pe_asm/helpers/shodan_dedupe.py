@@ -185,7 +185,7 @@ def ip_dedupe(api, ips, agency_type, conn):
                 try:
                     hosts = api.host(ips[i * 100 : (i + 1) * 100])
                 except shodan.APIError as err:
-                    print("Error: {}".format(err))
+                    LOGGER.error(f"Error: {err}")
                     continue
         if isinstance(hosts, list):
             for h in hosts:
@@ -324,7 +324,7 @@ def dedupe(staging, orgs_df=None):
     api = shodan_api_init()[0]
 
     # Loop through orgs
-    org_count = 0
+    org_count = 1
     for org_index, org in orgs_df.iterrows():
         # Connect to database
         if staging:
@@ -332,23 +332,23 @@ def dedupe(staging, orgs_df=None):
         else:
             conn = pe_db_connect()
         LOGGER.info(
-            "Running on %s. %d/%d complete.",
+            "Running on %s, %d/%d",
             org["cyhy_db_name"],
             org_count,
             num_orgs,
         )
         # Query CIDRS
         cidrs = query_cidrs_by_org(conn, org["organizations_uid"])
-        LOGGER.info(f"{len(cidrs)} cidrs found")
+        LOGGER.info(f"{len(cidrs)} CIDRs found")
 
         # Run cidr dedupe if there are CIDRs
         if len(cidrs) > 0:
             cidr_dedupe(cidrs, api, org["agency_type"], conn)
 
         # Get IPs related to current sub-domains
-        LOGGER.info("Grabbing floating IPs")
+        LOGGER.info("Retrieving floating IPs")
         ips = query_floating_ips(conn, org["organizations_uid"])
-        LOGGER.info("Got Ips")
+        LOGGER.info("Floating IPs retrieved")
         if len(ips) > 0:
             LOGGER.info("Running dedupe on IPs")
             ip_dedupe(api, ips, org["agency_type"], conn)

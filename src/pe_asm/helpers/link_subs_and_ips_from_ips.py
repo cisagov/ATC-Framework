@@ -33,15 +33,21 @@ def reverseLookup(ip_obj, failed_ips, conn, thread):
     url = f"https://dns-history.whoisxmlapi.com/api/v1?apiKey={WHOIS_KEY}&ip={ip_obj['ip']}"
     payload = {}
     headers = {}
-    response = requests.request("GET", url, headers=headers, data=payload).json()
-    if response.get("code") == 429:
-        response = requests.request("GET", url, headers=headers, data=payload).json()
-        if response.get("code") == 429:
-            response = requests.request(
-                "GET", url, headers=headers, data=payload
-            ).json()
-            if response.get("code") == 429:
-                failed_ips.append(ip_obj["ip"])
+    response = requests.request("GET", url, headers=headers, data=payload)
+
+    # Retry clause
+    retry_count, max_retries, time_delay = 1, 3, 3
+    while response.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})")
+        time.sleep(time_delay)
+        response = requests.request("GET", url, headers=headers, data=payload)
+        retry_count += 1
+    # If API call still unsuccessful
+    if response.status_code != 200:
+        bad_ip = ip_obj["ip"]
+        LOGGER.error(f"Max retries reached for {bad_ip}, labeling as failed")
+        failed_ips.append(ip_obj["ip"])
+    response = response.json()
 
     found_domains = []
     try:
@@ -52,7 +58,7 @@ def reverseLookup(ip_obj, failed_ips, conn, thread):
 
             result = response["result"]
             for domain in result:
-                print(domain)
+                # print(domain)
                 try:
                     found_domains.append(
                         {
@@ -90,8 +96,8 @@ def link_domain_from_ip(ip_obj, org_uid, data_source, failed_ips, conn, thread):
             ),
         )
         row = cur.fetchone()
-        print("Row after procedure")
-        print(row)
+        # print("Row after procedure")
+        # print(row)
         conn.commit()
         cur.close()
     return found_domains
@@ -100,17 +106,14 @@ def link_domain_from_ip(ip_obj, org_uid, data_source, failed_ips, conn, thread):
 def run_ip_chunk(org_uid, ips_df, thread, conn):
     """Run the provided chunk through the linking process."""
     count = 0
-    last_100 = time.time()
+    last_chunk = time.time()
     failed_ips = []
     for ip_index, ip in ips_df.iterrows():
-        # Set up logging for every 100 IPs
+        # Log progress
         count += 1
         if count % 10000 == 0:
-            LOGGER.info(f"{thread}: Currently Running ips: {count}/{len(ips_df)}")
-            LOGGER.info(
-                f"{thread}: {time.time() - last_100} seconds for the last 50 IPs"
-            )
-            last_100 = time.time()
+            LOGGER.info(f"{thread}: Running IPs: {count}/{len(ips_df)}, {time.time() - last_chunk} seconds for the last IP chunk")
+            last_chunk = time.time()
 
         # Link domain from IP
         try:
@@ -147,7 +150,7 @@ def connect_subs_from_ips(staging, orgs_df=None):
         else:
             conn = pe_db_connect()
         LOGGER.info(
-            "Running on %s. %d/%d complete.", org["cyhy_db_name"], org_count, num_orgs
+            "Running on %s, %d/%d", org["cyhy_db_name"], org_count, num_orgs
         )
         # Query IPs
         org_uid = org["organizations_uid"]
