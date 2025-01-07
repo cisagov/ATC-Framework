@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import pathlib
+import time
 import traceback
 
 
@@ -43,9 +44,16 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
             return None, perm_list
 
         # Check IP in Blocklist API
-        response = requests.get(
-            "http://api.blocklist.de/api.php?ip=" + str(dom["dns_a"][0])
-        ).content
+        blocklist_url = "http://api.blocklist.de/api.php?ip=" + str(dom["dns_a"][0])
+        response = requests.get(blocklist_url)
+        # Retry clause
+        retry_count, max_retries, time_delay = 1, 10, 5
+        while response.status_code != 200 and retry_count <= max_retries:
+            LOGGER.warning(f"Retrying Blocklist.de API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {blocklist_url})")
+            time.sleep(time_delay)
+            response = requests.get(blocklist_url)
+            retry_count += 1
+        response = response.content
 
         if str(response) != "b'attacks: 0<br />reports: 0<br />'":
             try:
@@ -78,9 +86,17 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
         dom["dns_aaaa"] = [""]
     else:
         # Check IP in Blocklist API
-        response = requests.get(
-            "http://api.blocklist.de/api.php?ip=" + str(dom["dns_aaaa"][0])
-        ).content
+        blocklist_url = "http://api.blocklist.de/api.php?ip=" + str(dom["dns_aaaa"][0])
+        response = requests.get(blocklist_url)
+        # Retry clause
+        retry_count, max_retries, time_delay = 1, 10, 5
+        while response.status_code != 200 and retry_count <= max_retries:
+            LOGGER.warning(f"Retrying Blocklist.de API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {blocklist_url})")
+            time.sleep(time_delay)
+            response = requests.get(blocklist_url)
+            retry_count += 1
+        response = response.content
+
         if str(response) != "b'attacks: 0<br />reports: 0<br />'":
             try:
                 malicious = True
@@ -90,6 +106,8 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
                 malicious = False
                 dshield_attacks = 0
                 dshield_count = 0
+
+        # Check IP in DSheild API
         try:
             results = dshield.ip(str(dom["dns_aaaa"][0]), return_format=dshield.JSON)
             results = json.loads(results)
