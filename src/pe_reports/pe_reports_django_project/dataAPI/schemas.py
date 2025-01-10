@@ -4100,3 +4100,156 @@ class OrgAssetTaskResp(BaseModel):
     status: str
     result: Optional[OrgAssetPagedResult] = None
     error: Optional[str] = None
+
+
+class WasFindingInsert(BaseModel):
+    """WasFindingResult schema class"""
+    finding_uid: str
+    finding_type: Optional[str] = None
+    webapp_id: Optional[str] = None
+    was_org_id: Optional[str] = None
+    owasp_category: Optional[str] = None
+    severity: Optional[str] = None
+    times_detected: Optional[int] = None
+    base_score: Optional[float] = None
+    temporal_score: Optional[float] = None
+    fstatus: Optional[str] = None
+    last_detected: Optional[str] = None
+    first_detected: Optional[str] = None
+    is_remediated: Optional[bool] = None
+    potential: Optional[bool] = None
+    webapp_url: Optional[str] = None
+    webapp_name: Optional[str] = None
+    name: Optional[str] = None
+    cvss_v3_attack_vector: Optional[str] = None
+    cwe_list: Optional[List[str]] = None
+    wasc_list: Optional[List[Dict]] = None
+    last_tested: Optional[str] = None
+    fixed_date: Optional[str] = None
+    is_ignored: Optional[bool] = None
+    url: Optional[str] = None
+    qid: Optional[int] = None
+    response: Optional[str] = None
+    
+class WasFindingResult(BaseModel):
+    """WasFindingResult schema class"""
+    finding_uid: str
+    finding_type: Optional[str] = None
+    webapp_id: Optional[str] = None
+    was_org_id: Optional[str] = None
+    owasp_category: Optional[str] = None
+    severity: Optional[str] = None
+    times_detected: Optional[int] = None
+    base_score: Optional[float] = None
+    temporal_score: Optional[float] = None
+    fstatus: Optional[str] = None
+    last_detected: Optional[str] = None
+    first_detected: Optional[str] = None
+    is_remediated: Optional[bool] = None
+    potential: Optional[bool] = None
+    webapp_url: Optional[str] = None
+    webapp_name: Optional[str] = None
+    name: Optional[str] = None
+    cvss_v3_attack_vector: Optional[str] = None
+    cwe_list: Optional[List[str]] = None
+    wasc_list: Optional[List[Dict]] = None
+    last_tested: Optional[str] = None
+    fixed_date: Optional[str] = None
+    is_ignored: Optional[bool] = None
+    url: Optional[str] = None
+    qid: Optional[int] = None
+    response: Optional[str] = None
+
+class WasFindingPagedResp(BaseModel):
+    """OrgAssetPagedResult schema class."""
+
+    total_pages: int
+    current_page: int
+    data: Optional[List[WasFindingResult]] = None
+
+class WasFindingsTaskResp(BaseModel):
+    """WasFindingsTaskResp schema class."""
+    task_id: str
+    status: str
+    result: Optional[WasFindingPagedResp] = None
+    error: Optional[str] = None
+
+
+class WasFindingsPagedInput(BaseModel):
+    """WasFindingsPagedInput schema class."""
+
+    org_acronym: str
+    page: int
+    per_page: int
+
+    class Config:
+        """WasFindingsPagedInput schema config class."""
+
+        orm_mode = True
+
+        
+
+class WasReportInsert(BaseModel):
+    """WasReportInsert schema class."""
+
+    org_name: Optional[str] = Field(default=None)
+    date_pulled: Optional[str] = Field(default=None)
+    last_scan_date: Optional[str] = Field(default=None)
+    security_risk: Optional[str] = Field(default=None)
+    total_info: Optional[int] = Field(default=None)
+    num_apps: Optional[int] = Field(default=None)
+    risk_color: Optional[str] = Field(default=None)
+    sensitive_count: Optional[int] = Field(default=None)
+    sensitive_color: Optional[str] = Field(default=None)
+    max_days_open_urgent: Optional[int] = Field(default=None)
+    max_days_open_critical: Optional[int] = Field(default=None)
+    urgent_color: Optional[str] = Field(default=None)
+    critical_color: Optional[str] = Field(default=None)
+    org_was_acronym: Optional[str] = Field(default=None)
+    name_len: Optional[str] = Field(default=None)
+    vuln_csv_dict: Optional[Dict] = Field(default={})
+    ssn_cc_dict: Optional[Dict] = Field(default={})
+    app_overview_csv_dict: Optional[Dict] = Field(default={})
+    details_csv: Optional[List] = Field(default=[])
+    info_csv: Optional[List] = Field(default=[])
+    links_crawled: Optional[List] = Field(default=[])
+    links_rejected: Optional[List] = Field(default=[])
+    emails_found: Optional[List] = Field(default=[])
+    owasp_count_dict: Optional[Dict] = Field(default={})
+    group_count_dict: Optional[Dict] = Field(default={})
+    fixed: Optional[int] = Field(default=None)
+    total: Optional[int] = Field(default=None)
+    vulns_monthly_dict: Optional[Dict] = Field(default={})
+    path_disc: Optional[int] = Field(default=None)
+    info_disc: Optional[int] = Field(default=None)
+    cross_site: Optional[int] = Field(default=None)
+    burp: Optional[int] = Field(default=None)
+    sql_inj: Optional[int] = Field(default=None)
+    bugcrowd: Optional[int] = Field(default=None)
+    reopened: Optional[int] = Field(default=None)
+    reopened_color: Optional[str] = Field(default=None)
+    new_vulns: Optional[int] = Field(default=None)
+    new_vulns_color: Optional[str] = Field(default=None)
+    tot_vulns: Optional[int] = Field(default=None)
+    tot_vulns_color: Optional[str] = Field(default=None)
+    lev1: Optional[int] = Field(default=None)
+    lev2: Optional[int] = Field(default=None)
+    lev3: Optional[int] = Field(default=None)
+    lev4: Optional[int] = Field(default=None)
+    lev5: Optional[int] = Field(default=None)
+    severities: Optional[List[int]] = Field(default=[])
+    ages: Optional[List[int]] = Field(default=[])
+    pdf_obj: Optional[str] = Field(default=None)
+
+    class Config:
+        """WasReportInsert schema config class."""
+
+        orm_mode = True
+
+
+class WasReportTaskResp(BaseModel):
+    """WasReportTaskResp schema class."""
+    task_id: str
+    status: str
+    result: Optional[WasReportInsert] = None
+    error: Optional[str] = None

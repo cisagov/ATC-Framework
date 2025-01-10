@@ -3,10 +3,13 @@
 # Standard Python Libraries
 from datetime import date, datetime, timedelta
 import logging
-import pandas as pd
-import sys
-import time
+
+# import sys
+# import time
 import traceback
+
+# Third-Party Libraries
+import pandas as pd
 
 from .data.pe_db.db_query_source import (
     get_breaches,
@@ -19,18 +22,17 @@ from .data.pe_db.db_query_source import (
     insert_sixgill_topCVEs,
 )
 from .data.sixgill.api import get_sixgill_organizations
-from .data.sixgill.source import (
+from .data.sixgill.source import (  # cve_summary,; get_alerts_content,
     alerts,
     alias_organization,
     all_assets_list,
     creds,
-    cve_summary,
-    get_alerts_content,
     mentions,
     root_domains,
     top_cves,
 )
-from .data.helpers.redact_pii import redact_pii, redact_pii_new
+
+# from .data.helpers.redact_pii import redact_pii
 
 # Set todays date formatted YYYY-MM-DD and the start_date 30 days prior
 TODAY = date.today()
@@ -48,7 +50,7 @@ END_DATE_TIME = NOW.strftime("%Y-%m-%d %H:%M:%S")
 LOGGER = logging.getLogger(__name__)
 
 # Suppress output from presidio-analyzer import (PII filter)
-logging.getLogger('presidio-analyzer').setLevel(logging.CRITICAL+1)
+logging.getLogger("presidio-analyzer").setLevel(logging.CRITICAL + 1)
 
 
 class Cybersixgill:
@@ -116,7 +118,7 @@ class Cybersixgill:
                 # Get sixgill_org_id associated with the PE org
                 try:
                     sixgill_org_id = sixgill_orgs[org_id][0]
-                except KeyError as err:
+                except KeyError:
                     LOGGER.warning(f"{org_id} is not registered in Cybersixgill")
                     # print(err, file=sys.stderr)
                     # failed.append("%s not in sixgill" % org_id)
@@ -124,7 +126,9 @@ class Cybersixgill:
 
                 # Run alerts
                 if "alerts" in method_list:
-                    LOGGER.info(f"Fetching alert data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                    LOGGER.info(
+                        f"Fetching alert data for {org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
+                    )
                     if (
                         self.get_alerts(
                             org_id,
@@ -138,7 +142,9 @@ class Cybersixgill:
                         failed.append("%s alerts" % org_id)
                 # Run mentions
                 if "mentions" in method_list:
-                    LOGGER.info(f"Fetching mention data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                    LOGGER.info(
+                        f"Fetching mention data for {org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
+                    )
                     if (
                         self.get_mentions(
                             org_id,
@@ -152,7 +158,9 @@ class Cybersixgill:
                         failed.append("%s mentions" % org_id)
                 # Run credentials
                 if "credentials" in method_list:
-                    LOGGER.info(f"Fetching credential data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                    LOGGER.info(
+                        f"Fetching credential data for {org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
+                    )
                     if (
                         self.get_credentials(
                             org_id, sixgill_org_id, pe_org_uid, source_uid
@@ -386,20 +394,28 @@ class Cybersixgill:
 
         # Catch no root assets situation
         if len(roots) == 0:
-            LOGGER.warning(f"{org_id} does not have any root domain assets in Cybersixgill")
+            LOGGER.warning(
+                f"{org_id} does not have any root domain assets in Cybersixgill"
+            )
             return 0
 
         # Fetch credential data
         if len(roots) > 100:
             # Catch situation where an org has >100 roots in sixgill
-            LOGGER.info(f"{org_id} has more than 100 root assets in cybersixgill, breaking into chunks of 100...")
-            root_chunks = [roots[i:i + 100] for i in range(0, len(roots), 100)]
+            LOGGER.info(
+                f"{org_id} has more than 100 root assets in cybersixgill, breaking into chunks of 100..."
+            )
+            root_chunks = [roots[i : i + 100] for i in range(0, len(roots), 100)]
             creds_df = pd.DataFrame()
             for idx, chunk in enumerate(root_chunks):
                 try:
-                    LOGGER.info(f"On chunk {idx+1} of {len(root_chunks)} for {org_id} credentials")
+                    LOGGER.info(
+                        f"On chunk {idx+1} of {len(root_chunks)} for {org_id} credentials"
+                    )
                     chunk_creds_df = creds(chunk, START_DATE_TIME, END_DATE_TIME)
-                    LOGGER.info("Found %s credentials for this chunk", len(chunk_creds_df.index))
+                    LOGGER.info(
+                        "Found %s credentials for this chunk", len(chunk_creds_df.index)
+                    )
                     chunk_creds_df["organizations_uid"] = pe_org_uid
                     chunk_creds_df["data_source_uid"] = source_uid
                     creds_df = creds_df.append(chunk_creds_df, ignore_index=True)
@@ -535,7 +551,7 @@ class Cybersixgill:
             #     except Exception:
             #         summary = ""
             #     top_cve_df.at[cve_index, "summary"] = summary
-            
+
         except Exception as e:
             LOGGER.error("Failed fetching top CVEs.")
             LOGGER.error(e)

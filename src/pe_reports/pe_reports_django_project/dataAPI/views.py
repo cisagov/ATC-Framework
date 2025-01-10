@@ -63,6 +63,7 @@ from dataAPI.tasks import (
     sub_domains_table_task,
     top_cves_insert_task,
     was_vulns_task,
+    insert_was_report
 )
 from decouple import config
 from django.conf import settings
@@ -85,6 +86,7 @@ from dmz_mini_dl.models import XpanseBusinessUnits as MDL_XpanseBusinessUnits
 from dmz_mini_dl.models import XpanseCveServiceMdl as MDL_XpanseCveService
 from dmz_mini_dl.models import XpanseCvesMdl as MDL_XpanseCves
 from dmz_mini_dl.models import XpanseServicesMdl as MDL_XpanseServices
+from dmz_mini_dl.models import WasFindings as MDL_WasFindings
 from fastapi import (
     APIRouter,
     Depends,
@@ -143,6 +145,8 @@ from home.models import (
     VwShodanvulnsSuspected,
     VwShodanvulnsVerified,
     WasTrackerCustomerdata,
+    WasFindings,
+    WasReport,
     WeeklyStatuses,
     XpanseAlerts,
     XpanseAssets,
@@ -5617,24 +5621,24 @@ def cred_breaches_intelx_insert(
             for row in data.breach_data:
                 # Check if record already exists
                 row_dict = row.__dict__
-                # mdl_source_inst = MDL_DataSource.objects.get(
-                #         name='IntelX'
-                #     )
-
-                MDL_CredentialBreaches.objects.update_or_create(
-                    breach_name=row_dict["breach_name"],
-                    defaults={
-                        "description": row_dict["description"],
-                        "breach_date": row_dict["breach_date"],
-                        "added_date": row_dict["added_date"],
-                        "modified_date": timezone.make_aware(
-                            parse_datetime(row_dict["modified_date"]),
-                            timezone.timezone.utc,
-                        ),
-                        "password_included": row_dict["password_included"],
-                        "data_source": mdl_source_inst,
-                    },
-                )
+                try:
+                    MDL_CredentialBreaches.objects.update_or_create(
+                        breach_name=row_dict["breach_name"],
+                        defaults={
+                            "description": row_dict["description"],
+                            "breach_date": row_dict["breach_date"],
+                            "added_date": row_dict["added_date"],
+                            "modified_date": timezone.make_aware(
+                                parse_datetime(row_dict["modified_date"]),
+                                timezone.timezone.utc,
+                            ),
+                            "password_included": row_dict["password_included"],
+                            "data_source": mdl_source_inst,
+                        },
+                    )
+                except Exception:
+                    LOGGER.warn('Failed to save or update Credential Breach to MDL.')
+                    
                 breach_results = CredentialBreaches.objects.filter(
                     breach_name=row_dict["breach_name"]
                 )
@@ -7610,6 +7614,161 @@ def query_shodan_ips(org_uid: str, tokens: dict = Depends(get_api_key)):
             ips = list(ips_from_cidrs) + list(in_second_but_not_in_first)
 
             return ips
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+
+
+@api_router.put(
+    "/was_finding_insert_or_update",
+    dependencies=[Depends(get_api_key)],
+    # response_model=Dict[schemas.PshttDataBase],
+    tags=["Update or insert WAS finding"],
+)
+# @transaction.atomic
+def was_finding_insert_or_update(
+    # tag: str,
+    data: schemas.WasFindingInsert,
+    tokens: dict = Depends(get_api_key),
+):
+    """Create API endpoint to create a record in database."""
+    if tokens:
+        try:
+            # userapiTokenverify(theapiKey=tokens)
+            LOGGER.info(f"The api key submitted {tokens}")
+            defaults={
+                'finding_type': data.finding_type,
+                'webapp_id': data.webapp_id,
+                'webapp_url': data.webapp_url,
+                'webapp_name': data.webapp_name,
+                'was_org_id': data.was_org_id,
+                'name': data.name,
+                'owasp_category': data.owasp_category,
+                'severity': data.severity,
+                'times_detected': data.times_detected,
+                'cvss_v3_attack_vector': data.cvss_v3_attack_vector,
+                'base_score': data.base_score,
+                'temporal_score': data.temporal_score,
+                'fstatus': data.fstatus,
+                'last_detected': data.last_detected,
+                'first_detected': data.first_detected,
+                'potential': data.potential,
+                'cwe_list': data.cwe_list,
+                'wasc_list': data.wasc_list,
+                'last_tested': data.last_tested,
+                'fixed_date': data.fixed_date,
+                'is_ignored': data.is_ignored,
+                'is_remediated': True if data.fstatus == "FIXED" else False,
+                'url': data.url,
+                'qid': data.qid,
+                'response': data.response
+            }
+            (
+                was_finding_object,
+                created,
+            ) = WasFindings.objects.update_or_create(
+                finding_uid= data.finding_uid,
+                defaults=defaults,
+            )
+            try:
+                (
+                mdl_was_finding_object,
+                mdl_created,
+                ) = MDL_WasFindings.objects.update_or_create(
+                    finding_uid= data.finding_uid,
+                    defaults=defaults,
+                )
+            except Exception:
+                LOGGER.info(f'Failed to insert WAS finding to MDL: {data.finding_uid}')
+
+            if created:
+                LOGGER.info(
+                    "New WAS finding record created for %s", data.was_org_id
+                )
+                return {
+                    "message": "New WAS finding created.",
+                    "was_finding_obj": was_finding_object,
+                }
+            return {
+                "message": "WAS finding updated.",
+                "was_finding_obj": was_finding_object,
+            }
+        except Exception as e:
+            LOGGER.warning(e)
+            print("failed to insert or update")
+            LOGGER.info("API key expired please try again")
+    else:
+        return {"message": "No api key was submitted"}
+
+@api_router.post(
+    "/was_report_insert_or_update",
+    dependencies=[Depends(get_api_key)],
+    # response_model=Dict[schemas.PshttDataBase],
+    tags=["Update or insert Was Report."],
+)
+def was_report_insert_or_update(
+    # tag: str,
+    data: schemas.WasReportInsert,
+    tokens: dict = Depends(get_api_key),
+):
+    """Create API endpoint to create a record in database."""
+    if tokens:
+        try:
+            # userapiTokenverify(theapiKey=tokens)
+            # LOGGER.info(f"The api key submitted {tokens}")
+            LOGGER.info(data)
+            serialized_data = data.dict()
+            LOGGER.info(serialized_data)
+            # Pass serialized data to Celery task
+            was_report_task = insert_was_report.delay(serialized_data)
+            # was_report_task = insert_was_report.delay(data)
+            was_report_task_id = was_report_task.id
+            # Return the new task id w/ "Processing" status
+            return {"task_id": was_report_task_id, "status": "Processing"}
+        except ObjectDoesNotExist:
+            LOGGER.info("API key expired please try again")
+        except Exception as e:
+            print('In View Basic Exception')
+            LOGGER.error(e)
+  
+    else:
+        return {"message": "No api key was submitted"}
+
+@api_router.get(
+    "/was_report_insert_or_update/task/{task_id}",
+    dependencies=[
+        Depends(get_api_key)
+    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    # response_model=schemas.WasReportTaskResp,
+    tags=["Check task status WAS Report insert."],
+)
+async def was_report_insert_task_status(task_id: str, tokens: dict = Depends(get_api_key)):
+    """Check task status WAS Report insert"""
+    # Check for API key
+    LOGGER.info(f"The api key submitted {tokens}")
+    if tokens:
+        try:
+            # userapiTokenverify(theapiKey=tokens)
+            # Retrieve task status
+            task = insert_was_report.AsyncResult(task_id)
+            # Return appropriate message for status
+            if task.state == "SUCCESS":
+                return {
+                    "task_id": task_id,
+                    "status": "Completed",
+                    "result": task.result,
+                }
+            elif task.state == "PENDING":
+                return {"task_id": task_id, "status": "Pending"}
+            elif task.state == "FAILURE":
+                return {
+                    "task_id": task_id,
+                    "status": "Failed",
+                    "error": str(task.result),
+                }
+            else:
+                return {"task_id": task_id, "status": task.state}
         except ObjectDoesNotExist:
             LOGGER.info("API key expired please try again")
     else:
