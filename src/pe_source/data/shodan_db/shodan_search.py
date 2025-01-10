@@ -6,7 +6,7 @@ import logging
 import time
 
 # Third-Party Libraries
-import pandas as pd
+# import pandas as pd
 import requests
 import shodan
 
@@ -14,7 +14,8 @@ import shodan
 from pe_source.data.pe_db.db_query_source import (  # get_ips_dhs,; get_ips_hhs,; get_ips_nasa,
     get_data_source_uid,
     get_ips,
-    insert_shodan_data,
+    insert_shodan_assets,
+    insert_shodan_vulns,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -103,6 +104,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
     )
 
     # Loop through chunks and query Shodan
+    source_uid = get_data_source_uid("Shodan")
     for i, ip_chunk in enumerate(ip_chunks):
         count = i + 1
         try_count = 1
@@ -167,7 +169,8 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                             "is_verified": False,
                                             "cpe": d.get("cpe", None),
                                             "banner": d.get("data", None),
-                                            "version": d.get("version", None)
+                                            "version": d.get("version", None),
+                                            "data_source_uid": source_uid,
                                         }
                                     )
                             elif d["_shodan"]["module"] in risky_ports:
@@ -211,7 +214,8 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                         "is_verified": False,
                                         "cpe": d.get("cpe", None),
                                         "banner": d.get("data", None),
-                                        "version": d.get("version", None)
+                                        "version": d.get("version", None),
+                                        "data_source_uid": source_uid,
                                     }
                                 )
 
@@ -231,7 +235,8 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                     "tags": r["tags"],
                                     "timestamp": d["timestamp"],
                                     "country_code": location["country_code"],
-                                    "location": str(location)
+                                    "location": str(location),
+                                    "data_source_uid": source_uid,
                                 }
                             )
 
@@ -269,22 +274,12 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
 
         LOGGER.info("{} {}/{} complete - {}".format(thread_name, count, tot, org_name))
 
-    df = pd.DataFrame(data)
-    risk_df = pd.DataFrame(risk_data)
-    vuln_df = pd.DataFrame(vuln_data)
-    all_vuln_df = vuln_df.append(risk_df, ignore_index=True)
+    all_vulns = vuln_data + risk_data
     # Grab the data source uid and add to each dataframe
-    source_uid = get_data_source_uid("Shodan")
-    df["data_source_uid"] = source_uid
-    risk_df["data_source_uid"] = source_uid
-    vuln_df["data_source_uid"] = source_uid
-    all_vuln_df["data_source_uid"] = source_uid
 
     # Insert data into the PE database
-    failed = insert_shodan_data(df, "shodan_assets", thread_name, org_name, failed)
-    failed = insert_shodan_data(
-        all_vuln_df, "shodan_vulns", thread_name, org_name, failed
-    )
+    failed = insert_shodan_assets(data, failed)
+    failed = insert_shodan_vulns(all_vulns, failed)
 
     return failed
 

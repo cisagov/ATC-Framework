@@ -62,7 +62,7 @@ def task_api_call(task_url, check_url, data={}, retry_time=3):
             # Ping task status endpoint and get status
             # check_task_resp = requests.get(check_task_url, headers=headers).json()
             check_task_resp = requests.get(check_task_url, headers=headers)
-            #print(check_task_resp)
+            # print(check_task_resp)
             check_task_resp = check_task_resp.json()
             task_status = check_task_resp.get("status")
             LOGGER.info(
@@ -2200,7 +2200,7 @@ def query_previous_period(org_uid, prev_end_date):
     return assets_dict
 
 
-#  ---------- PE-Score API Queries, Issue 635 ---------- 
+#  ---------- PE-Score API Queries, Issue 635 ----------
 # --- Issue 635 ---
 def pescore_hist_domain_alert(start_date, end_date):
     """
@@ -3609,7 +3609,7 @@ def upsert_new_cves_tsql(new_cves):
 
 
 # --- 018 atc-framework OLD TSQL ---
-def get_demo_orgs(conn):
+def get_demo_orgs_tsql(conn):
     """Query organizations table for orgs we report on."""
     try:
         cur = conn.cursor()

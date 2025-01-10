@@ -11,12 +11,10 @@ import pandas as pd
 import requests
 
 from .data.pe_db.config import get_params
-from .data.pe_db.db_query_source import (
-    connect,
+from .data.pe_db.db_query_source import (  # get_intelx_breaches,; connect,
     get_data_source_uid,
-    get_intelx_breaches,
     get_orgs,
-    get_root_domains,
+    get_root_domains_api,
     insert_intelx_breaches,
     insert_intelx_credentials,
 )
@@ -69,9 +67,6 @@ class IntelX:
                 else:
                     continue
 
-        # alphabetize orgs for consistent order
-        pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
-
         success = 0
         failed = 0
         for org_idx, pe_org in enumerate(pe_orgs_final):
@@ -80,22 +75,25 @@ class IntelX:
 
             # Verify the org is in the list of orgs to scan
             if cyhy_org_id in orgs_list or orgs_list == "all" or orgs_list == "DEMO":
-                LOGGER.info(f"Running IntelX on {cyhy_org_id} ({org_idx+1} of {len(pe_orgs_final)})")
-                print(f"Running IntelX on {cyhy_org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                LOGGER.info(
+                    f"Running IntelX on {cyhy_org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
+                )
                 if self.get_credentials(cyhy_org_id, pe_org_uid) == 1:
                     LOGGER.error("Failed to get credentials for %s", cyhy_org_id)
                     failed += 1
                 else:
-                    success +=1
+                    success += 1
 
-        LOGGER.info(f"IntelX scan ran successfully for {success}/{len(pe_orgs_final)} organizations")
-
+        LOGGER.info(
+            f"IntelX scan ran successfully for {success}/{len(pe_orgs_final)} organizations"
+        )
 
     def get_credentials(self, cyhy_org_id, pe_org_uid):
         """Get credentials for a provided org."""
         try:
-            conn = connect()
-            roots_df = get_root_domains(conn, pe_org_uid)
+            # conn = connect()
+            roots_df = get_root_domains_api(pe_org_uid)
+
         except Exception as e:
             LOGGER.error("Failed fetching root domains for %s", cyhy_org_id)
             LOGGER.error(e)
@@ -104,6 +102,7 @@ class IntelX:
         leaks_json = self.find_credential_leaks(
             roots_df["root_domain"].values.tolist(), START_DATE, END_DATE
         )
+        print(leaks_json)
         if len(leaks_json) < 1:
             LOGGER.info(f"No credentials found for {cyhy_org_id}")
             return 0
@@ -116,11 +115,11 @@ class IntelX:
             LOGGER.error(e)
             return 1
 
-        breach_dict = get_intelx_breaches(SOURCE_UID)
-        breach_dict = dict(breach_dict)
-        for cred_index, cred_row in creds_df.iterrows():
-            breach_uid = breach_dict[cred_row["breach_name"]]
-            creds_df.at[cred_index, "credential_breaches_uid"] = breach_uid
+        # breach_dict = get_intelx_breaches(SOURCE_UID)
+        # breach_dict = dict(breach_dict)
+        # for cred_index, cred_row in creds_df.iterrows():
+        #     breach_uid = breach_dict[cred_row["breach_name"]]
+        #     creds_df.at[cred_index, "credential_breaches_uid"] = breach_uid
         try:
             insert_intelx_credentials(creds_df)
         except Exception as e:

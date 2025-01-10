@@ -60,7 +60,15 @@ from home.models import (
     VwShodanvulnsSuspected,
     VwShodanvulnsVerified,
     WasFindings,
+    WasReport,
     XpanseAlerts,
+)
+from dmz_mini_dl.models import (
+    CredentialBreaches as MDL_CredentialBreaches,
+    CredentialExposures as MDL_CredentialExposures,
+    DataSource as MDL_DataSource,
+    Organization as MDL_Organization,
+    WasReport as MDL_WasReport
 )
 
 # cisagov Libraries
@@ -69,7 +77,7 @@ from pe_reports.helpers import ip_passthrough
 # Import schemas
 from . import schemas
 
-LOGGER = logginng.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 # ---------- Task Helper Functions ----------
 def convert_uuid_to_string(uuid):
@@ -1223,8 +1231,31 @@ def cred_breach_sixgill_task(self, new_breaches: List[dict]):
     """Task function for the cred_breaches_sixgill_insert API endpoint."""
     create_ct = 0
     update_ct = 0
+    try:
+        mdl_source_inst = MDL_DataSource.objects.get(name="Sixgill")
+    except MDL_DataSource.DoesNotExist:
+        LOGGER.warning(f"DataSource Sixgill not found.")
+        mdl_source_inst = None  # Set to None if DataSource is not found
     for new_breach in new_breaches:
         # Insert each row of data
+        try:
+            MDL_CredentialBreaches.objects.get(breach_name=new_breach["breach_name"])
+
+            MDL_CredentialBreaches.objects.filter(breach_name=new_breach["breach_name"]
+            ).update(
+                password_included=new_breach["password_included"],
+            )
+        except MDL_CredentialBreaches.DoesNotExist:
+            MDL_CredentialBreaches.objects.create(
+                credential_breaches_uid=uuid.uuid1(),
+                breach_name=new_breach["breach_name"],
+                description=new_breach["description"],
+                breach_date=new_breach["breach_date"],
+                password_included=new_breach["password_included"],
+                data_source=mdl_source_inst,
+                modified_date=new_breach["modified_date"],
+            )
+
         try:
             CredentialBreaches.objects.get(breach_name=new_breach["breach_name"])
             # If record already exists, update
@@ -1264,7 +1295,43 @@ def cred_exp_sixgill_task(self, new_exposures: List[dict]):
     """Task function for the credexp_insert API endpoint."""
     update_ct = 0
     create_ct = 0
+    try:
+        mdl_source_inst = MDL_DataSource.objects.get(name="Sixgill")
+    except MDL_DataSource.DoesNotExist:
+        LOGGER.warning(f"DataSource Sixgill not found.")
+        mdl_source_inst = None  # Set to None if DataSource is not found
     for new_exposure in new_exposures:
+        curr_org_inst = Organizations.objects.get(
+                organizations_uid=new_exposure["organizations_uid"]
+            )
+        try:
+            MDL_CredentialExposures.objects.get(
+                breach_name=new_exposure["breach_name"],
+                email=new_exposure["email"],
+            )
+        except MDL_CredentialExposures.DoesNotExist:
+            mdl_org_inst = MDL_Organization.objects.get(
+                        acronym=curr_org_inst.cyhy_db_name
+                    )
+            
+            mdl_breach_inst = CredentialBreaches.objects.get(
+                breach_name=new_exposure["breach_name"]
+            )
+            CredentialExposures.objects.create(
+                credential_exposures_uid=uuid.uuid1(),
+                modified_date=new_exposure["modified_date"],
+                sub_domain=new_exposure["sub_domain"],
+                email=new_exposure["email"],
+                hash_type=new_exposure["hash_type"],
+                name=new_exposure["name"],
+                login_id=new_exposure["login_id"],
+                password=new_exposure["password"],
+                phone=new_exposure["phone"],
+                breach_name=new_exposure["breach_name"],
+                organization=mdl_org_inst,
+                data_source=mdl_source_inst,
+                credential_breaches=mdl_breach_inst,
+            )
         try:
             CredentialExposures.objects.get(
                 breach_name=new_exposure["breach_name"],
@@ -1272,9 +1339,7 @@ def cred_exp_sixgill_task(self, new_exposures: List[dict]):
             )
         except CredentialExposures.DoesNotExist:
             # If cred exp record doesn't exist yet, create one
-            curr_org_inst = Organizations.objects.get(
-                organizations_uid=new_exposure["organizations_uid"]
-            )
+            
             curr_source_inst = DataSource.objects.get(
                 data_source_uid=new_exposure["data_source_uid"]
             )
@@ -1659,3 +1724,95 @@ def get_orgs_and_assets(self, page: int, per_page: int):
         "data": orgs_list,
     }
     return result
+
+def base64_to_bytes(base64_str) -> bytes:
+    """Convert a Base64-encoded string to binary data."""
+    if base64_str:
+        return base64.b64decode(base64_str)
+    else:
+        return base64_str
+
+@shared_task(bind=True)
+def insert_was_report(self, data):
+    # try:
+    LOGGER.info('Top of Was Report Task')
+    LOGGER.info(data)
+    defaults_dict={
+        "org_name": data.get('org_name'),
+        "date_pulled": data.get('date_pulled'),
+        "last_scan_date": data.get('last_scan_date'),
+        "security_risk": data.get('security_risk'),
+        "total_info": data.get('total_info'),
+        "num_apps": data.get('num_apps'),
+        "risk_color": data.get('risk_color'),
+        "sensitive_count": data.get('sensitive_count'),
+        "sensitive_color": data.get('sensitive_color'),
+        "max_days_open_urgent": data.get('max_days_open_urgent'),
+        "max_days_open_critical": data.get('max_days_open_critical'),
+        "urgent_color": data.get('urgent_color'),
+        "critical_color": data.get('critical_color'),
+        "name_len": data.get('name_len'),
+        "vuln_csv_dict": data.get('vuln_csv_dict'),
+        "ssn_cc_dict": data.get('ssn_cc_dict'),
+        "app_overview_csv_dict": data.get('app_overview_csv_dict'),
+        "details_csv": data.get('details_csv'),
+        "info_csv": data.get('info_csv'),
+        "links_crawled": data.get('links_crawled'),
+        "links_rejected": data.get('links_rejected'),
+        "emails_found": data.get('emails_found'),
+        "owasp_count_dict": data.get('owasp_count_dict'),
+        "group_count_dict": data.get('group_count_dict'),
+        "fixed": data.get('fixed'),
+        "total": data.get('total'),
+        "vulns_monthly_dict": data.get('vulns_monthly_dict'),
+        "path_disc": data.get('path_disc'),
+        "info_disc": data.get('info_disc'),
+        "cross_site": data.get('cross_site'),
+        "burp": data.get('burp'),
+        "sql_inj": data.get('sql_inj'),
+        "bugcrowd": data.get('bugcrowd'),
+        "reopened": data.get('reopened'),
+        "reopened_color": data.get('reopened_color'),
+        "new_vulns": data.get('new_vulns'),
+        "new_vulns_color": data.get('new_vulns_color'),
+        "tot_vulns": data.get('tot_vulns'),
+        "tot_vulns_color":  data.get('tot_vulns_color'),
+        "lev1": data.get('lev1'),
+        "lev2": data.get('lev2'),
+        "lev3": data.get('lev3'),
+        "lev4": data.get('lev4'),
+        "lev5": data.get('lev5'),
+        "severities": data.get('severities'),
+        "ages": data.get('ages'),
+        "pdf_obj": base64_to_bytes(data.get('pdf_obj'))
+
+    }
+    was_report_object, created = WasReport.objects.update_or_create(
+        org_was_acronym = data.get('org_was_acronym'),
+        last_scan_date = data.get('last_scan_date'),
+        defaults=defaults_dict
+    )
+    try:
+        mdl_was_report_object, mdl_created = MDL_WasReport.objects.update_or_create(
+        org_was_acronym = data.get('org_was_acronym'),
+        last_scan_date = data.get('last_scan_date'),
+        defaults=defaults_dict
+    )
+    except Exception:
+        LOGGER.info(f"Failed to insert WAS report for {data.get('org_was_acronym')}")
+    
+
+    if created:
+        LOGGER.info("New Was record created for %s", data.get('org_was_acronym'))
+        return {
+            "message": "New Was record created.",
+            "was_report_id": was_report_object.id,
+        }
+    else:
+        return {"message": "Record updated successfully.", "was_report_id": was_report_object.id}
+
+    # except Exception as e:
+    #     LOGGER.error(e)
+    #     print("failed to insert or update")
+    #     return {"message": "Failed to insert or update.", "was_report_obj": None, "error": e}
+    #     LOGGER.info("API key expired please try again")

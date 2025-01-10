@@ -5,7 +5,7 @@ Usage:
 
 Arguments:
   DATA_SOURCE                       Source to collect data from. Valid values are "cybersixgill",
-                                    "dnstwist", "hibp", "intelx", "pshtt", and "shodan".
+                                    "dnstwist", "xpanse" "hibp", "intelx", "pshtt", and "shodan".
 
 Options:
   -h --help                         Show this message.
@@ -28,11 +28,9 @@ Options:
 # Standard Python Libraries
 import logging
 import sys
-import time
 from typing import Any, Dict
 
 # Third-Party Libraries
-from datetime import timedelta
 import docopt
 from schema import And, Schema, SchemaError, Use
 
@@ -46,6 +44,7 @@ from .dnstwistscript import run_dnstwist
 from .intelx_identity import IntelX
 from .pshtt_wrapper import launch_pe_pshtt
 from .shodan_wrapper import Get_shodan
+from .xpanse_alert_pull import run_xpanse_scans
 
 LOGGER = logging.getLogger(__name__)
 
@@ -53,70 +52,34 @@ LOGGER = logging.getLogger(__name__)
 def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
     """Collect data from the source specified."""
     # If not "all", separate orgs string into a list of orgs
-    if orgs_list != "all" and orgs_list != "DEMO":
+    if orgs_list != "all" and orgs_list != "DEMO" and source != "xpanse":
         orgs_list = orgs_list.split(",")
-        orgs_list_logging = f"{orgs_list[0]} - {orgs_list[-1]}"
-    else:
-        orgs_list_logging = "all P&E Report orgs"
-
-
     # If not "all", separate Cybersixgill methods string into a list
-    sixgill_scan_name = cybersix_methods.title()
     if cybersix_methods == "all":
         cybersix_methods = ["alerts", "mentions", "credentials", "topCVEs"]
     else:
         cybersix_methods = cybersix_methods.split(",")
 
-    # LOGGER.info("Running %s on these orgs: %s", source, orgs_list)
+    LOGGER.info("Running %s on these orgs: %s", source, orgs_list)
 
     if source == "cybersixgill":
-        if sixgill_scan_name == "Topcves":
-            sixgill_scan_name = "Top CVEs"
-        LOGGER.info(f"--- Cybersixgill {sixgill_scan_name} Scan Starting ---")
-        LOGGER.info(f"Running Cybersixgill {sixgill_scan_name} on these orgs: {orgs_list}")
-        sixgill_start_time = time.time()
         cybersix = Cybersixgill(orgs_list, cybersix_methods, soc_med_included)
         cybersix.run_cybersixgill()
-        sixgill_end_time = time.time()
-        LOGGER.info(f"Execution time for Cybersixgill {sixgill_scan_name} scan ({orgs_list_logging}): {str(timedelta(seconds=(sixgill_end_time - sixgill_start_time)))} (H:M:S)")
-        LOGGER.info(f"--- Cybersixgill {sixgill_scan_name} Scan Complete ---")
     elif source == "shodan":
-        LOGGER.info("--- Shodan Scan Starting ---")
-        LOGGER.info(f"Running Shodan on these orgs: {orgs_list}")
-        shodan_start_time = time.time()
         shodan = Get_shodan(orgs_list)
         shodan.run_shodan()
-        shodan_end_time = time.time()
-        LOGGER.info(f"Execution time for Shodan scan: {str(timedelta(seconds=(shodan_end_time - shodan_start_time)))} (H:M:S)")
-        LOGGER.info("--- Shodan Scan Complete ---")
     elif source == "dnsmonitor":
-        LOGGER.info("--- DNSMonitor Scan Starting ---")
-        LOGGER.info(f"Running DNSMonitor on these orgs: {orgs_list}")
-        dnsmonitor_start_time = time.time()
         dnsMonitor = DNSMonitor(orgs_list)
         dnsMonitor.run_dnsMonitor()
-        dnsmonitor_end_time = time.time()
-        LOGGER.info(f"Execution time for DNSMonitor scan: {str(timedelta(seconds=(dnsmonitor_end_time - dnsmonitor_start_time)))} (H:M:S)")
-        LOGGER.info("--- DNSMonitor Scan Complete ---")
     elif source == "dnstwist":
-        LOGGER.info("--- DNSTwist Scan Starting ---")
-        LOGGER.info(f"Running DNSTwist on these orgs: {orgs_list}")
-        dnstwist_start_time = time.time()
         run_dnstwist(orgs_list)
-        dnstwist_end_time = time.time()
-        LOGGER.info(f"Execution time for DNSTwist scan: {str(timedelta(seconds=(dnstwist_end_time - dnstwist_start_time)))} (H:M:S)")
-        LOGGER.info("--- DNSTwist Scan Complete ---")
     elif source == "intelx":
-        LOGGER.info("--- IntelX Scan Starting ---")
-        LOGGER.info(f"Running IntelX on these orgs: {orgs_list}")
-        intelx_start_time = time.time()
         intelx = IntelX(orgs_list)
         intelx.run_intelx()
-        intelx_end_time = time.time()
-        LOGGER.info(f"Execution time for IntelX scan ({orgs_list_logging}): {str(timedelta(seconds=(intelx_end_time - intelx_start_time)))} (H:M:S)")
-        LOGGER.info("--- IntelX Scan Complete ---")
     elif source == "pshtt":
         launch_pe_pshtt()
+    elif source == "xpanse":
+        run_xpanse_scans("", orgs_list)
     else:
         logging.error(
             "Not a valid source name. Correct values are cybersixgill or shodan."

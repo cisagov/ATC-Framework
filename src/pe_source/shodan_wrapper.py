@@ -1,20 +1,23 @@
 """Collect Shodan data."""
 
 # Standard Python Libraries
+# from datetime import timedelta
 import logging
 import threading
-import time
 
 # Third-Party Libraries
-from datetime import timedelta
 import numpy
 
 from .data.pe_db.config import shodan_api_init
 from .data.pe_db.db_query_source import get_orgs
 from .data.shodan_db.shodan_search import run_shodan_thread
 
+# import time
+
+
 # Logging
 LOGGER = logging.getLogger(__name__)
+
 
 class Get_shodan:
     """Fetch Shodan data."""
@@ -29,7 +32,6 @@ class Get_shodan:
 
         # Get orgs from PE database
         pe_orgs = get_orgs()
-
         # Filter orgs if specified
         pe_orgs_final = []
         if orgs_list == "all":
@@ -51,9 +53,6 @@ class Get_shodan:
                 else:
                     continue
 
-        # alphabetize orgs for consistent order
-        pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
-
         # Get list of initialized API objects
         api_list = shodan_api_init()
 
@@ -64,7 +63,7 @@ class Get_shodan:
         i = 0
         thread_list = []
         while i < len(chunked_orgs_list):
-            thread_name = f"Thread {i+1}:"
+            thread_name = f"Thread {i + 1}:"
             # Start thread
             t = threading.Thread(
                 target=run_shodan_thread,
