@@ -86,7 +86,7 @@ def get_orgs():
     endpoint_url = pe_api_url + "organizations_demo_or_report_on"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     try:
@@ -165,7 +165,7 @@ def get_ips(org_uid):
     endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     try:
@@ -194,7 +194,7 @@ def get_ips(org_uid):
     endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     try:
@@ -367,7 +367,7 @@ def get_data_source_uid(source):
     endpoint_url = pe_api_url + "data_source_by_name"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"name": source})
@@ -455,7 +455,7 @@ def insert_shodan_assets(asset_data, failed):
     endpoint_url = pe_api_url + "shodan_assets_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"asset_data": asset_data})
@@ -491,7 +491,7 @@ def insert_shodan_vulns(vuln_data, failed):
     endpoint_url = pe_api_url + "shodan_vulns_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"vuln_data": vuln_data})
@@ -571,7 +571,7 @@ def org_root_domains(org_uid):
     endpoint_url = pe_api_url + "rootdomains_by_org_uid"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -615,7 +615,7 @@ def get_root_domains_api(org_uid):
     endpoint_url = pe_api_url + "rootdomains_by_org_uid"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -666,7 +666,7 @@ def api_pshtt_domains_to_run():
 
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
 
@@ -744,7 +744,7 @@ def api_pshtt_insert(pshtt_dict):
     endpoint_url = pe_api_url + "pshtt_result_update_or_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(pshtt_dict, default=str)
@@ -814,7 +814,7 @@ def api_cve_insert(cve_dict):
     endpoint_url = pe_api_url + "cve_insert_or_update"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(cve_dict, default=str)
@@ -853,7 +853,7 @@ def get_cve_and_products(cve_name):
     endpoint_url = pe_api_url + "get_cve"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"cve_name": cve_name})
@@ -1162,7 +1162,7 @@ def execute_dnsmonitor_data(df):
     endpoint_url = pe_api_url + "domain_permu_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     # Adjust data types and convert to list of dictionaries
@@ -1190,7 +1190,7 @@ def execute_dnstwist_data(df):
     endpoint_url = pe_api_url + 'domain_permu_single_insert'
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(df)
@@ -1226,7 +1226,7 @@ def execute_dnsmonitor_alert_data(df):
     endpoint_url = pe_api_url + "domain_alerts_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     # Adjust data types and convert to list of dictionaries
@@ -1266,7 +1266,7 @@ def addRootdomain(root_domain, pe_org_uid, source_uid, org_name):
     endpoint_url = pe_api_url + "root_domains_single_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -1308,7 +1308,7 @@ def addSubdomain(domain, pe_org_uid, root):
     endpoint_url = pe_api_url + "sub_domains_single_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -1352,7 +1352,7 @@ def insert_intelx_breaches(df):
     endpoint_url = pe_api_url + "cred_breaches_intelx_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     # Remove duplicates and convert to list of dictionaries
@@ -1391,7 +1391,7 @@ def insert_intelx_credentials(df):
     endpoint_url = pe_api_url + "cred_exp_intelx_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     # Remove duplicates and convert to list of dictionaries
@@ -1806,7 +1806,7 @@ def insert_or_update_business_unit(business_unit_dict):
     endpoint_url = pe_api_url + "xpanse_business_unit_insert_or_update"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(business_unit_dict, default=str)
@@ -1845,7 +1845,7 @@ def get_xpanse_business_unit(cyhy_db_name):
     endpoint_url = pe_api_url + "get_xpanse_business_unit"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"cyhy_db_name": cyhy_db_name})
@@ -1884,7 +1884,7 @@ def api_xpanse_alert_insert(xpanse_alert_dict):
     endpoint_url = pe_api_url + "xpanse_alert_insert_or_update"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(xpanse_alert_dict, default=str)
@@ -1920,7 +1920,7 @@ def api_pull_xpanse_vulns(business_unit, modified_date):
 
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -2174,7 +2174,7 @@ def get_linked_xpanse_business_units():
     endpoint_url = pe_api_url + "linked_xpanse_business_units"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     try:
@@ -2208,7 +2208,7 @@ def api_was_finding_insert(finding_dict):
     endpoint_url = pe_api_url + "was_finding_insert_or_update"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(finding_dict, default=str)
@@ -2249,7 +2249,7 @@ def api_was_report_insert(was_report_dict):
     endpoint_url = pe_api_url + "was_report_insert_or_update"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     # print(was_report_dict)

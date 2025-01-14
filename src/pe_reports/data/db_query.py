@@ -46,7 +46,7 @@ def task_api_call(task_url, check_url, data={}, retry_time=3):
     check_task_url = pe_api_url + check_url
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     task_status = "Pending"
@@ -215,7 +215,7 @@ def get_demo_orgs_api():
     endpoint_url = pe_api_url + "organizations_demo"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     try:
@@ -567,7 +567,7 @@ def query_domMasq_alerts(org_uid, start_date, end_date):
     endpoint_url = pe_api_url + "domain_alerts_by_org_date"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -625,7 +625,7 @@ def query_domMasq(org_uid, start_date, end_date):
     endpoint_url = pe_api_url + "domain_permu_by_org_date"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -678,7 +678,7 @@ def insert_roots(org, domain_list):
     endpoint_url = pe_api_url + "root_domains_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_dict": org_dict, "domain_list": domain_list})
@@ -711,7 +711,7 @@ def get_orgs_contacts():
     endpoint_url = pe_api_url + "orgs_report_on_contacts"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     try:
@@ -749,7 +749,7 @@ def get_org_assets_count_past(org_uid, date):
     endpoint_url = pe_api_url + "past_asset_counts_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid, "date": date})
@@ -797,7 +797,7 @@ def get_org_assets_count(org_uid):
     endpoint_url = pe_api_url + "asset_counts_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -853,7 +853,7 @@ def get_new_orgs():
     endpoint_url = pe_api_url + "orgs_report_on_false"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = None
@@ -912,7 +912,7 @@ def set_org_to_report_on(cyhy_db_id, premium: bool = False):
     endpoint_url = pe_api_url + "orgs_set_report_on"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"cyhy_db_name": cyhy_db_id, "premium": premium})
@@ -966,7 +966,7 @@ def set_org_to_demo(cyhy_db_id, premium):
     endpoint_url = pe_api_url + "orgs_set_demo"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"cyhy_db_name": cyhy_db_id, "premium": premium})
@@ -1020,7 +1020,7 @@ def query_cyhy_assets(org_cyhy_name):
     endpoint_url = pe_api_url + "cyhy_assets_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_cyhy_name": org_cyhy_name})
@@ -1068,7 +1068,7 @@ def get_cidrs_and_ips(org_uid):
     endpoint_url = pe_api_url + "cidrs_ips_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -1108,7 +1108,7 @@ def query_ips(org_uid):
     endpoint_url = pe_api_url + "ips_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -1150,7 +1150,7 @@ def query_extra_ips(org_uid):
     endpoint_url = pe_api_url + "extra_ips_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -1199,7 +1199,7 @@ def query_cidrs_by_org(org_uid):
     endpoint_url = pe_api_url + "cidrs_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -1248,7 +1248,7 @@ def query_ports_protocols(org_uid):
     endpoint_url = pe_api_url + "ports_protocols_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -1288,7 +1288,7 @@ def query_software(org_uid):
     endpoint_url = pe_api_url + "software_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -1328,7 +1328,7 @@ def query_foreign_IPs(org_uid):
     endpoint_url = pe_api_url + "foreign_ips_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -1375,7 +1375,7 @@ def query_roots(org_uid):
     endpoint_url = pe_api_url + "root_domains_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps({"org_uid": org_uid})
@@ -1421,7 +1421,7 @@ def query_creds_view(org_uid, start_date, end_date):
     endpoint_url = pe_api_url + "breachcomp_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -1478,7 +1478,7 @@ def query_credsbyday_view(org_uid, start_date, end_date):
     endpoint_url = pe_api_url + "credsbydate_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -1531,7 +1531,7 @@ def query_breachdetails_view(org_uid, start_date, end_date):
     endpoint_url = pe_api_url + "breachdetails_by_org"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -1590,7 +1590,7 @@ def query_darkweb(org_uid, start_date, end_date, table):
     endpoint_url = pe_api_url + "darkweb_data"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     # Check table name is valid
@@ -1709,7 +1709,7 @@ def execute_scorecard(summary_dict):
     endpoint_url = pe_api_url + "rss_insert"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(input_dict)
@@ -1800,7 +1800,7 @@ def query_previous_period(org_uid, prev_end_date):
     endpoint_url = pe_api_url + "rss_prev_period"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     data = json.dumps(
@@ -2160,7 +2160,7 @@ def get_new_cves_list():
     endpoint_url = pe_api_url + "pescore_check_new_cve"
     headers = {
         "access_token": pe_api_key,
-        "Authorization": cf_api_key,
+        "X-API-KEY": cf_api_key,
         'Content-Type': '' 
     }
     try:
