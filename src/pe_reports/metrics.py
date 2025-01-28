@@ -719,12 +719,12 @@ class Cyber_Six:
         """Get top CVEs."""
         top_cves = self.top_cves
         top_cves["summary_short"] = top_cves["summary"].str[:500]
-        top_cve_table = top_cves[["cve_id", "summary_short"]]
+        top_cve_table = top_cves[["cve_id", "summary_short", "dynamic_rating"]]
         top_cve_table = top_cve_table.rename(
-            columns={"cve_id": "CVE", "summary_short": "Description"}
+            columns={"cve_id": "CVE", "summary_short": "Description", "dynamic_rating": "DVE Rating"}
         )
         top_cve_table["Identified By"] = "Cybersixgill"
-        top_cve_table.sort_values(by=["CVE"], ascending=True, inplace=True)
+        top_cve_table.sort_values(by=["DVE Rating"], ascending=False, inplace=True)
         # Get all CVEs found in shodan
         shodan_cves = self.all_cves_df
         for cve_index, cve_row in top_cve_table.iterrows():

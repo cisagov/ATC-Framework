@@ -230,6 +230,89 @@ def format_table(
     return table
 
 
+def format_anchor_table(
+    df, header_style, column_widths, column_style_list, remove_symbols=False
+):
+    """Read in a dataframe and convert/format it to a table, with link anchors."""
+    header_row = [
+        [Paragraph(str(cell), header_style) for cell in row] for row in [df.columns]
+    ]
+    data = []
+    for row in np.array(df).tolist():
+        current_cell = 0
+        current_row = []
+        for cell in row:
+            if column_style_list[current_cell] is not None:
+                if current_cell == 0:
+                    anchor_link = sha256(str(cell).encode("utf8")).hexdigest()
+                    # Add spaces to breach name for proper text wrapping 
+                    wrap_str = " ".join(str(cell)[i:i+20] for i in range(0,len(str(cell)),20))
+                    anchor_str = f"<a name=\"{anchor_link}\"/>{wrap_str}"
+                    cell = Paragraph(
+                        anchor_str, column_style_list[current_cell]
+                    )
+                else:
+                    # Remove emojis from content because the report generator can't display them
+                    cell = Paragraph(
+                        demoji.replace(str(cell), "").replace("&", "[and]"), column_style_list[current_cell]
+                    )
+            current_row.append(cell)
+            current_cell += 1
+        data.append(current_row)
+    data = header_row + data
+
+    table = Table(
+        data,
+        colWidths=column_widths,
+        rowHeights=None,
+        style=None,
+        splitByRow=1,
+        repeatRows=1,
+        repeatCols=0,
+        rowSplitRange=(2, -1),
+        spaceBefore=None,
+        spaceAfter=None,
+        cornerRadii=None,
+    )
+
+    style = TableStyle(
+        [
+            ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 1), (-1, -1), "MIDDLE"),
+            ("INNERGRID", (0, 0), (-1, -1), 1, "white"),
+            ("TEXTFONT", (0, 1), (-1, -1), "Franklin_Gothic_Book"),
+            ("FONTSIZE", (0, 1), (-1, -1), 12),
+            (
+                "ROWBACKGROUNDS",
+                (0, 1),
+                (-1, -1),
+                [HexColor("#FFFFFF"), HexColor("#DEEBF7")],
+            ),
+            ("BACKGROUND", (0, 0), (-1, 0), HexColor("#1d5288")),
+            ("LINEBELOW", (0, -1), (-1, -1), 1.5, HexColor("#1d5288")),
+        ]
+    )
+    table.setStyle(style)
+
+    if len(df) == 0:
+        label = Paragraph(
+            "No Data to Report",
+            ParagraphStyle(
+                name="centered",
+                fontName="Franklin_Gothic_Medium_Regular",
+                textColor=HexColor("#a7a7a6"),
+                fontSize=16,
+                leading=16,
+                alignment=1,
+                spaceAfter=10,
+                spaceBefore=10,
+            ),
+        )
+        table = KeepTogether([table, label])
+    return table
+
+
 def build_kpi(data, width):
     """Build a KPI element."""
     table = Table(
@@ -300,7 +383,7 @@ def report_gen(data_dict, soc_med_included=False):
         <font face="Franklin_Gothic_Medium_Regular">Credential Publication & Abuse:</font><br/>
         User credentials, often including passwords, are stolen or exposed via data breaches. They are then listed for sale on forums and the dark web, which provides attackers easy access to a stakeholders' network.
         <br/><br/><br/><br/>
-        <font face="Franklin_Gothic_Medium_Regular">Suspected Domain Masquerading Attempt:</font><br/>
+        <font face="Franklin_Gothic_Medium_Regular">Suspected Domain Masquerading:</font><br/>
         Registered domain names that are similar to legitimate domains which attempt to trick users into navigating to illegitimate domains.
         <br/><br/><br/><br/><br/><br/>
         <font face="Franklin_Gothic_Medium_Regular">Insecure Devices & Vulnerabilities:</font><br/>
@@ -737,7 +820,7 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(doHeading("2. Summary of Findings", h1))
     Story.append(horizontal_line)
     Story.append(point12_spacer)
-    Story.append(doHeading("2.1 Summary of Tracked Data", h2))
+    Story.append(doHeading("2.1 Summary of Tracked Data & Key Metrics", h2))
     Story.append(Spacer(1, 425))
     Story.append(doHeading("2.2 Raw Data Links", h2))
     Story.append(
@@ -815,13 +898,16 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(
         Paragraph(
             """
-            <font face="Franklin_Gothic_Medium_Regular">Figure 1</font> shows the credentials exposed during each week of the reporting period, including those with no
-            passwords as well as those with passwords included.
-        """,
+            <font face="Franklin_Gothic_Medium_Regular">Figure 1</font> shows the number of credentials that were exposed each week for the past 4 weeks. Credentials that 
+            were exposed with an accompanying password are shown in red. Exposed credentials that did not include a corresponding password 
+            are shown in blue.
+            """,
             body,
         )
     )
     Story.append(point12_spacer)
+
+    # Figure 1:
     Story.append(
         KeepTogether(
             [
@@ -835,26 +921,9 @@ def report_gen(data_dict, soc_med_included=False):
             ]
         )
     )
-
     Story.append(PageBreak())
-    Story.append(
-        Paragraph(
-            """
-            <font face="Franklin_Gothic_Medium_Regular">Table 1</font>  provides breach details. Breach descriptions can be found in Appendix A.
-        """,
-            body,
-        )
-    )
-    Story.append(point12_spacer)
-    Story.append(
-        doHeading(
-            """
-                    Table 1. Breach Details.
-                """,
-            table,
-        )
-    )
 
+    # Table 1:
     # add link to appendix to breach names
     data_dict["breach_table"]["Breach Name"] = (
         '<link href="#'
@@ -864,14 +933,30 @@ def report_gen(data_dict, soc_med_included=False):
         + "</link>"
     )
     Story.append(
-        format_table(
-            data_dict["breach_table"],
-            table_header,
-            [2.5 * inch, inch, inch, inch, inch],
-            [body, None, None, None, None],
+        KeepTogether(
+            [
+                Paragraph(
+                    """
+                    <font face="Franklin_Gothic_Medium_Regular">Table 1</font>  provides breach details. Breach descriptions can be found in Appendix A.
+                    """,
+                    body,
+                ),
+                point12_spacer,
+                doHeading(
+                    """
+                    Table 1. Breach Details.
+                    """,
+                    table,
+                ),
+                format_table(
+                    data_dict["breach_table"],
+                    table_header,
+                    [2.5 * inch, inch, inch, inch, inch],
+                    [body, None, None, None, None],
+                ),
+            ]
         )
     )
-
     Story.append(point12_spacer)
     Story.append(PageBreak())
 
@@ -930,6 +1015,7 @@ def report_gen(data_dict, soc_med_included=False):
         )
     )
 
+    # Table 2
     Story.append(Paragraph("3.2.1 Domain Monitoring Alerts", h3))
     Story.append(
         Paragraph(
@@ -957,8 +1043,9 @@ def report_gen(data_dict, soc_med_included=False):
             [body, None],
         )
     )
-
     Story.append(point12_spacer)
+
+    # Table 3:
     Story.append(
         KeepTogether(
             [
@@ -980,7 +1067,6 @@ def report_gen(data_dict, soc_med_included=False):
             ]
         )
     )
-
     Story.append(
         format_table(
             data_dict["domain_table"],
@@ -990,7 +1076,6 @@ def report_gen(data_dict, soc_med_included=False):
         )
     )
     Story.append(point12_spacer)
-
     Story.append(PageBreak())
 
     # ***Start Generating Vulnerabilities Page***#
@@ -1067,6 +1152,8 @@ def report_gen(data_dict, soc_med_included=False):
         )
     )
     Story.append(point12_spacer)
+
+    # Figure 2:
     Story.append(
         KeepTogether(
             [
@@ -1080,6 +1167,7 @@ def report_gen(data_dict, soc_med_included=False):
             ]
         )
     )
+    # Table 4:
     Story.append(
         doHeading(
             """
@@ -1096,8 +1184,17 @@ def report_gen(data_dict, soc_med_included=False):
             [None, body, None],
         )
     )
-
     Story.append(point12_spacer)
+
+    # Table 5:
+    # add link to appendix for CVE string
+    data_dict["verif_vulns"]["CVE"] = (
+        '<link href="#'
+        + data_dict["verif_vulns"]["CVE"].str.replace("-", "_")
+        + '" color="#003e67">'
+        + data_dict["verif_vulns"]["CVE"].astype(str)
+        + "</link>"
+    )
     Story.append(
         KeepTogether(
             [
@@ -1115,29 +1212,18 @@ def report_gen(data_dict, soc_med_included=False):
                 """,
                     table,
                 ),
+                format_table(
+                    data_dict["verif_vulns"],
+                    table_header,
+                    [6.5 * inch / 3, 6.5 * inch / 3, 6.5 * inch / 3],
+                    [body, None, None],
+                )
             ]
         )
     )
-    # add link to appendix for CVE string
-    data_dict["verif_vulns"]["CVE"] = (
-        '<link href="#'
-        + data_dict["verif_vulns"]["CVE"].str.replace("-", "_")
-        + '" color="#003e67">'
-        + data_dict["verif_vulns"]["CVE"].astype(str)
-        + "</link>"
-    )
-
-    Story.append(
-        format_table(
-            data_dict["verif_vulns"],
-            table_header,
-            [6.5 * inch / 3, 6.5 * inch / 3, 6.5 * inch / 3],
-            [body, None, None],
-        )
-    )
-
     Story.append(point12_spacer)
 
+    # Figure 3:
     Story.append(
         KeepTogether(
             [
@@ -1322,7 +1408,6 @@ def report_gen(data_dict, soc_med_included=False):
             ],
         )
     )
-
     Story.append(point12_spacer)
 
     Story.append(
@@ -1548,12 +1633,8 @@ def report_gen(data_dict, soc_med_included=False):
         format_table(
             data_dict["top_cves"],
             table_header,
-            [1.5 * inch, 3.5 * inch, 1.5 * inch],
-            [
-                None,
-                body,
-                None,
-            ],
+            [1.5*inch, 3.5*inch, 0.75*inch, 1.25*inch], # col widths
+            [None, body, None, None], # col styles
         )
     )
 
@@ -1613,21 +1694,21 @@ def report_gen(data_dict, soc_med_included=False):
     if len(data_dict["breach_appendix"]) > 0:
         Story.append(Paragraph("Credential Breach Details: ", h2))
         Story.append(Spacer(1, 6))
-        for row in data_dict["breach_appendix"].itertuples(index=False):
-            # Add anchor points for breach links
-            Story.append(
-                Paragraph(
-                    """
-                <a name="{link_name}"/><font face="Franklin_Gothic_Medium_Regular">{breach_name}</font>: {description}
-            """.format(
-                        breach_name=row[0],
-                        description=row[1].replace(' rel="noopener"', ""),
-                        link_name=sha256(str(row[0]).encode("utf8")).hexdigest(),
-                    ),
-                    body,
-                )
+
+        # Table ver. of Appendix A
+        breach_appendix_df = data_dict["breach_appendix"]
+        breach_appendix_df.sort_values(by=["breach_name"], ascending=True, inplace=True)
+        breach_appendix_df = breach_appendix_df.rename(
+            columns={"breach_name": "Breach Name", "description": "Description"}
+        )
+        Story.append(
+            format_anchor_table(
+                breach_appendix_df,
+                table_header,
+                [2*inch, 5*inch], # col widths
+                [table, body], # col styles
             )
-            Story.append(point12_spacer)
+        )
         Story.append(point12_spacer)
 
     # If there are verified vulns print summary info table

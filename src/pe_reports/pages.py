@@ -51,7 +51,7 @@ def credential(
     name = "inc_date_df"
     title = "Trending Exposures by Week"
     x_label = "Week Reported"
-    y_label = "Creds Exposed"
+    y_label = "Credentials Exposed"
     cred_date_chart = Charts(
         Credential.by_days(),
         width,
@@ -178,7 +178,7 @@ def mal_vuln(
     name = "unverif_vuln_count"
     title = ""
     x_label = "Unverified CVEs"
-    y_label = ""
+    y_label = "IP Address"
     unverif_vuln_chart = Charts(
         Malware_Vuln.unverified_cve_count(),
         width,

@@ -245,6 +245,7 @@ def dve_top_cves():
             "summary": summary,
         }
         clean_top_10_cves.append(clean_cve)
+    clean_top_10_cves = sorted(clean_top_10_cves, key=lambda d: d["dynamic_rating"], reverse=True)
     # Return result
     return clean_top_10_cves
 
