@@ -361,9 +361,9 @@ def insertFindingData(findingList):
     sql = """INSERT INTO was_findings (finding_uid, finding_type, webapp_id, was_org_id, owasp_category, severity, times_detected, base_score, temporal_score, fstatus, last_detected, first_detected, potential)
             VALUES ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}')
             ON CONFLICT (finding_uid) DO UPDATE
-            SET is_remidiated = CASE
+            SET is_remediated = CASE
                 WHEN was_findings.fstatus != 'FIXED' AND excluded.fstatus = 'FIXED' THEN TRUE
-                ELSE was_findings.is_remidiated
+                ELSE was_findings.is_remediated
             END,
             fstatus = excluded.fstatus,
             times_detected = excluded.times_detected,

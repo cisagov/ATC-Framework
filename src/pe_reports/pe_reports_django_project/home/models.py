@@ -2509,7 +2509,7 @@ class WasFindings(models.Model):
     fstatus = models.TextField(blank=True, null=True)
     last_detected = models.DateField(blank=True, null=True)
     first_detected = models.DateField(blank=True, null=True)
-    is_remidiated = models.BooleanField(blank=True, null=True)
+    is_remediated = models.BooleanField(blank=True, null=True)
     potential = models.BooleanField(blank=True, null=True)
     webapp_url = models.TextField(blank=True, null=True)
     webapp_name = models.TextField(blank=True, null=True)

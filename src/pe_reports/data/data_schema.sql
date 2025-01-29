@@ -4526,7 +4526,7 @@ CREATE TABLE public.was_findings (
     fstatus character varying,
     last_detected date,
     first_detected date,
-    is_remidiated boolean,
+    is_remediated boolean,
     potential boolean
 );
 
