@@ -156,6 +156,7 @@ def cidr_dedupe(cidrs, api, org_type, conn):
     new_ips = pd.DataFrame(ip_obj)
     if len(new_ips) > 0:
         new_ips = new_ips.drop_duplicates(subset="ip", keep="first")
+        LOGGER.info(f"Updating {len(new_ips)} IPs after Shodan CIDR dedupe")
         update_shodan_ips(conn, new_ips)
 
 
@@ -224,6 +225,7 @@ def ip_dedupe(api, ips, agency_type, conn):
     new_ips = pd.DataFrame(float_ips)
     if len(new_ips) > 0:
         new_ips = new_ips.drop_duplicates(subset="ip", keep="first")
+        LOGGER.info(f"Updating {len(new_ips)} IPs after Shodan IP dedupe")
         update_shodan_ips(conn, new_ips)
 
 
@@ -332,7 +334,7 @@ def dedupe(staging, orgs_df=None):
         else:
             conn = pe_db_connect()
         LOGGER.info(
-            "Running on %s, %d/%d",
+            "Running Shodan dedupe on %s, %d/%d",
             org["cyhy_db_name"],
             org_count,
             num_orgs,
@@ -341,7 +343,7 @@ def dedupe(staging, orgs_df=None):
         cidrs = query_cidrs_by_org(conn, org["organizations_uid"])
         LOGGER.info(f"{len(cidrs)} CIDRs found")
 
-        # Run cidr dedupe if there are CIDRs
+        # Run CIDR dedupe if there are any CIDRs
         if len(cidrs) > 0:
             cidr_dedupe(cidrs, api, org["agency_type"], conn)
 
@@ -349,6 +351,8 @@ def dedupe(staging, orgs_df=None):
         LOGGER.info("Retrieving floating IPs")
         ips = query_floating_ips(conn, org["organizations_uid"])
         LOGGER.info("Floating IPs retrieved")
+
+        # Run IP dedupe if there are any IPs
         if len(ips) > 0:
             LOGGER.info("Running dedupe on IPs")
             ip_dedupe(api, ips, org["agency_type"], conn)

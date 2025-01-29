@@ -2033,10 +2033,10 @@ def insertFindingData(findingList):
     conn = connect()
     sql = """INSERT INTO was_findings (finding_uid, finding_type, webapp_id, webapp_url, webapp_name, was_org_id, name, owasp_category, severity, times_detected, cvss_v3_attack_vector, base_score, temporal_score, fstatus, last_detected, first_detected, potential, cwe_list, wasc_list)
             VALUES ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}')
-            ON CONFLICT (finding_uid) DO UPDATE
-            SET is_remidiated = CASE
+            ON CONFLICT (finding_uid) DO UPDATE 
+            SET is_remediated = CASE
                 WHEN was_findings.fstatus != 'FIXED' AND excluded.fstatus = 'FIXED' THEN TRUE
-                ELSE was_findings.is_remidiated
+                ELSE was_findings.is_remediated
             END,
             webapp_name = excluded.webapp_name,
             webapp_url = excluded.webapp_url,

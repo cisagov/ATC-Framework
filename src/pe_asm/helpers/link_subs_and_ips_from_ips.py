@@ -36,9 +36,10 @@ def reverseLookup(ip_obj, failed_ips, conn, thread):
     response = requests.request("GET", url, headers=headers, data=payload)
 
     # Retry clause
-    retry_count, max_retries, time_delay = 1, 3, 3
+    retry_count, max_retries, time_delay = 1, 3, 1
     while response.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})")
+        if retry_count >= 2:
+            LOGGER.warning(f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})")
         time.sleep(time_delay)
         response = requests.request("GET", url, headers=headers, data=payload)
         retry_count += 1
@@ -103,16 +104,19 @@ def link_domain_from_ip(ip_obj, org_uid, data_source, failed_ips, conn, thread):
     return found_domains
 
 
-def run_ip_chunk(org_uid, ips_df, thread, conn):
+def run_ip_chunk(org_name, org_uid, ips_df, thread, conn):
     """Run the provided chunk through the linking process."""
     count = 0
     last_chunk = time.time()
     failed_ips = []
     for ip_index, ip in ips_df.iterrows():
+        # internal status logging
+        if count % 10 == 0:
+            print(f"{thread}: Currently on {org_name}'s IP {count}/{len(ips_df)}")
         # Log progress
         count += 1
         if count % 10000 == 0:
-            LOGGER.info(f"{thread}: Running IPs: {count}/{len(ips_df)}, {time.time() - last_chunk} seconds for the last IP chunk")
+            LOGGER.info(f"{thread}: Running {org_name} IPs: {count}/{len(ips_df)}, {time.time() - last_chunk} seconds for the last IP chunk")
             last_chunk = time.time()
 
         # Link domain from IP
@@ -149,12 +153,12 @@ def connect_subs_from_ips(staging, orgs_df=None):
             conn = pe_db_staging_connect()
         else:
             conn = pe_db_connect()
+        org_name = org["cyhy_db_name"]
         LOGGER.info(
-            "Running on %s, %d/%d", org["cyhy_db_name"], org_count, num_orgs
+            "Running on %s, %d/%d", org_name, org_count, num_orgs
         )
         # Query IPs
         org_uid = org["organizations_uid"]
-        print(org_uid)
         # ips_df = query_ips(org_uid, conn)
         cidrs = query_cidrs_by_org(conn, org_uid)
         ips_list = []
@@ -175,7 +179,7 @@ def connect_subs_from_ips(staging, orgs_df=None):
                 ips_list.append(ip_obj)
         ips_df = pd.DataFrame(ips_list)
 
-        LOGGER.info(f"Number of Cidrs: {len(cidrs)}")
+        LOGGER.info(f"Number of CIDRs: {len(cidrs)}")
 
         # if no IPS, continue to next org
         if len(ips_df.index) == 0:
@@ -194,7 +198,7 @@ def connect_subs_from_ips(staging, orgs_df=None):
             # Start thread
             t = threading.Thread(
                 target=run_ip_chunk,
-                args=(org_uid, ips_split[thread_num], thread_name, conn),
+                args=(org_name, org_uid, ips_split[thread_num], thread_name, conn),
             )
             t.start()
             thread_list.append(t)
