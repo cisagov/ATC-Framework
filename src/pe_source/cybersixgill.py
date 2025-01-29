@@ -32,8 +32,6 @@ from .data.sixgill.source import (  # cve_summary,; get_alerts_content,
     top_cves,
 )
 
-# from .data.helpers.redact_pii import redact_pii
-
 # Set todays date formatted YYYY-MM-DD and the start_date 30 days prior
 TODAY = date.today()
 DAYS_BACK = timedelta(days=30)
@@ -47,10 +45,8 @@ NOW = datetime.now()
 START_DATE_TIME = (NOW - DAYS_BACK).strftime("%Y-%m-%d %H:%M:%S")
 END_DATE_TIME = NOW.strftime("%Y-%m-%d %H:%M:%S")
 
+# Set up logging
 LOGGER = logging.getLogger(__name__)
-
-# Suppress output from presidio-analyzer import (PII filter)
-logging.getLogger("presidio-analyzer").setLevel(logging.CRITICAL + 1)
 
 
 class Cybersixgill:
@@ -68,9 +64,8 @@ class Cybersixgill:
         method_list = self.method_list
         soc_med_included = self.soc_med_included
 
-        # Get org info from PE database
+        # Retrieve full org info from PE database
         all_pe_orgs = get_orgs()
-
         pe_orgs_final = []
         if orgs_list == "all":
             for pe_org in all_pe_orgs:
@@ -90,84 +85,72 @@ class Cybersixgill:
                     pe_orgs_final.append(pe_org)
                 else:
                     continue
+        # alphabetize org list for consistent order
+        pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
 
-        # Get Cybersixgill org info
+        # Get Cybersixgill org info and data source uid
         sixgill_orgs = get_sixgill_organizations()
-        failed = []
-        count = 0
-
-        # Get data source uid
         source_uid = get_data_source_uid("Cybersixgill")
+        # Keep track of any failed CSG scans
+        failed = []
 
-        # Run top CVEs. Same for all orgs
+        # Run Top CVEs scan if requested
         if "topCVEs" in method_list:
+            # Results are the same regardless of org list
             if self.get_topCVEs(source_uid) == 1:
                 failed.append("Top CVEs")
 
-        list = ""
-        for pe_org in pe_orgs_final:
-            list = list + pe_org["cyhy_db_name"] + ","
-        print(list)
-
+        # Run any other requested Cybersixgill scans
         for org_idx, pe_org in enumerate(pe_orgs_final):
             org_id = pe_org["cyhy_db_name"]
             pe_org_uid = pe_org["organizations_uid"]
-            # Only run on specified orgs
-            if org_id in orgs_list or orgs_list == "all" or orgs_list == "DEMO":
-                count += 1
-                # Get sixgill_org_id associated with the PE org
-                try:
-                    sixgill_org_id = sixgill_orgs[org_id][0]
-                except KeyError:
-                    LOGGER.warning(f"{org_id} is not registered in Cybersixgill")
-                    # print(err, file=sys.stderr)
-                    # failed.append("%s not in sixgill" % org_id)
-                    continue
+            # Get sixgill_org_id associated with this org
+            try:
+                sixgill_org_id = sixgill_orgs[org_id][0]
+            except KeyError as err:
+                LOGGER.warning(f"{org_id} is not registered in Cybersixgill, skipping")
+                continue
+        
+            if "alerts" in method_list:
+                # Run alerts scan
+                LOGGER.info(f"Fetching alert data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                if (
+                    self.get_alerts(
+                        org_id,
+                        sixgill_org_id,
+                        pe_org_uid,
+                        source_uid,
+                        soc_med_included,
+                    )
+                    == 1
+                ):
+                    failed.append("%s alerts" % org_id)
+            if "mentions" in method_list:
+                # Run mentions scan
+                LOGGER.info(f"Fetching mention data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                if (
+                    self.get_mentions(
+                        org_id,
+                        sixgill_org_id,
+                        pe_org_uid,
+                        source_uid,
+                        soc_med_included,
+                    )
+                    == 1
+                ):
+                    failed.append("%s mentions" % org_id)
+            if "credentials" in method_list:
+                # Run credentials scan
+                LOGGER.info(f"Fetching credential data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                if (
+                    self.get_credentials(
+                        org_id, sixgill_org_id, pe_org_uid, source_uid
+                    )
+                    == 1
+                ):
+                    failed.append("%s credentials" % org_id)
 
-                # Run alerts
-                if "alerts" in method_list:
-                    LOGGER.info(
-                        f"Fetching alert data for {org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
-                    )
-                    if (
-                        self.get_alerts(
-                            org_id,
-                            sixgill_org_id,
-                            pe_org_uid,
-                            source_uid,
-                            soc_med_included,
-                        )
-                        == 1
-                    ):
-                        failed.append("%s alerts" % org_id)
-                # Run mentions
-                if "mentions" in method_list:
-                    LOGGER.info(
-                        f"Fetching mention data for {org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
-                    )
-                    if (
-                        self.get_mentions(
-                            org_id,
-                            sixgill_org_id,
-                            pe_org_uid,
-                            source_uid,
-                            soc_med_included,
-                        )
-                        == 1
-                    ):
-                        failed.append("%s mentions" % org_id)
-                # Run credentials
-                if "credentials" in method_list:
-                    LOGGER.info(
-                        f"Fetching credential data for {org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
-                    )
-                    if (
-                        self.get_credentials(
-                            org_id, sixgill_org_id, pe_org_uid, source_uid
-                        )
-                        == 1
-                    ):
-                        failed.append("%s credentials" % org_id)
+        # Log any failures
         if len(failed) > 0:
             LOGGER.error("Failures: %s", failed)
 
@@ -193,38 +176,34 @@ class Cybersixgill:
             "icq",
             "mastodon",
         ]
-        # Fetch alert data with sixgill_org_id
+        # Fetch alerts using sixgill_org_id
         try:
-            # print(sixgill_org_id)
-            alerts_df = alerts(sixgill_org_id)
+            LOGGER.info("Fetching alerts for %s", org_id)
+            alerts_df = alerts(org_id, sixgill_org_id)
+            # exclude social media alerts if specified
             if not soc_med_included:
                 alerts_df = alerts_df[~alerts_df["site"].isin(soc_med_platforms)]
-            # Add pe_org_id
+            # Add additional columns and format
             alerts_df["organizations_uid"] = pe_org_uid
-            # Add data source uid
             alerts_df["data_source_uid"] = source_uid
-            # Rename columns
             alerts_df = alerts_df.rename(columns={"id": "sixgill_id"})
         except Exception as e:
-            LOGGER.error("Failed fetching total alert count for %s", org_id)
+            LOGGER.error("Failed fetching alerts for %s", org_id)
             LOGGER.error(e)
-            print(traceback.format_exc())
+            LOGGER.error(traceback.format_exc())
             return 1
 
-        # Get Alert content
+        # Fetch additional data for the list of alerts
         try:
-            LOGGER.info("Fetching alert content data for %s.", org_id)
+            LOGGER.info("Fetching additional alert data for %s", org_id)
             # Fetch organization assets
             org_assets_dict = all_assets_list(sixgill_org_id)
             for alert_index, alert_row in alerts_df.iterrows():
-                # print(org_id)
                 try:
                     alert_id = alert_row["sixgill_id"]
-
                     # content_snip, asset_mentioned, asset_type = get_alerts_content(
                     #     sixgill_org_id, alert_id, org_assets_dict
                     # )
-
                     alerts_df.at[alert_index, "content_snip"] = content_snip
                     alerts_df.at[alert_index, "asset_mentioned"] = asset_mentioned
                     alerts_df.at[alert_index, "asset_type"] = asset_type
@@ -237,26 +216,15 @@ class Cybersixgill:
                     alerts_df.at[alert_index, "content_snip"] = ""
                     alerts_df.at[alert_index, "asset_mentioned"] = ""
                     alerts_df.at[alert_index, "asset_type"] = ""
-
         except Exception as e:
-            LOGGER.error("Failed fetching alert content for %s", org_id)
+            LOGGER.error("Failed fetching additional alert data for %s", org_id)
             LOGGER.error(e)
             LOGGER.error(traceback.format_exc())
             return 1
 
-        # Redact PII Testing
-        # print(f"Working on organization: {org_id}")
-        # print("\tBeginning alert redaction")
-        # if "content" in alerts_df.columns:
-        #     alerts_df = redact_pii_new(alerts_df, ["content"])
-        #     print("\tCompleted alert redaction")
-        # else:
-        #    print("\tNo content col to redact")
-        # return 0
-        # print("made it to insertion code")
-
         # Insert alert data into the PE database
         try:
+            LOGGER.info("Inserting alert data for %s", org_id)
             insert_sixgill_alerts(alerts_df)
         except Exception as e:
             LOGGER.error("Failed inserting alert data for %s", org_id)
@@ -268,22 +236,21 @@ class Cybersixgill:
         self, org_id, sixgill_org_id, pe_org_uid, source_uid, soc_med_included
     ):
         """Get mentions."""
-        # Fetch org aliases from Cybersixgill
+        # Fetch aliases for this org from Cybersixgill
         try:
+            LOGGER.info("Fetching aliases for %s", org_id)
             aliases = alias_organization(sixgill_org_id)
         except Exception as e:
             LOGGER.error("Failed fetching aliases for %s", org_id)
-            print(traceback.format_exc())
             LOGGER.error(e)
+            LOGGER.error(traceback.format_exc())
             return 1
 
-        mentions_df = None
         # Fetch mention data
+        mentions_df = None
         try:
-            if "dhs" in aliases:
-                aliases.remove("dhs")
-            # if "NRC" in aliases:
-            #     aliases.remove("NRC")
+            LOGGER.info("Fetching mentions for %s", org_id)
+            # Make adjustments to aliases
             if org_id == "doi_os":
                 aliases = [
                     "DOI Office of the Secretary",
@@ -291,6 +258,10 @@ class Cybersixgill:
                     "Department of Interior Office of the Secretary",
                     "Interior Office of the Secretary",
                 ]
+            if "dhs" in aliases:
+                aliases.remove("dhs")
+            # if "NRC" in aliases:
+            #     aliases.remove("NRC")
             if "st" in aliases:
                 aliases.remove("st")
             if "nih" in aliases:
@@ -343,11 +314,11 @@ class Cybersixgill:
                 aliases.remove("stb")
                 aliases.append("surface transportation")
             # Retrieve mention data
-            mentions_df = mentions(DATE_SPAN, aliases, soc_med_included)
+            mentions_df = mentions(org_id, DATE_SPAN, aliases, soc_med_included)
         except Exception as e:
             LOGGER.error("Failed fetching mentions for %s", org_id)
-            print(traceback.format_exc())
             LOGGER.error(e)
+            LOGGER.error(traceback.format_exc())
             return 1
 
         # Catch no mentions found situation:
@@ -360,24 +331,14 @@ class Cybersixgill:
         mentions_df["organizations_uid"] = pe_org_uid
         mentions_df["data_source_uid"] = source_uid
 
-        # Redact PII Testing
-        # mentions_df = mentions_df.iloc[[0]]
-        # mentions_df.to_csv("/var/www/pii_redact_testing/redact_test_input.csv")
-        # print(f"working on organization: {org_id}")
-        # print("\tBeginning mention redaction")
-        # mentions_df = redact_pii_new(mentions_df, ["content"])
-        # print("\tCompleted mention redaction")
-        # mentions_df.to_csv("/var/www/pii_redact_testing/test_redact_output.csv")
-        # return 0
-        # print("made it to insertion code")
-
         # Insert mention data into the PE database
         try:
+            LOGGER.info("Inserting mention data for %s", org_id)
             insert_sixgill_mentions(mentions_df)
         except Exception as e:
-            LOGGER.error("Failed inserting mentions for %s", org_id)
-            print(traceback.format_exc)
+            LOGGER.error("Failed inserting mention data for %s", org_id)
             LOGGER.error(e)
+            LOGGER.error(traceback.format_exc)
             return 1
         return 0
 
@@ -385,8 +346,9 @@ class Cybersixgill:
         """Get credentials."""
         # Fetch org root domains from Cybersixgill
         try:
+            LOGGER.info("Fetching root domains for %s", org_id)
             roots = root_domains(sixgill_org_id)
-            LOGGER.info(f"Got roots:{roots}")
+            LOGGER.info(f"Got {org_id} roots:{roots}")
         except Exception as e:
             LOGGER.error("Failed fetching root domains for %s", org_id)
             LOGGER.error(e)
@@ -400,49 +362,52 @@ class Cybersixgill:
             return 0
 
         # Fetch credential data
+        LOGGER.info("Fetching credential data for %s", org_id)
         if len(roots) > 100:
-            # Catch situation where an org has >100 roots in sixgill
-            LOGGER.info(
-                f"{org_id} has more than 100 root assets in cybersixgill, breaking into chunks of 100..."
-            )
-            root_chunks = [roots[i : i + 100] for i in range(0, len(roots), 100)]
+            # If >100 roots, break into chunks and fetch cred data
+            LOGGER.warning(f"{org_id} has more than 100 root assets in cybersixgill, breaking into chunks of 100...")
+            root_chunks = [roots[i:i + 100] for i in range(0, len(roots), 100)]
             creds_df = pd.DataFrame()
             for idx, chunk in enumerate(root_chunks):
                 try:
-                    LOGGER.info(
-                        f"On chunk {idx+1} of {len(root_chunks)} for {org_id} credentials"
-                    )
+                    print(f"Working on {len(chunk)} {org_id} domains (chunk {idx+1} of {len(root_chunks)})")
+                    LOGGER.info(f"Working on {org_id} credentials, chunk {idx+1} of {len(root_chunks)}")
+                    # Fetch cred data
                     chunk_creds_df = creds(chunk, START_DATE_TIME, END_DATE_TIME)
-                    LOGGER.info(
-                        "Found %s credentials for this chunk", len(chunk_creds_df.index)
-                    )
+                    # Add dataframe cols
                     chunk_creds_df["organizations_uid"] = pe_org_uid
                     chunk_creds_df["data_source_uid"] = source_uid
                     creds_df = creds_df.append(chunk_creds_df, ignore_index=True)
+                    LOGGER.info("Found %s credentials for this chunk", len(chunk_creds_df.index))
                 except Exception as e:
-                    LOGGER.error("Failed fetching credential chunk for %s", org_id)
+                    LOGGER.error(f"Failed fetching credential data chunk {idx+1} for {org_id}")
                     LOGGER.error(e)
                     return 1
-            LOGGER.info("Found %s credentials in total", len(creds_df.index))
+            LOGGER.info(f"Found {len(creds_df.index)} total credentials for {org_id}")
         else:
-            # Otherwise, just fetch credential data
+            # Otherwise, fetch all cred data
             try:
+                print(f"Working on {len(roots)} {org_id} domains")
+                LOGGER.info(f"Working on {org_id} credentials")
+                # Fetch cred data
                 creds_df = creds(roots, START_DATE_TIME, END_DATE_TIME)
-                LOGGER.info("Found %s credentials.", len(creds_df.index))
+                # Add dataframe cols
                 creds_df["organizations_uid"] = pe_org_uid
                 creds_df["data_source_uid"] = source_uid
+                LOGGER.info(f"Found {len(creds_df.index)} total credentials for {org_id}")
             except Exception as e:
-                LOGGER.error("Failed fetching credentials for %s", org_id)
+                LOGGER.error("Failed fetching credential data for %s", org_id)
                 LOGGER.error(e)
                 return 1
 
         # Catch no credentials found situation
         if creds_df.empty:
-            LOGGER.info("No credential findings for this org, moving on")
+            LOGGER.info(f"No credential data found for {org_id}, moving on")
             return 0
 
         # Change empty and ambiguous breach names
         try:
+            LOGGER.info("Formatting credential breach data for %s", org_id)
             creds_df.loc[
                 creds_df["breach_name"] == "", "breach_name"
             ] = "Cybersixgill_" + creds_df["breach_id"].astype(str)
@@ -459,10 +424,8 @@ class Cybersixgill:
                     "data_source_uid",
                 ]
             ].reset_index()
-
             # Create password_included column
             creds_breach_df["password_included"] = creds_breach_df["password"] != ""
-
             # Group breaches and count the number of credentials
             count_creds = creds_breach_df.groupby(
                 [
@@ -482,15 +445,16 @@ class Cybersixgill:
             )
             creds_breach_df.drop(columns=["exposed_cred_count"], inplace=True)
         except Exception as e:
-            LOGGER.error("Error formatting credential breach data for %s", org_id)
+            LOGGER.error("Failed formatting credential breach data for %s", org_id)
             LOGGER.error(e)
             return 1
 
         # Insert breach data into the PE database
         try:
+            LOGGER.info("Inserting credential breach data for %s", org_id)
             insert_sixgill_breaches(creds_breach_df)
         except Exception as e:
-            LOGGER.error("Failed inserting breaches for %s", org_id)
+            LOGGER.error("Failed inserting credential breach data for %s", org_id)
             LOGGER.error(e)
             return 1
 
@@ -521,47 +485,38 @@ class Cybersixgill:
             ]
         ]
         try:
+            LOGGER.info("Inserting credential data for %s", org_id)
             insert_sixgill_credentials(creds_df)
         except Exception as e:
-            LOGGER.error("Failed inserting credentials for %s", org_id)
+            LOGGER.error("Failed inserting credential data for %s", org_id)
             LOGGER.error(e)
             return 1
         return 0
 
     def get_topCVEs(self, source_uid):
         """Get top CVEs."""
-        LOGGER.info(f"Fetching the top ten CVEs for the past report period")
-        # Fetch top CVE data
         try:
+            LOGGER.info(f"Fetching the current top CVEs")
             # Get top 10 cves
             top_cve_df = top_cves(10)
             # Add extra columns
             top_cve_df["date"] = END_DATE
             top_cve_df["nvd_base_score"] = top_cve_df["nvd_base_score"].astype("str")
             top_cve_df["data_source_uid"] = source_uid
-
-            # *** circl.lu no longer used b/c of API issues,
-            #   CVE summaries are now coming from C6G
-            # Get CVE summary from circl.lu
-            # top_cve_df["summary"] = ""
-            # for cve_index, cve_row in top_cve_df.iterrows():
-            #     try:
-            #         resp = cve_summary(cve_row["cve_id"])
-            #         summary = resp["summary"]
-            #     except Exception:
-            #         summary = ""
-            #     top_cve_df.at[cve_index, "summary"] = summary
-
+            # Note: circl.lu (cve_summary()) is no longer being 
+            # used b/c of API issues, CVE summaries are now 
+            # coming from C6G
         except Exception as e:
-            LOGGER.error("Failed fetching top CVEs.")
+            LOGGER.error("Failed fetching the current top CVEs")
             LOGGER.error(e)
             return 1
 
-        # Insert credential data into the PE database
+        # Insert top CVE data into the PE database
         try:
+            LOGGER.info("Inserting top CVE data")
             insert_sixgill_topCVEs(top_cve_df)
         except Exception as e:
-            LOGGER.error("Failed inserting top CVEs.")
+            LOGGER.error("Failed inserting top CVE data")
             LOGGER.error(e)
             return 1
         return 0
