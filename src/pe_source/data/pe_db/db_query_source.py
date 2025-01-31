@@ -1209,7 +1209,7 @@ def insert_dnstwist_domain_permu(df):
 
 # --- Issue 707 pe-reports/006 atc-framework ---
 # Reuse the /rootdomains_by_org_uid endpoint, but return as dataframe
-def get_root_domains_api(org_uid):
+def get_root_domains(org_uid):
     """
     Query API to get the root domains for the specified org uid.
 
@@ -2319,7 +2319,7 @@ def org_root_domains_tsql(conn, org_uid):
 
 
 # --- 707 pe-reports/006 atc-framework OLD TSQL ---
-def get_root_domains(conn, org_uid):
+def get_root_domains_tsql(conn, org_uid):
     """Get root domains from database given the org_uid."""
     sql = """
         select * from root_domains rd
