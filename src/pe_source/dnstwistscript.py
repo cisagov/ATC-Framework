@@ -32,6 +32,8 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
     malicious = False
     attacks = 0
     reports = 0
+
+    # Check IPv4
     if "original" in dom["fuzzer"]:
         return None, perm_list
     elif "dns_a" not in dom:
@@ -39,7 +41,6 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
     else:
         if str(dom["dns_a"][0]) == "!ServFail":
             return None, perm_list
-
         # Check IP in Blocklist API
         response = requests.get(
             "http://api.blocklist.de/api.php?ip=" + str(dom["dns_a"][0])
@@ -54,7 +55,6 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
                 malicious = False
                 dshield_attacks = 0
                 dshield_count = 0
-
         # Check IP in DSheild API
         try:
             results = dshield.ip(str(dom["dns_a"][0]), return_format=dshield.JSON)
@@ -88,6 +88,7 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
                 malicious = False
                 dshield_attacks = 0
                 dshield_count = 0
+        # Check IP in DSheild API
         try:
             results = dshield.ip(str(dom["dns_aaaa"][0]), return_format=dshield.JSON)
             results = json.loads(results)
@@ -138,7 +139,7 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
 
 
 def execute_dnstwist(root_domain, test=0):
-    """Run dnstwist on each root domain."""
+    """Run dnstwist on a specified root domain."""
     pathtoDict = str(pathlib.Path(__file__).parent.resolve()) + "/data/common_tlds.dict"
     dnstwist_result = dnstwist.run(
         registered=True,
@@ -175,10 +176,7 @@ def execute_dnstwist(root_domain, test=0):
 
 def run_dnstwist(orgs_list):
     """Run DNStwist on certain domains and upload findings to database."""
-    PE_conn = connect()
-    source_uid = get_data_source_uid("DNSTwist")
-
-    """ Get P&E Orgs """
+    # Retrieve full org info from PE database
     pe_orgs = get_orgs()
     pe_orgs_final = []
     if orgs_list == "all":
@@ -200,132 +198,113 @@ def run_dnstwist(orgs_list):
             else:
                 continue
 
+    # alphabetize org list for consistent order
+    pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
+
+    # Get data source uid
+    PE_conn = connect()
+    source_uid = get_data_source_uid("DNSTwist")
+    
+    # Run DNSTwist on each organization
     failures = []
-    # total_dnstwist_time = datetime.timedelta(seconds=0) # exe time testing
-    # total_blocklist_time = datetime.timedelta(seconds=0) # exe time testing
-    # total_insertion_time = datetime.timedelta(seconds=0) # exe time testing
     for org_idx, org in enumerate(pe_orgs_final):
         pe_org_uid = org["organizations_uid"]
         org_name = org["name"]
         pe_org_id = org["cyhy_db_name"]
-
-        # Only run on orgs in the org list
-        if pe_org_id in orgs_list or orgs_list == "all" or orgs_list == "DEMO":
-            LOGGER.info(f"Running DNSTwist on {pe_org_id} ({org_idx+1} of {len(pe_orgs_final)})")
-
-            """Collect DNSTwist data from Crossfeed"""
-            try:
-                # Get root domains
-                # root_dict = org_root_domains(PE_conn, pe_org_uid) # TSQL ver.
-                root_dict = org_root_domains(pe_org_uid) # API ver.
-                
-                # Convert to deduped list of root domains
-                list_of_roots = [d['root_domain'] for d in root_dict]
-                list_of_roots = [s.strip() for s in list_of_roots]
-                list_of_roots = list(set(list_of_roots))
-                LOGGER.info(f"{len(list_of_roots)} roots found for {pe_org_id}")
-                
-                domain_list = []
-                perm_list = []
-                for root in list_of_roots:
-                    root_domain = root
-                    if root_domain == "Null_Root":
-                        continue
-                    LOGGER.info("Running DNSTwist on root domain: %s", root)
-                    # t1_1 = time.time() # exe time testing
-                    with open(
-                        "dnstwist_output.txt", "w"
-                    ) as f, contextlib.redirect_stdout(f):
-                        finalorglist = execute_dnstwist(root_domain)
-                    # t1_2 = time.time() # exe time testing
-                    LOGGER.info(f"\tFinished running DNSTwist on root domain: {root}")
-                    # total_dnstwist_time += datetime.timedelta(seconds=(t1_2 - t1_1)) # exe time testing
-
-                    # Get subdomain uid
-                    sub_domain = root_domain
-                    try:
-                        sub_domain_uid = getSubdomain(sub_domain)
-                    except Exception:
-                        # TODO: Create custom exceptions.
-                        # Issue 265: https://github.com/cisagov/pe-reports/issues/265
-                        # Add and then get it
-                        addSubdomain(sub_domain, pe_org_uid, True) # api ver.
-                        # addSubdomain(PE_conn, sub_domain, pe_org_uid, True) # tsql ver.
-                        sub_domain_uid = getSubdomain(sub_domain)
-
-                    # Check Blocklist
-                    LOGGER.info(f"\tRunning blocklist check on the DNSTwist results from root domain: {root}")
-                    # t2_1 = time.time() # exe time testing
-                    for dom_idx, dom in enumerate(finalorglist):
-                        domain_name = dom.get("domain")
-                        print(f"Running blocklist check on {domain_name} ({dom_idx+1}/{len(finalorglist)})")
-                        domain_dict, perm_list = checkBlocklist(
-                            dom, sub_domain_uid, source_uid, pe_org_uid, perm_list
-                        )
-                        if domain_dict is not None:
-                            domain_list.append(domain_dict)
-                    # t2_2 = time.time() # exe time testing
-                    LOGGER.info(f"\tFinished running blocklist check on the DNSTwist results from root domain: {root}")
-                    # total_blocklist_time += datetime.timedelta(seconds=(t2_2 - t2_1)) # exe time testing
-                    # print(f"\tCurrent dnstwist time total: {total_dnstwist_time}") # exe time testing
-                    # print(f"\tCurrent blocklist time total: {total_blocklist_time}") # exe time testing
-            except Exception:
-                # TODO: Create custom exceptions.
-                # Issue 265: https://github.com/cisagov/pe-reports/issues/265
-                LOGGER.info("Failed selecting DNSTwist data.")
-                failures.append(org_name)
-                LOGGER.info(traceback.format_exc())
-
-            """Insert cleaned data into PE database."""
-            # t3_1 = time.time() # exe time testing
-            try:
-                cursor = PE_conn.cursor()
-                try:
-                    columns = domain_list[0].keys()
-                except Exception:
-                    LOGGER.critical("No data in the domain list.")
-                    failures.append(org_name)
+        LOGGER.info(f"Running DNSTwist on {pe_org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+        # Retrieve DNSTwist data from crossfeed
+        try:
+            # Get root domains for this org
+            # root_dict = org_root_domains(PE_conn, pe_org_uid) # TSQL ver.
+            root_dict = org_root_domains(pe_org_uid) # API ver.
+            # Dedupe list of root domains
+            list_of_roots = [d['root_domain'] for d in root_dict]
+            list_of_roots = [s.strip() for s in list_of_roots]
+            list_of_roots = list(set(list_of_roots))
+            LOGGER.info(f"Found {len(list_of_roots)} roots for {pe_org_id}")
+            # Iterate over each root domain
+            domain_list = []
+            perm_list = []
+            for root_idx, root in enumerate(list_of_roots):
+                # Run DNSTwist on each root
+                root_domain = root
+                if root_domain == "Null_Root":
                     continue
-                table = "domain_permutations"
-                sql = """INSERT INTO {}({}) VALUES %s
-                ON CONFLICT (domain_permutation,organizations_uid)
-                DO UPDATE SET malicious = EXCLUDED.malicious,
-                    blocklist_attack_count = EXCLUDED.blocklist_attack_count,
-                    blocklist_report_count = EXCLUDED.blocklist_report_count,
-                    dshield_record_count = EXCLUDED.dshield_record_count,
-                    dshield_attack_count = EXCLUDED.dshield_attack_count,
-                    data_source_uid = EXCLUDED.data_source_uid,
-                    date_active = EXCLUDED.date_active;"""
+                LOGGER.info("Running DNSTwist on root domain: %s", root)
+                with open(
+                    "dnstwist_output.txt", "w"
+                ) as f, contextlib.redirect_stdout(f):
+                    finalorglist = execute_dnstwist(root_domain)
+                LOGGER.info(f"Finished running DNSTwist on root domain: {root}")
 
-                values = [[value for value in dict.values()] for dict in domain_list]
-                extras.execute_values(
-                    cursor,
-                    sql.format(
-                        table,
-                        ",".join(columns),
-                    ),
-                    values,
-                )
-                PE_conn.commit()
-                LOGGER.info("Data inserted using execute_values() successfully..")
+                # Get subdomain uid
+                sub_domain = root_domain
+                try:
+                    sub_domain_uid = getSubdomain(sub_domain)
+                except Exception:
+                    # If subdomain not in database, add it
+                    addSubdomain(sub_domain, pe_org_uid, True) # api ver.
+                    # addSubdomain(PE_conn, sub_domain, pe_org_uid, True) # tsql ver.
+                    sub_domain_uid = getSubdomain(sub_domain)
 
+                # Check root domain using Blocklist/DShield
+                LOGGER.info(f"Running blocklist/dshield check on the DNSTwist results from root domain: {root}")
+                for dom_idx, dom in enumerate(finalorglist):
+                    domain_name = dom.get("domain")
+                    print(f"{pe_org_id} - Running blocklist/dshield check on permutation: {domain_name} ({dom_idx+1}/{len(finalorglist)}), from root: {root} ({root_idx+1}/{len(list_of_roots)})")
+                    domain_dict, perm_list = checkBlocklist(
+                        dom, sub_domain_uid, source_uid, pe_org_uid, perm_list
+                    )
+                    if domain_dict is not None:
+                        domain_list.append(domain_dict)
+                LOGGER.info(f"Finished running blocklist/dshield check on the DNSTwist results from root domain: {root}")
+        except Exception:
+            LOGGER.error(f"Failed retrieving DNSTwist data for {pe_org_id}")
+            failures.append(org_name)
+            LOGGER.error(traceback.format_exc())
+
+        # Insert DNSTwist data into PE database
+        LOGGER.info(f"Inserting DNSTwist data for {pe_org_id}")
+        try:
+            cursor = PE_conn.cursor()
+            try:
+                columns = domain_list[0].keys()
             except Exception:
-                # TODO: Create custom exceptions.
-                # Issue 265: https://github.com/cisagov/pe-reports/issues/265
-                LOGGER.info("Failure inserting data into database.")
+                LOGGER.critical("No data in the domain list.")
                 failures.append(org_name)
-                LOGGER.info(traceback.format_exc())
-            # t3_2 = time.time() # exe time testing
-            # total_insertion_time = datetime.timedelta(seconds=(t3_2 - t3_1)) # exe time testing
+                continue
+            table = "domain_permutations"
+            sql = """INSERT INTO {}({}) VALUES %s
+            ON CONFLICT (domain_permutation,organizations_uid)
+            DO UPDATE SET malicious = EXCLUDED.malicious,
+                blocklist_attack_count = EXCLUDED.blocklist_attack_count,
+                blocklist_report_count = EXCLUDED.blocklist_report_count,
+                dshield_record_count = EXCLUDED.dshield_record_count,
+                dshield_attack_count = EXCLUDED.dshield_attack_count,
+                data_source_uid = EXCLUDED.data_source_uid,
+                date_active = EXCLUDED.date_active;"""
 
-    # print(f"DNSTwist summary for {pe_org_id}") # exe time testing
-    # print(f"DNSTwist time: {str(total_dnstwist_time)} (H:M:S)") # exe time testing
-    # print(f"Blocklist time: {str(total_blocklist_time)} (H:M:S)") # exe time testing
-    # print(f"DB insert time: {str(total_insertion_time)} (H:M:S)") # exe time testing
-
+            values = [[value for value in dict.values()] for dict in domain_list]
+            extras.execute_values(
+                cursor,
+                sql.format(
+                    table,
+                    ",".join(columns),
+                ),
+                values,
+            )
+            PE_conn.commit()
+            LOGGER.info("DNSTwist data inserted successfully...")
+        except Exception:
+            LOGGER.error(f"Failed inserting DNSTwist data for {pe_org_id}")
+            failures.append(org_name)
+            LOGGER.error(traceback.format_exc())
+        
+    # Output summary stats
     LOGGER.info(f"{len(pe_orgs_final) - len(failures)}/{len(pe_orgs_final)} orgs successfully underwent the DNSTwist scan")
     LOGGER.info(f"{len(failures)}/{len(pe_orgs_final)} orgs had a significant failure during the DNSTwist scan")
 
+    # Clean up and log failures
     PE_conn.close()
     if failures != []:
         LOGGER.error("These orgs failed: ", failures)
