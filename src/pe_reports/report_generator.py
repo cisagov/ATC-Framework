@@ -1,18 +1,25 @@
 """cisagov/pe-reports: A tool for creating Posture & Exposure reports.
 
 Usage:
-  pe-reports REPORT_DATE OUTPUT_DIRECTORY [--log-level=LEVEL] [--soc_med_included] [--demo]
+    pe-reports REPORT_DATE OUTPUT_DIRECTORY [--log-level=LEVEL] [--soc_med_included] [--orgs=ORG_LIST]
 
 Options:
-  -h --help                         Show this message.
-  REPORT_DATE                       Date of the report, format YYYY-MM-DD
-  OUTPUT_DIRECTORY                  The directory where the final PDF
+    -h --help                       Show this message.
+    REPORT_DATE                     Date of the report, format YYYY-MM-DD
+    OUTPUT_DIRECTORY                The directory where the final PDF
                                     reports should be saved.
-  -l --log-level=LEVEL              If specified, then the log level will be set to
+    -l --log-level=LEVEL            If specified, then the log level will be set to
                                     the specified value.  Valid values are "debug", "info",
                                     "warning", "error", and "critical". [default: info]
-  -s --soc_med_included            Include social media posts from Cybersixgill in the report.
-  -d --demo                         Run report on demo orgs.
+    -s --soc_med_included           Include social media posts from Cybersixgill in the report.
+    -o --orgs=ORG_LIST              A comma-separated list of orgs to generate P&E reports for.
+                                    If not specified, reports will be generated for all
+                                    orgs P&E delivers reports to. Orgs in the list must match the
+                                    IDs in the cyhy-db. E.g. DHS,DHS_ICE,DOC. 
+                                    Other options include: 
+                                    'demo' = all demo orgs, 
+                                    'all' = all orgs P&E delivers reports to.
+                                    [default: all]
 """
 
 # Standard Python Libraries
@@ -36,7 +43,7 @@ import pe_reports
 
 from ._version import __version__
 from .asm_generator import create_summary
-from .data.db_query import connect, get_demo_orgs, get_orgs, refresh_asset_counts_vw
+from .data.db_query import connect, get_demo_orgs, get_orgs, get_specific_orgs, refresh_asset_counts_vw
 
 # from .helpers.generate_score import get_pe_scores
 from .pages import init
@@ -159,42 +166,49 @@ def embed(
     return filesize, tooLarge, output
 
 
-def generate_reports(datestring, output_directory, soc_med_included=False, demo=False):
+def generate_reports(orgs_list, datestring, output_directory, soc_med_included=False):
     """Process steps for generating report data."""
-    # Get PE orgs from PE db
+    # Determine list of organizations to run on
     conn = connect()
     if conn:
-        if demo:
-            pe_orgs = get_demo_orgs(conn)
-        else:
+        if orgs_list == "all":
+            # If "all", run on all report_on orgs
             pe_orgs = get_orgs(conn)
+            orgs_list_log = f"All P&E Report orgs, {pe_orgs[0][2]} - {pe_orgs[-1][2]}"
+        elif orgs_list == "demo":
+            # If "demo", run on all demo orgs
+            pe_orgs = get_demo_orgs(conn)
+            orgs_list_log = f"All demo orgs, {pe_orgs[0][2]} - {pe_orgs[-1][2]}"
+        else:
+            # Otherwise, run on the specified orgs
+            orgs_list = orgs_list.split(",")
+            pe_orgs = get_specific_orgs(conn, orgs_list)
+            if len(orgs_list) == 1:
+                orgs_list_log = pe_orgs[0][2]
+            else:
+                orgs_list_log = f"{pe_orgs[0][2]} - {pe_orgs[-1][2]}"
     else:
         return 1
-    generated_reports = 0
 
     # Resfresh ASM counts view
     LOGGER.info("Refreshing ASM asset count view and IPs from cidrs view")
     refresh_asset_counts_vw()
+    
     # set_from_cidr()
     LOGGER.info("Finished refreshing ASM asset count view and IPs from cidrs view")
 
     # Iterate over organizations
+    generated_reports = 0
     if pe_orgs:
-        # Sort organizations by cyhy_db_name for easier management
-        pe_orgs = sorted(pe_orgs, key=lambda x: x[2])
-
         # Generate PE scores for all stakeholders WIP
         # LOGGER.info("Calculating P&E Scores")
         # pe_scores_df = get_pe_scores(datestring, 12)
         # pe_orgs.reverse()
 
-        # Uncomment this to generate reports only for these orgs
-        # pe_orgs = [x for x in pe_orgs if x[2] in [""]]
-
-        # Uncomment this to generate all reports except for these orgs
-        # pe_orgs = [x for x in pe_orgs if x[2] not in [""]]
+        # Uncomment this to exclude these orgs from report generation
+        # pe_orgs = [x for x in pe_orgs if x[2] not in ["SEC"]]
         
-        LOGGER.info(f"Generating PE reports for {len(pe_orgs)} requested organizations")
+        LOGGER.info(f"Generating PE reports for {len(pe_orgs)} requested organizations ({orgs_list_log})")
 
         for org_idx, org in enumerate(pe_orgs):
             # Assign organization values
@@ -380,10 +394,10 @@ def main():
 
     # Generate reports
     generated_reports = generate_reports(
+        validated_args["--orgs"],
         validated_args["REPORT_DATE"],
         validated_args["OUTPUT_DIRECTORY"],
         validated_args["--soc_med_included"],
-        validated_args["--demo"],
     )
 
     report_gen_end_time = time.time()

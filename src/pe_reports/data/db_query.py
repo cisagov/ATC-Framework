@@ -2666,7 +2666,7 @@ def query_shodan(org_uid, start_date, end_date, table):
 
 
 # --- Issue 018 atc-framework ---
-def get_demo_orgs():
+def get_demo_orgs_api():
     """
     Query API to retrieve data for all demo orgs.
 
@@ -2718,7 +2718,8 @@ def get_orgs(conn):
     try:
         cur = conn.cursor()
         sql = """SELECT * FROM organizations
-        WHERE report_on is True"""
+        WHERE report_on is True
+        ORDER BY cyhy_db_name"""
         cur.execute(sql)
         pe_orgs = cur.fetchall()
         cur.close()
@@ -3609,12 +3610,35 @@ def upsert_new_cves_tsql(new_cves):
 
 
 # --- 018 atc-framework OLD TSQL ---
-def get_demo_orgs_tsql(conn):
+def get_demo_orgs(conn):
     """Query organizations table for orgs we report on."""
     try:
         cur = conn.cursor()
         sql = """SELECT * FROM organizations
-        WHERE demo is True"""
+        WHERE demo is True
+        ORDER BY cyhy_db_name"""
+        cur.execute(sql)
+        pe_orgs = cur.fetchall()
+        cur.close()
+        return pe_orgs
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    finally:
+        if conn is not None:
+            close(conn)
+
+
+def get_specific_orgs(conn, org_list):
+    """Query info for the specified organizations."""
+    try:
+        cur = conn.cursor()
+        name_list = "("
+        for org in org_list:
+            name_list += f"'{org}',"
+        name_list = name_list[:-1] + ")"
+        sql = f"""SELECT * FROM organizations
+        WHERE cyhy_db_name IN {name_list}
+        ORDER BY cyhy_db_name"""
         cur.execute(sql)
         pe_orgs = cur.fetchall()
         cur.close()
