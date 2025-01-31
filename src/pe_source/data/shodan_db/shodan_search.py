@@ -25,12 +25,14 @@ def run_shodan_thread(api, org_chunk, thread_name):
     """Run a Shodan thread."""
     failed = []
     warnings = []
+    # Iterate over each org in the list
     for org_idx, org in enumerate(org_chunk):
         org_name = org["cyhy_db_name"]
         org_uid = org["organizations_uid"]
-        # LOGGER.info("{} Running IPs for {}".format(thread_name, org_name))
-        LOGGER.info(f"{thread_name}: Running Shodan on {org_name}")
+        LOGGER.info(f"{thread_name} Running Shodan on {org_name} ({org_idx+1} of {len(org_chunk)})")
+        print(f"{thread_name} Running Shodan on {org_name} ({org_idx+1} of {len(org_chunk)})")
         start, end = get_dates()
+        # Retrieve IPs for this org
         try:
             ips = get_ips(org_uid)
         except Exception as e:
@@ -38,19 +40,19 @@ def run_shodan_thread(api, org_chunk, thread_name):
             LOGGER.error("{} {} - {}".format(thread_name, e, org_name))
             failed.append("{} fetching IPs".format(org_name))
             continue
-
+        # If no IPs, skip this org
         if len(ips) == 0:
             LOGGER.warning("{} No IPs for {}.".format(thread_name, org_name))
             warnings.append("{} has 0 IPs".format(org_name))
             continue
-
+        # Otherwise run shodan search on the IPs
         failed = search_shodan(
             thread_name, ips, api, start, end, org_uid, org_name, failed
         )
-
+    # Log all warning for this thread
     if len(warnings) > 0:
         LOGGER.warning(f"{thread_name} Warnings: {warnings}")
-
+    # Log all failures for this thread
     if len(failed) > 0:
         LOGGER.critical("{} Failures: {}".format(thread_name, failed))
 
@@ -272,7 +274,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                 failed.append("{} chunk {} failed and skipped".format(org_name, count))
                 break
 
-        LOGGER.info("{} {}/{} complete - {}".format(thread_name, count, tot, org_name))
+        LOGGER.info("{} chunk {}/{} complete - {}".format(thread_name, count, tot, org_name))
 
     all_vulns = vuln_data + risk_data
     # Grab the data source uid and add to each dataframe

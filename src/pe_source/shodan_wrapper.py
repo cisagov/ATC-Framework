@@ -12,8 +12,6 @@ from .data.pe_db.config import shodan_api_init
 from .data.pe_db.db_query_source import get_orgs
 from .data.shodan_db.shodan_search import run_shodan_thread
 
-# import time
-
 
 # Logging
 LOGGER = logging.getLogger(__name__)
@@ -30,9 +28,8 @@ class Get_shodan:
         """Run Shodan calls."""
         orgs_list = self.orgs_list
 
-        # Get orgs from PE database
+        # Retrieve full org info from PE database
         pe_orgs = get_orgs()
-        # Filter orgs if specified
         pe_orgs_final = []
         if orgs_list == "all":
             for pe_org in pe_orgs:
@@ -52,7 +49,6 @@ class Get_shodan:
                     pe_orgs_final.append(pe_org)
                 else:
                     continue
-
         # alphabetize orgs for consistent order
         pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
 
@@ -63,6 +59,7 @@ class Get_shodan:
         chunk_size = len(api_list)
         chunked_orgs_list = numpy.array_split(numpy.array(pe_orgs_final), chunk_size)
 
+        # Start each thread
         i = 0
         thread_list = []
         while i < len(chunked_orgs_list):

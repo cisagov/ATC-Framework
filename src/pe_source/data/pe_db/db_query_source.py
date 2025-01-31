@@ -1466,7 +1466,7 @@ def insert_shodan_assets(asset_data, failed):
         # Call endpoint
         result = requests.put(endpoint_url, headers=headers, data=data).json()
         # Process data and return
-        LOGGER.info(result)
+        LOGGER.info(result.get("message"))
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
         failed.append("Failed inserting shodan assets: {}".format(errh))
@@ -1527,9 +1527,10 @@ def insert_shodan_vulns(vuln_data, failed):
 
 
 # Conversion in progress
-def get_ips_old(org_uid):
+def get_ips_tsql(org_uid):
     """Get IP data."""
     conn = connect()
+    # CIDR IPs
     sql1 = """SELECT i.ip_hash, i.ip, ct.network FROM ips i
     JOIN cidrs ct on ct.cidr_uid = i.origin_cidr
     JOIN organizations o on o.organizations_uid = ct.organizations_uid
@@ -1539,7 +1540,7 @@ def get_ips_old(org_uid):
     and i.current;"""
     df1 = pd.read_sql(sql1, conn, params={"org_uid": org_uid})
     ips1 = list(df1["ip"].values)
-
+    # Subdomain IPs
     sql2 = """select i.ip_hash, i.ip
     from ips i
     join ips_subs is2 ON i.ip_hash = is2.ip_hash
@@ -1552,15 +1553,12 @@ def get_ips_old(org_uid):
     and i.current;"""
     df2 = pd.read_sql(sql2, conn, params={"org_uid": org_uid})
     ips2 = list(df2["ip"].values)
-
+    # Get union of both CIDR/Subdomain IP sets
     in_first = set(ips1)
     in_second = set(ips2)
-
     in_second_but_not_in_first = in_second - in_first
-
     ips = ips1 + list(in_second_but_not_in_first)
     conn.close()
-
     return ips
 
 
@@ -1580,7 +1578,6 @@ def get_ips(org_uid):
     try:
         result = requests.get(endpoint_url, headers=headers).json()
         # Process data and return
-        print(result)
         return result
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
