@@ -63,6 +63,9 @@ class DNSMonitor:
                 else:
                     continue
 
+        # alphabetize orgs for consistent order
+        pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
+
         # Fetch the bearer token
         token = dnsmonitor_token()
         # Get all of the Domains being monitored
@@ -82,14 +85,14 @@ class DNSMonitor:
             LOGGER.info(f"Found {len(domain_ids)} root domains being monitored for {org_code}")
             domain_ids = str(domain_ids["domainId"].tolist())
 
-            # Get Alerts for a specific org based on the list of domain IDs
+            # Get Alerts for the current org based on the list of domain IDs
             if domain_ids == "[]":
                 LOGGER.warning(f"No domains being monitored by DNSMonitor for {org_code}")
                 warnings.append(f"{org_code} - No domains being monitored")
                 continue
             else:
                 alerts_df = get_domain_alerts(token, domain_ids, START_DATE, END_DATE)
-                LOGGER.info("Fetched %s alerts.", len(alerts_df.index))
+                LOGGER.info("Retrieved %s alerts", len(alerts_df.index))
 
             # If no alerts, continue
             if alerts_df.empty:
@@ -97,23 +100,24 @@ class DNSMonitor:
                 warnings.append(f"{org_code} - No alerts found")
                 continue
 
+            # Process each alert
             for alert_index, alert_row in alerts_df.iterrows():
                 # Get subdomain_uid
                 root_domain = alert_row["rootDomain"]
                 sub_domain_uid = getSubdomain(root_domain)
                 if not sub_domain_uid:
                     LOGGER.info(
-                        "Root domain, %s, isn't in subdomain table as a sub_domain.",
+                        "Domain %s isn't in the subdomain table, attempting to add it",
                         root_domain,
                     )
                     try:
                         addSubdomain(root_domain, org_uid, True) # api ver.
                         # addSubdomain(conn, root_domain, org_uid, True) # tsql ver.
                         LOGGER.info(
-                            "Success adding %s to subdomain table.", root_domain
+                            "Success adding %s to the subdomain table", root_domain
                         )
                     except Exception as e:
-                        LOGGER.error("Failure adding root domain to subdomain table.")
+                        LOGGER.error("Failure adding domain to subdomain table")
                         LOGGER.error(e)
                         failed.append(
                             f"{org_code} - {root_domain} - Failed inserting into subdomain table"
@@ -164,11 +168,11 @@ class DNSMonitor:
                 subset=["domain_permutation"], keep="last"
             )
             try:
+                LOGGER.info(f"Inserting DNSMonitor domain permutations for {org_code}")
                 execute_dnsmonitor_data(dom_perm_df) # api ver.
                 # execute_dnsmonitor_data(dom_perm_df, "domain_permutations") # tsql ver.
-                # LOGGER.info("Success inserting into domain_permutations - %s", org_code)
             except Exception as e:
-                LOGGER.error("Failed inserting into domain_permutations - %s", org_code)
+                LOGGER.error("Failed inserting DNSMonitor domain permutations for %s", org_code)
                 LOGGER.error(e)
                 failed.append(f"{org_code} - Failed inserting into domain_permutations")
 
@@ -187,21 +191,21 @@ class DNSMonitor:
                 ]
             ]
             try:
+                LOGGER.info(f"Inserting DNSMonitor domain alerts for {org_code}")
                 execute_dnsmonitor_alert_data(domain_alerts) # api ver.
                 # execute_dnsmonitor_alert_data(domain_alerts, "domain_alerts") # tsql ver.
-                # LOGGER.info("Success inserting into domain_alerts - %s", org_code)
             except Exception as e:
-                LOGGER.error("Failed inserting into domain_alerts - %s", org_code)
+                LOGGER.error("Failed inserting DNSMonitor domain alerts for %s", org_code)
                 LOGGER.error(e)
                 failed.append(f"{org_code} - Failed inserting into domain_alerts")
 
         # Output any warnings
         if len(warnings) > 0:
-            print("Warnings: %s", warnings)
+            LOGGER.warning("Warnings: %s", warnings)
 
         # Output any failures
         if len(failed) > 0:
-            print("Failures: %s", failed)
+            LOGGER.error("Failures: %s", failed)
 
         # Output summary stats
         num_no_domain_monitor = sum('No domains being monitored' in s for s in warnings)

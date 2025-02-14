@@ -1,6 +1,7 @@
 """Scripts for importing Sixgill data into PE Postgres database."""
 
 # Standard Python Libraries
+import json
 import logging
 import time
 
@@ -25,12 +26,43 @@ from .api import (
 LOGGER = logging.getLogger(__name__)
 
 
-def alias_organization(org_id):
-    """List an organization's aliases."""
-    assets = org_assets(org_id)
-    df_assets = pd.DataFrame(assets)
-    aliases = df_assets["organization_aliases"].loc["explicit":].tolist()[0]
-    return aliases
+def alerts(org_id, sixgill_org_id):
+    """Get actionable alerts for an organization."""
+    # Get overall number of alerts for this org
+    count = alerts_count(sixgill_org_id)
+    count_total = count["total"]
+    LOGGER.info(f"Total alerts for {org_id}: {count_total}")
+
+    # Begin Retrieving all alerts
+    # - Recommended "fetch_size" is 25. The maximum is 400.
+    token = cybersix_token()
+    token_refresh_counter = 1
+    fetch_size = 50
+    all_alerts = []
+    df_all_alerts = pd.DataFrame()
+    # Retrieve alert data for each chunk
+    for offset in range(0, count_total, fetch_size):
+        try:
+            print(f"Working on {org_id} alert chunk at offset {offset} out of {count_total}")
+            # Make API call
+            [resp, token] = alerts_list(token, sixgill_org_id, fetch_size, offset)
+            # Process data
+            df_alerts = pd.DataFrame.from_dict(resp)
+            # df_alerts.drop(columns=["sub_alerts"], inplace=True) # large unused data field
+            all_alerts.append(df_alerts)
+            df_all_alerts = pd.concat(all_alerts).reset_index(drop=True)
+        except Exception as e:
+            LOGGER.error(f"Issue fetching alert data chunk at offset: {offset}")
+            LOGGER.error(e)
+            continue
+
+    # Fetch the full content of each alert
+    # for i, r in df_all_alerts.iterrows():
+    #     print(r["id"])
+    #     content = alerts_content(org_id, r["id"])
+    #     df_all_alerts.at[i, "content"] 
+
+    return df_all_alerts
 
 
 def all_assets_list(org_id):
@@ -47,18 +79,27 @@ def all_assets_list(org_id):
     return assets_dict
 
 
-def root_domains(org_id):
-    """Get root domains."""
-    assets = org_assets(org_id)
-    df_assets = pd.DataFrame(assets)
-    root_domains = df_assets["domain_names"].loc["explicit":].tolist()[0]
-    return root_domains
+def get_alerts_content(organization_id, alert_id, org_assets_dict):
+    """Get alert content snippet."""
+    asset_mentioned = ""
+    snip = ""
+    asset_type = ""
+    content = alerts_content(token, organization_id, alert_id)
+    if content:
+        for asset, type in org_assets_dict.items():
+            if asset in content:
+                index = content.index(asset)
+                snip = content[(index - 100) : (index + len(asset) + 100)]
+                snip = "..." + snip + "..."
+                asset_mentioned = asset
+                asset_type = type
+                LOGGER.info("Asset mentioned: %s", asset_mentioned)
+    return snip, asset_mentioned, asset_type
 
 
-def mentions(date, aliases, soc_media_included=False):
+def mentions(org_id, date, aliases, soc_media_included=False):
     """Pull dark web mentions data for an organization."""
     token = cybersix_token()
-
     # Build the query using the org's aliases
     mentions = ""
     for mention in aliases:
@@ -80,21 +121,23 @@ def mentions(date, aliases, soc_media_included=False):
         )
 
     # Get the total number of mentions
-    count = 1
-    while count < 7:
-        try:
-            LOGGER.info("Total mentions try #%s", count)
-            resp = intel_post(token, query, frm=0, scroll=False, result_size=1)
-            break
-        except Exception:
-            LOGGER.info("Error. Trying to get mentions count again...")
-            count += 1
-            continue
-    total_mentions = resp["total_intel_items"]
-    LOGGER.info("Total Mentions: %s", total_mentions)
+    try:
+        LOGGER.info(f"Retrieving total number of mentions")
+        [resp, token] = intel_post(token, query, frm=0, scroll=False, result_size=1)
+        total_mentions = resp["total_intel_items"] 
+    except Exception as e:
+        LOGGER.error("Total mentions count retrieval failed")
+        LOGGER.error(e)
+    
+    LOGGER.info(f"Total mentions for {org_id}: {total_mentions}")
+
+    # Catch situation where org has 0 mentions
+    if total_mentions == 0:
+        return pd.DataFrame()
 
     # Fetch mentions in segments
     # Recommended segment is 50. The maximum is 400.
+    token = cybersix_token()
     i = 0
     segment_size = 100
     smaller_segment_count = 1
@@ -111,17 +154,12 @@ def mentions(date, aliases, soc_media_included=False):
                     smaller_segment_count = 1
                 if segment_size <= 10:
                     smaller_segment_count += 1
-                # API post
-                resp = intel_post(
+                # Make API call
+                print(f"Working on {org_id} mention chunk {i} - {i+segment_size} of {total_mentions}")
+                [resp, token] = intel_post(
                     token, query, frm=i, scroll=False, result_size=segment_size
                 )
                 i += segment_size
-                LOGGER.info(
-                    "Got %s-%s of %s...",
-                    i - segment_size,
-                    i,
-                    total_mentions,
-                )
                 intel_items = resp["intel_items"]
                 df_mentions = pd.DataFrame.from_dict(intel_items)
                 all_mentions.append(df_mentions)
@@ -143,81 +181,28 @@ def mentions(date, aliases, soc_media_included=False):
                         smaller_segment_count = 1
                     else:
                         segment_size = 10
-                    LOGGER.error(
+                    LOGGER.warning(
                         "Failed 3 times. Switching to a segment size of %s",
                         segment_size,
                     )
                     try_count = 1
                     continue
-                LOGGER.error("Try %s/3 failed.", try_count)
+                LOGGER.warning("Mentions segment retieval failed, try %s/3", try_count)
                 try_count += 1
     return df_all_mentions
 
 
-def alerts(org_id):
-    """Get actionable alerts for an organization."""
-    token = cybersix_token()
-    count = alerts_count(token, org_id)
-    LOGGER.info(count)
-    count_total = count["total"]
-    LOGGER.info("Total Alerts: %s", count_total)
-
-    # Recommended "fetch_size" is 25. The maximum is 400.
-    fetch_size = 25
-    all_alerts = []
-
-    for offset in range(0, count_total, fetch_size):
-        try:
-            resp = alerts_list(token, org_id, fetch_size, offset).json()
-            df_alerts = pd.DataFrame.from_dict(resp)
-            all_alerts.append(df_alerts)
-            df_all_alerts = pd.concat(all_alerts).reset_index(drop=True)
-        except Exception as e:
-            print(e)
-            print("HAD TO CONTINUE THROUGH ALERT CHUNK")
-            continue
-
-    # Fetch the full content of each alert
-    # for i, r in df_all_alerts.iterrows():
-    #     print(r["id"])
-    #     content = alerts_content(org_id, r["id"])
-    #     df_all_alerts.at[i, "content"] = content
-
-    return df_all_alerts
-
-
-def get_alerts_content(organization_id, alert_id, org_assets_dict):
-    """Get alert content snippet."""
-    token = cybersix_token()
-    asset_mentioned = ""
-    snip = ""
-    asset_type = ""
-    content = alerts_content(token, organization_id, alert_id)
-    if content:
-        for asset, type in org_assets_dict.items():
-            if asset in content:
-                index = content.index(asset)
-                snip = content[(index - 100) : (index + len(asset) + 100)]
-                snip = "..." + snip + "..."
-                asset_mentioned = asset
-                asset_type = type
-    return snip, asset_mentioned, asset_type
-
-
-def top_cves(size):
-    """Top 10 CVEs mentioned in the dark web."""
-    resp = dve_top_cves()
-    return pd.DataFrame(resp)
-
-
-def cve_summary(cveid):
-    """Get CVE summary data."""
-    url = f"https://cve.circl.lu/api/cve/{cveid}"
-    return requests.get(url).json()
+def alias_organization(org_id):
+    """List an organization's aliases."""
+    assets = org_assets(org_id)
+    df_assets = pd.DataFrame(assets)
+    aliases = df_assets["organization_aliases"].loc["explicit":].tolist()[0]
+    return aliases
 
 
 def creds(domain, from_date, to_date):
     """Get credentials."""
+    token = cybersix_token()
     skip = 0
     params = {
         "domain": domain,
@@ -226,20 +211,36 @@ def creds(domain, from_date, to_date):
         "max_results": 100,
         "skip": skip,
     }
-    resp = credential_auth(params)
+    # Retrieve cred data
+    [resp, token] = credential_auth(token, params)
     total_hits = resp["total_results"]
     resp = resp["leaks"]
+    # Continue retrieving cred data if there's more
     while total_hits > len(resp):
         skip += 1
         params["skip"] = skip
-        next_resp = credential_auth(params)
+        [next_resp, token] = credential_auth(token, params)
         resp = resp + next_resp["leaks"]
-        print(len(resp))
+    # Format and return data
     resp = pd.DataFrame(resp)
     df = resp.drop_duplicates(
         subset=["email", "breach_name"], keep="first"
     ).reset_index(drop=True)
     return df
+
+
+def root_domains(org_id):
+    """Get root domains."""
+    assets = org_assets(org_id)
+    df_assets = pd.DataFrame(assets)
+    root_domains = df_assets["domain_names"].loc["explicit":].tolist()[0]
+    return root_domains
+
+
+def top_cves(size):
+    """Top 10 CVEs mentioned in the dark web."""
+    resp = dve_top_cves()
+    return pd.DataFrame(resp)
 
 
 def extract_bulk_cve_info(cve_list):
@@ -307,3 +308,9 @@ def extract_bulk_cve_info(cve_list):
             )
         # Return dataframe of relevant CVE/CVSS/DVE info
         return resp_df
+
+
+# def cve_summary(cveid):
+#     """Get CVE summary data."""
+#     url = f"https://cve.circl.lu/api/cve/{cveid}"
+#     return requests.get(url).json()

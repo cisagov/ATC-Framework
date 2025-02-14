@@ -1,5 +1,6 @@
 """DNSMonitor API calls and DNS lookups."""
 # Standard Python Libraries
+import os
 import socket
 
 # Third-Party Libraries
@@ -10,8 +11,10 @@ import requests
 
 def get_monitored_domains(token):
     """Get the domains being monitored."""
+    dir_path = os.path.dirname(os.path.realpath(__file__)) 
     org_names_df = pd.read_csv(
-        "/var/www/pe-reports/src/pe_source/data/dnsmonitor/root_domains_dnsmonitor.csv"
+        # "/var/www/pe-reports/src/pe_source/data/dnsmonitor/root_domains_dnsmonitor.csv"
+        dir_path + "/root_domains_dnsmonitor.csv"
     )
     url = "https://dns.argosecure.com/dhs/api/GetDomains"
     payload = {}
@@ -61,7 +64,6 @@ def get_dns_records(dom_perm):
             mx_list.append(str(data.exchange))
     except Exception:
         mx_list = []
-
     # A
     try:
         ip_address = str(socket.gethostbyname(dom_perm))

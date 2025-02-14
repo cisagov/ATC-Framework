@@ -6,7 +6,6 @@ import logging
 import time
 
 # Third-Party Libraries
-import pandas as pd
 import requests
 import shodan
 
@@ -15,7 +14,7 @@ from pe_source.data.pe_db.db_query_source import (  # get_ips_dhs,; get_ips_hhs,
     get_data_source_uid,
     get_ips,
     insert_shodan_assets,
-    insert_shodan_vulns
+    insert_shodan_vulns,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -24,11 +23,15 @@ LOGGER = logging.getLogger(__name__)
 def run_shodan_thread(api, org_chunk, thread_name):
     """Run a Shodan thread."""
     failed = []
-    for org in org_chunk:
+    warnings = []
+    # Iterate over each org in the list
+    for org_idx, org in enumerate(org_chunk):
         org_name = org["cyhy_db_name"]
         org_uid = org["organizations_uid"]
-        LOGGER.info("{} Running IPs for {}".format(thread_name, org_name))
+        LOGGER.info(f"{thread_name} Running Shodan on {org_name} ({org_idx+1} of {len(org_chunk)})")
+        print(f"{thread_name} Running Shodan on {org_name} ({org_idx+1} of {len(org_chunk)})")
         start, end = get_dates()
+        # Retrieve IPs for this org
         try:
             ips = get_ips(org_uid)
         except Exception as e:
@@ -36,16 +39,19 @@ def run_shodan_thread(api, org_chunk, thread_name):
             LOGGER.error("{} {} - {}".format(thread_name, e, org_name))
             failed.append("{} fetching IPs".format(org_name))
             continue
-
+        # If no IPs, skip this org
         if len(ips) == 0:
-            LOGGER.error("{} No IPs for {}.".format(thread_name, org_name))
-            failed.append("{} has 0 IPs".format(org_name))
+            LOGGER.warning("{} No IPs for {}.".format(thread_name, org_name))
+            warnings.append("{} has 0 IPs".format(org_name))
             continue
-
+        # Otherwise run shodan search on the IPs
         failed = search_shodan(
             thread_name, ips, api, start, end, org_uid, org_name, failed
         )
-
+    # Log all warning for this thread
+    if len(warnings) > 0:
+        LOGGER.warning(f"{thread_name} Warnings: {warnings}")
+    # Log all failures for this thread
     if len(failed) > 0:
         LOGGER.critical("{} Failures: {}".format(thread_name, failed))
 
@@ -80,11 +86,6 @@ def search_circl(cve):
 
 def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
     """Search IPs in the Shodan API."""
-    # Initialize lists to store Shodan results
-    # data = []
-    # risk_data = []
-    # vuln_data = []
-
     # Build dictionaries for naming conventions and definitions
     risky_ports, name_dict, risk_dict, av_dict, ac_dict, ci_dict = get_shodan_dicts()
 
@@ -98,17 +99,18 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
         )
     )
 
-    source_uid = get_data_source_uid("Shodan")
     # Loop through chunks and query Shodan
+    source_uid = get_data_source_uid("Shodan")
     for i, ip_chunk in enumerate(ip_chunks):
         count = i + 1
         try_count = 1
         while try_count < 7:
             try:
-                results = api.host(ip_chunk)
+                # Initialize lists to store Shodan results
                 data = []
                 risk_data = []
                 vuln_data = []
+                results = api.host(ip_chunk)
                 for r in results:
                     for d in r["data"]:
                         # Convert Shodan date string to UTC datetime
@@ -168,7 +170,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                             "cpe": d.get("cpe", None),
                                             "banner": d.get("data", None),
                                             "version": d.get("version", None),
-                                            "data_source_uid": source_uid
+                                            "data_source_uid": source_uid,
                                         }
                                     )
                             elif d["_shodan"]["module"] in risky_ports:
@@ -213,7 +215,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                         "cpe": d.get("cpe", None),
                                         "banner": d.get("data", None),
                                         "version": d.get("version", None),
-                                        "data_source_uid": source_uid
+                                        "data_source_uid": source_uid,
                                     }
                                 )
 
@@ -238,9 +240,14 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                 }
                             )
                 all_vulns = vuln_data + risk_data
-                # Grab the data source uid and add to each dataframe
-                failed.append(insert_shodan_assets(data, failed))
-                failed.append(insert_shodan_vulns(all_vulns, failed))
+
+                # *** USITC PE inbox request 11/20/2024 to omit port80/http (Akamai) findings
+                if org_uid == '7d2dbd06-f247-11ec-bb6e-02c6a3fe975b':
+                    all_vulns = [d for d in all_vulns if (d.get("port") != 80 and d.get("http") != "http")]
+
+                # Insert shodan assets/vulns for this ip chunk
+                failed = insert_shodan_assets(data, failed)
+                failed = insert_shodan_vulns(all_vulns, failed)
                 time.sleep(1)
                 break
             except shodan.APIError as e:
@@ -272,13 +279,8 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                 )
                 failed.append("{} chunk {} failed and skipped".format(org_name, count))
                 break
-            
-        LOGGER.info("{} {}/{} complete - {}".format(thread_name, count, tot, org_name))
 
-    # all_vulns = vuln_data + risk_data
-    # # Grab the data source uid and add to each dataframe
-    # failed = insert_shodan_assets(data, failed)
-    # failed = insert_shodan_vulns(all_vulns, failed)
+        LOGGER.info("{} chunk {}/{} complete - {}".format(thread_name, count, tot, org_name))
 
     return failed
 

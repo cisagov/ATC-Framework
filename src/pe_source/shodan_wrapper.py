@@ -22,10 +22,8 @@ class Get_shodan:
         """Run Shodan calls."""
         orgs_list = self.orgs_list
 
-        # Get orgs from PE database
+        # Retrieve full org info from PE database
         pe_orgs = get_orgs()
-
-        # Filter orgs if specified
         pe_orgs_final = []
         if orgs_list == "all":
             for pe_org in pe_orgs:
@@ -45,6 +43,8 @@ class Get_shodan:
                     pe_orgs_final.append(pe_org)
                 else:
                     continue
+        # alphabetize orgs for consistent order
+        pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
 
         # Get list of initialized API objects
         api_list = shodan_api_init()
@@ -53,10 +53,11 @@ class Get_shodan:
         chunk_size = len(api_list)
         chunked_orgs_list = numpy.array_split(numpy.array(pe_orgs_final), chunk_size)
 
+        # Start each thread
         i = 0
         thread_list = []
         while i < len(chunked_orgs_list):
-            thread_name = f"Thread {i+1}:"
+            thread_name = f"Thread {i + 1}:"
             # Start thread
             t = threading.Thread(
                 target=run_shodan_thread,

@@ -463,7 +463,7 @@ def insert_shodan_assets(asset_data, failed):
         # Call endpoint
         result = requests.put(endpoint_url, headers=headers, data=data).json()
         # Process data and return
-        LOGGER.info(result)
+        LOGGER.info(result.get("message"))
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
         failed.append("Failed inserting shodan assets: {}".format(errh))
