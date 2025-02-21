@@ -103,19 +103,14 @@ def get_orgs():
                 row["state_fips"] = Decimal(row.get("state_fips"))
         return result
     except requests.exceptions.HTTPError as errh:
-        LOGGER.error("Except condition (HTTPError) reached for get_orgs()")
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
-        LOGGER.error("Except condition (ConnectionError) reached for get_orgs()")
         LOGGER.error(errc)
     except requests.exceptions.Timeout as errt:
-        LOGGER.error("Except condition (Timeout) reached for get_orgs()")
         LOGGER.error(errt)
     except requests.exceptions.RequestException as err:
-        LOGGER.error("Except condition (RequestException) reached for get_orgs()")
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
-        LOGGER.error("Except condition (JSONDecodeError) reached for get_orgs()")
         LOGGER.error(err)
 
 
@@ -377,19 +372,14 @@ def get_data_source_uid(source):
         tup_result = [tuple(row.values()) for row in result]
         return tup_result[0][0]
     except requests.exceptions.HTTPError as errh:
-        LOGGER.error("Except condition (HTTPError) reached for get_data_source_uid()")
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
-        LOGGER.error("Except condition (ConnectionError) reached for get_data_source_uid()")
         LOGGER.error(errc)
     except requests.exceptions.Timeout as errt:
-        LOGGER.error("Except condition (Timeout) reached for get_data_source_uid()")
         LOGGER.error(errt)
     except requests.exceptions.RequestException as err:
-        LOGGER.error("Except condition (RequestException) reached for get_data_source_uid()")
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
-        LOGGER.error("Except condition (JSONDecodeError) reached for get_data_source_uid()")
         LOGGER.error(err)
 
 
@@ -586,22 +576,17 @@ def org_root_domains(org_uid):
         result_dict_list = result_df.to_dict("records")
         return result_dict_list
     except requests.exceptions.HTTPError as errh:
-        LOGGER.error("Except condition (HTTPError) reached for org_root_domains()")
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
-        LOGGER.error("Except condition (ConnectionError) reached for org_root_domains()")
         LOGGER.error(errc)
     except requests.exceptions.Timeout as errt:
-        LOGGER.error("Except condition (Timeout) reached for org_root_domains()")
         LOGGER.error(errt)
     except requests.exceptions.RequestException as err:
-        LOGGER.error("Except condition (RequestException) reached for org_root_domains()")
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
-        LOGGER.error("Except condition (JSONDecodeError) reached for org_root_domains()")
         LOGGER.error(err)
 
-def get_root_domains_api(org_uid):
+def get_root_domains(org_uid):
     """
     Query API to get the root domains for the specified org uid.
 
@@ -635,7 +620,7 @@ def get_root_domains_api(org_uid):
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
 
-def get_root_domains(conn, org_uid):
+def get_root_domains_tsql(conn, org_uid):
     """Get root domains from database given the org_uid."""
     sql = """
         select * from root_domains rd
@@ -1198,19 +1183,14 @@ def execute_dnstwist_data(df):
         result = requests.put(endpoint_url, headers=headers, data=data)
         return result.json()
     except requests.exceptions.HTTPError as errh:
-        LOGGER.error("Except condition (HTTPError) reached for execute_dnstwist_data()")
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
-        LOGGER.error("Except condition (ConnectionError) reached for execute_dnstwist_data()")
         LOGGER.error(errc)
     except requests.exceptions.Timeout as errt:
-        LOGGER.error("Except condition (Timeout) reached for execute_dnstwist_data()")
         LOGGER.error(errt)
     except requests.exceptions.RequestException as err:
-        LOGGER.error("Except condition (RequestException) reached for execute_dnstwist_data()")
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
-        LOGGER.error("Except condition (JSONDecodeError) reached for execute_dnstwist_data()")
         LOGGER.error(err)
 
 
@@ -1324,19 +1304,14 @@ def addSubdomain(domain, pe_org_uid, root):
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
-        LOGGER.error("Except condition (HTTPError) reached for addSubdomain()")
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
-        LOGGER.error("Except condition (ConnectionError) reached for addSubdomain()")
         LOGGER.error(errc)
     except requests.exceptions.Timeout as errt:
-        LOGGER.error("Except condition (Timeout) reached for addSubdomain()")
         LOGGER.error(errt)
     except requests.exceptions.RequestException as err:
-        LOGGER.error("Except condition (RequestException) reached for addSubdomain()")
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
-        LOGGER.error("Except condition (JSONDecodeError) reached for addSubdomain()")
         LOGGER.error(err)
 
 

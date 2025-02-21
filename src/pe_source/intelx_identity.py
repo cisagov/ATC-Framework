@@ -14,7 +14,7 @@ from .data.pe_db.config import get_params
 from .data.pe_db.db_query_source import (
     get_data_source_uid,
     get_orgs,
-    get_root_domains_api,
+    get_root_domains,
     insert_intelx_breaches,
     insert_intelx_credentials,
 )
@@ -100,7 +100,7 @@ class IntelX:
         # Get the org root domains
         LOGGER.info(f"Retrieving root domains for {cyhy_org_id}")
         try:
-            roots_df = get_root_domains_api(pe_org_uid) # api ver.
+            roots_df = get_root_domains(pe_org_uid) # api ver.
             # conn = connect()
             # roots_df = get_root_domains(conn, pe_org_uid) # tsql ver. 
         except Exception as e:
