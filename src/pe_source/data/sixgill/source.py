@@ -20,6 +20,7 @@ from .api import (
     dve_top_cves,
     get_bulk_cve_resp,
     intel_post,
+    intel_post_next,
     org_assets,
 )
 
@@ -97,16 +98,15 @@ def get_alerts_content(organization_id, alert_id, org_assets_dict):
     return snip, asset_mentioned, asset_type
 
 
-def mentions(org_id, date, aliases, soc_media_included=False):
+def mentions(org_abbrv, date, aliases, soc_media_included=False):
     """Pull dark web mentions data for an organization."""
-    token = cybersix_token()
-    # Build the query using the org's aliases
-    mentions = ""
-    for mention in aliases:
-        mentions += '"' + mention + '"' + ","
-    mentions = mentions[:-1]
+    # Build query using the org's aliases
+    alias_str = ""
+    for alias in aliases:
+        alias_str += '"' + alias + '",'
+    alias_str = alias_str[:-1]
     if soc_media_included:
-        query = "date:" + date + " AND " + "(" + str(mentions) + ")"
+        query = "date:" + date + " AND " + "(" + str(alias_str) + ")"
     else:
         query = (
             "date:"
@@ -119,76 +119,47 @@ def mentions(org_id, date, aliases, soc_media_included=False):
                 linkedin, Linkedin, discord, forum_discord, raddle, telegram,
                 jabber, ICQ, icq, mastodon)"""
         )
-
-    # Get the total number of mentions
+    # Make initial API call and get the total number of mentions
+    token = cybersix_token()
+    all_mentions = []
     try:
-        LOGGER.info(f"Retrieving total number of mentions")
-        [resp, token] = intel_post(token, query, frm=0, scroll=False, result_size=1)
-        total_mentions = resp["total_intel_items"] 
+        LOGGER.info(f"Retrieving total number of mentions for {org_abbrv}")
+        [resp, token] = intel_post(token, query, frm=0, scroll=True, result_size=100)
+        total_mentions = resp["total_intel_items"]
+        scroll_id = resp["scroll_id"]
     except Exception as e:
-        LOGGER.error("Total mentions count retrieval failed")
+        LOGGER.error(f"Total mentions count retrieval failed for {org_abbrv}")
         LOGGER.error(e)
-    
-    LOGGER.info(f"Total mentions for {org_id}: {total_mentions}")
-
-    # Catch situation where org has 0 mentions
+    LOGGER.info(f"Total mentions for {org_abbrv}: {total_mentions}")
+    # Catch scenario where org has 0 mentions
     if total_mentions == 0:
         return pd.DataFrame()
-
-    # Fetch mentions in segments
-    # Recommended segment is 50. The maximum is 400.
+    else:
+        all_mentions += resp["intel_items"]
+    # Fetch all remaining mentions
     token = cybersix_token()
-    i = 0
-    segment_size = 100
-    smaller_segment_count = 1
-    all_mentions = []
-    while i < total_mentions:
-        # Try to get a mentions segment 3 times
-        try_count = 1
-        while try_count < 4:
-            try:
-                # If segment size was decreased, only use for 10 iterations
-                if smaller_segment_count == 10:
-                    LOGGER.info("Switching back to a segment size of 100.")
-                    segment_size = 100
-                    smaller_segment_count = 1
-                if segment_size <= 10:
-                    smaller_segment_count += 1
-                # Make API call
-                print(f"Working on {org_id} mention chunk {i} - {i+segment_size} of {total_mentions}")
-                [resp, token] = intel_post(
-                    token, query, frm=i, scroll=False, result_size=segment_size
-                )
-                i += segment_size
-                intel_items = resp["intel_items"]
-                df_mentions = pd.DataFrame.from_dict(intel_items)
-                all_mentions.append(df_mentions)
-                df_all_mentions = pd.concat(all_mentions).reset_index(drop=True)
-                break
-            except Exception:
-                # Sleep for 2 seconds
-                time.sleep(2)
-                # If the API post failed 3 times
-                if try_count == 3:
-                    # If a segment was already decreased to 1, skip the mention
-                    if segment_size == 1:
-                        LOGGER.critical("Failed 3 times fetching 1 post. Skipping it.")
-                        i += segment_size
-                        break
-                    # Decrease the segment to 10, then if still failing, to 1
-                    if segment_size == 10:
-                        segment_size = 1
-                        smaller_segment_count = 1
-                    else:
-                        segment_size = 10
-                    LOGGER.warning(
-                        "Failed 3 times. Switching to a segment size of %s",
-                        segment_size,
-                    )
-                    try_count = 1
-                    continue
-                LOGGER.warning("Mentions segment retieval failed, try %s/3", try_count)
-                try_count += 1
+    more_results = True
+    idx = 0
+    # Keep retrieving until no more results
+    while more_results:
+        # Progress logging
+        if len(all_mentions) % 1000 == 0:
+            LOGGER.info(f"Retrieved {len(all_mentions)} of {total_mentions} mentions for {org_abbrv}")
+        print(f"Retrieved {len(all_mentions)} of {total_mentions} mentions for {org_abbrv}")
+        # Make API call
+        [resp, token] = intel_post_next(token, scroll_id)
+        intel_items = resp["intel_items"]
+        if len(intel_items) != 0:
+            # If there are more results, append this chunk
+            all_mentions += intel_items
+            # Update for variables for next iteration
+            scroll_id = resp.get("scroll_id")
+            idx += 1
+        else:
+            # If no more results, stop retrieving
+            more_results = False
+    # When all mentions retrieved, convert to df and return
+    df_all_mentions = pd.DataFrame(all_mentions)
     return df_all_mentions
 
 
@@ -310,7 +281,106 @@ def extract_bulk_cve_info(cve_list):
         return resp_df
 
 
+# --- old, defunct functions: ---
+
 # def cve_summary(cveid):
 #     """Get CVE summary data."""
 #     url = f"https://cve.circl.lu/api/cve/{cveid}"
 #     return requests.get(url).json()
+
+# def mentions_old(org_id, date, aliases, soc_media_included=False):
+#     """Pull dark web mentions data for an organization."""
+#     token = cybersix_token()
+#     # Build the query using the org's aliases
+#     mentions = ""
+#     for mention in aliases:
+#         mentions += '"' + mention + '"' + ","
+#     mentions = mentions[:-1]
+#     if soc_media_included:
+#         query = "date:" + date + " AND " + "(" + str(mentions) + ")"
+#     else:
+#         query = (
+#             "date:"
+#             + date
+#             + " AND "
+#             + "("
+#             + str(mentions)
+#             + """)
+#                 NOT site:(twitter, Twitter, reddit, Reddit, Parler, parler,
+#                 linkedin, Linkedin, discord, forum_discord, raddle, telegram,
+#                 jabber, ICQ, icq, mastodon)"""
+#         )
+
+#     # Get the total number of mentions
+#     try:
+#         LOGGER.info(f"Retrieving total number of mentions")
+#         [resp, token] = intel_post(token, query, frm=0, scroll=False, result_size=1)
+#         total_mentions = resp["total_intel_items"] 
+#     except Exception as e:
+#         LOGGER.error("Total mentions count retrieval failed")
+#         LOGGER.error(e)
+    
+#     LOGGER.info(f"Total mentions for {org_id}: {total_mentions}")
+
+#     # Catch situation where org has 0 mentions
+#     if total_mentions == 0:
+#         return pd.DataFrame()
+
+#     # Fetch mentions in segments
+#     # Recommended segment is 50. The maximum is 400.
+#     token = cybersix_token()
+#     i = 0
+#     segment_size = 100
+#     smaller_segment_count = 1
+#     all_mentions = []
+#     while i < total_mentions:
+#         # Using the "from" field results in code 400 error when it reaches 10,000
+#         if i >= 10000:
+#             break
+#         # Try to get a mentions segment 3 times
+#         try_count = 1
+#         while try_count < 4:
+#             try:
+#                 # If segment size was decreased, only use for 10 iterations
+#                 if smaller_segment_count == 10:
+#                     LOGGER.info("Switching back to a segment size of 100.")
+#                     segment_size = 100
+#                     smaller_segment_count = 1
+#                 if segment_size <= 10:
+#                     smaller_segment_count += 1
+#                 # Make API call
+#                 print(f"Working on {org_id} mention chunk {i} - {i+segment_size} of {total_mentions}")
+#                 [resp, token] = intel_post(
+#                     token, query, frm=i, scroll=False, result_size=segment_size
+#                 )
+#                 i += segment_size
+#                 intel_items = resp["intel_items"]
+#                 df_mentions = pd.DataFrame.from_dict(intel_items)
+#                 all_mentions.append(df_mentions)
+#                 df_all_mentions = pd.concat(all_mentions).reset_index(drop=True)
+#                 break
+#             except Exception:
+#                 # Sleep for 2 seconds
+#                 time.sleep(2)
+#                 # If the API post failed 3 times
+#                 if try_count == 3:
+#                     # If a segment was already decreased to 1, skip the mention
+#                     if segment_size == 1:
+#                         LOGGER.critical("Failed 3 times fetching 1 post. Skipping it.")
+#                         i += segment_size
+#                         break
+#                     # Decrease the segment to 10, then if still failing, to 1
+#                     if segment_size == 10:
+#                         segment_size = 1
+#                         smaller_segment_count = 1
+#                     else:
+#                         segment_size = 10
+#                     LOGGER.warning(
+#                         "Failed 3 times. Switching to a segment size of %s",
+#                         segment_size,
+#                     )
+#                     try_count = 1
+#                     continue
+#                 LOGGER.warning("Mentions segment retieval failed, try %s/3", try_count)
+#                 try_count += 1
+#     return df_all_mentions

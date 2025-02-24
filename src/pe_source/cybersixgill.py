@@ -321,7 +321,7 @@ class Cybersixgill:
             LOGGER.error(traceback.format_exc())
             return 1
 
-        # Catch no mentions found situation:
+        # Catch no mentions found scenario
         if mentions_df.empty:
             LOGGER.info(f"No mention data found for {org_id}, moving on")
             return 0

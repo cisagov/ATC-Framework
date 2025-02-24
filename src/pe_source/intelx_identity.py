@@ -103,6 +103,12 @@ class IntelX:
             LOGGER.error("Failed fetching root domains for %s", cyhy_org_id)
             LOGGER.error(e)
             return 1
+
+        # Catch situation where org has no eligble root domains
+        if roots_df.empty:
+            LOGGER.warning(f"{cyhy_org_id} does not have any eligible root domains for IntelX")
+            return 1
+
         # Retrieve credential leaks from IntelX
         LOGGER.info(f"Retrieving IntelX findings for {cyhy_org_id}")
         leaks_json = self.find_credential_leaks(

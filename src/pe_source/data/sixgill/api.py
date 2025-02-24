@@ -136,7 +136,6 @@ def intel_post(auth, query, frm, scroll, result_size):
         "safe_content_size": True,
     }
     resp = requests.post(url, headers=headers, json=payload)
-
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
@@ -147,6 +146,36 @@ def intel_post(auth, query, frm, scroll, result_size):
             auth = cybersix_token()
         endpoint_name = url.split('/')[-1]
         LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        time.sleep(time_delay)
+        resp = requests.post(url, headers=headers, json=payload)
+        retry_count += 1
+    # Return result
+    resp = resp.json()
+    return [resp, auth]
+
+
+def intel_post_next(auth, scroll_id):
+    """Get intel_items based on specified scroll_id."""
+    url =  "https://api.cybersixgill.com/intel/intel_items/next"
+    headers = {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        "Authorization": "Bearer " + auth,
+    }
+    payload = {
+        "scroll_id": scroll_id,
+        "recent_items": False,
+    }
+    resp = requests.post(url, headers=headers, json=payload)
+    # Retry clause in case Cybersixgill's API falters
+    retry_count, max_retries, time_delay = 0, 10, 5
+    while resp.status_code != 200 and retry_count < max_retries:
+        if resp.status_code == 401:
+            # Catch 401 token expired code 
+            LOGGER.warning("Refreshing Cybersixgill API auth token due to 401 error code...")
+            # Tokens expire after 30m, refresh
+            auth = cybersix_token()
+        LOGGER.warning(f"Retrying Cybersixgill /intel_items/next endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         resp = requests.post(url, headers=headers, json=payload)
         retry_count += 1
