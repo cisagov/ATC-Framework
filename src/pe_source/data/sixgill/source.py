@@ -113,7 +113,7 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
             + date
             + " AND "
             + "("
-            + str(mentions)
+            + str(alias_str)
             + """)
                 NOT site:(twitter, Twitter, reddit, Reddit, Parler, parler,
                 linkedin, Linkedin, discord, forum_discord, raddle, telegram,
