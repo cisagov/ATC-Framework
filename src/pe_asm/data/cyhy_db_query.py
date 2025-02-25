@@ -761,44 +761,49 @@ def get_fceb_orgs(conn):
 
 
 # --- SQS ASM Sync Functions ---
-def sqs_query_org(staging, cyhy_db_name):
-    """Query additional info for the specified organization."""
+def sqs_query_orgs(staging, cyhy_db_names):
+    """Query additional info for the specified organizations."""
     # Connect to database
     if staging:
         conn = pe_db_staging_connect()
     else:
         conn = pe_db_connect()
-    LOGGER.info(f"Retrieving additional info for org: {cyhy_db_name}")
+    LOGGER.info(f"Retrieving additional info for org(s): {cyhy_db_names}")
+    org_list = "('" + "', '".join(cyhy_db_names) + "')"
     sql = f"""
         SELECT 
             organizations_uid, cyhy_db_name, name, agency_type
         FROM 
             organizations o
         WHERE 
-            cyhy_db_name = '{cyhy_db_name}'
+            cyhy_db_name IN {org_list}
+        ORDER BY
+            cyhy_db_name ASC
     """
     df = pd.read_sql(sql, conn)
     conn.close()
     return df
 
-def sqs_identify_cidr_changes(staging, org_id):
-    """Identify CIDR changes, single organization."""
+
+def sqs_identify_cidr_changes(staging, org_ids):
+    """Identify CIDR changes, specific organizations."""
     # Connect to database
     if staging:
         conn = pe_db_staging_connect()
     else:
         conn = pe_db_connect()
     # Execute queries
+    uids_list = "('" + "', '".join(org_ids) + "')"
     cursor = conn.cursor()
     LOGGER.info("Marking CIDRs as current if seen within the last 3 days")
     cursor.execute(
         f"""
         UPDATE cidrs
-        SET current = True
-        WHERE 
+        set current = True
+        where 
             last_seen > (CURRENT_DATE - INTERVAL '3 days')
             AND
-            organizations_uid = '{org_id}'
+            organizations_uid IN {uids_list}
         """
     )
     conn.commit()
@@ -806,11 +811,11 @@ def sqs_identify_cidr_changes(staging, org_id):
     cursor.execute(
         f"""
         UPDATE cidrs
-        SET current = False
-        WHERE
+        set current = False
+        where
             last_seen < (CURRENT_DATE - INTERVAL '3 days')
             AND
-            organizations_uid = '{org_id}'
+            organizations_uid IN {uids_list}
         """
     )
     conn.commit()
@@ -818,9 +823,11 @@ def sqs_identify_cidr_changes(staging, org_id):
     # Close database connection
     conn.close()
 
-def sqs_query_roots(conn, org_id):
-    """Query root_domains, single organization."""
-    LOGGER.info("Retrieving root domains for this organization")
+
+def sqs_query_roots(conn, org_ids):
+    """Query root_domains, specific organizations."""
+    LOGGER.info("Retrieving root domains for organizations")
+    uids_list = "('" + "', '".join(org_ids) + "')"
     sql = f"""
         SELECT
             r.root_domain_uid,
@@ -831,32 +838,34 @@ def sqs_query_roots(conn, org_id):
             organizations o
             ON r.organizations_uid = o.organizations_uid
         WHERE
-            o.organizations_uid = '{org_id}'
+            o.organizations_uid IN {uids_list}
             AND
             r.enumerate_subs = True
-        """ 
+        """
     # *** enumerate_subs = True is important!
     df = pd.read_sql(sql, conn)
     return df
 
-def sqs_identify_ip_changes(staging, org_id):
-    """Identify IP changes, single organization."""
+
+def sqs_identify_ip_changes(staging, org_ids):
+    """Identify IP changes, specific organizations."""
     # Connect to database
     if staging:
         conn = pe_db_staging_connect()
     else:
         conn = pe_db_connect()
     # Execute queries
+    uids_list = "('" + "', '".join(org_ids) + "')"
     cursor = conn.cursor()
     LOGGER.info("Marking IPs as current if seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE ips
-        SET current = True
-        WHERE 
+        set current = True
+        where 
             last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
-            organizations_uid = '{org_id}'
+            organizations_uid IN {uids_list}
         """
     )
     conn.commit()
@@ -864,11 +873,11 @@ def sqs_identify_ip_changes(staging, org_id):
     cursor.execute(
         f"""
         UPDATE ips
-        SET current = False
-        WHERE 
+        set current = False
+        where 
             (last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull)
             AND
-            organizations_uid = '{org_id}'
+            organizations_uid IN {uids_list}
         """
     )
     conn.commit()
@@ -876,14 +885,16 @@ def sqs_identify_ip_changes(staging, org_id):
     # Close database connection
     conn.close()
 
-def sqs_identify_sub_changes(staging, org_id):
-    """Identify IP changes, single organization."""
+
+def sqs_identify_sub_changes(staging, org_ids):
+    """Identify IP changes, specific organizations."""
     # Connect to database
     if staging:
         conn = pe_db_staging_connect()
     else:
         conn = pe_db_connect()
     # Execute queries
+    uids_list = "('" + "', '".join(org_ids) + "')"
     cursor = conn.cursor()
     LOGGER.info("Marking subdomains as current if seen within the last 15 days")
     cursor.execute(
@@ -899,7 +910,7 @@ def sqs_identify_sub_changes(staging, org_id):
             AND
             last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
-            organizations_uid = '{org_id}'
+            organizations_uid IN {uids_list}
         """
     )
     conn.commit()
@@ -917,7 +928,7 @@ def sqs_identify_sub_changes(staging, org_id):
             AND
             (last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull)
             AND
-            organizations_uid = '{org_id}'
+            organizations_uid IN {uids_list}
         """
     )
     conn.commit()
@@ -925,14 +936,16 @@ def sqs_identify_sub_changes(staging, org_id):
     # Close database connection
     conn.close()
 
-def sqs_identify_ip_sub_changes(staging, org_id):
-    """Identify IP/Subs changes, single organization."""
+
+def sqs_identify_ip_sub_changes(staging, org_ids):
+    """Identify IP/Subs changes, specific organizations."""
     # Connect to database
     if staging:
         conn = pe_db_staging_connect()
     else:
         conn = pe_db_connect()
     # Execute queries
+    uids_list = "('" + "', '".join(org_ids) + "')"
     cursor = conn.cursor()
     LOGGER.info("Marking IPs-subs as current if seen within the last 15 days")
     cursor.execute(
@@ -948,7 +961,7 @@ def sqs_identify_ip_sub_changes(staging, org_id):
             AND
             ips_subs.last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
-            ips.organizations_uid = '{org_id}'
+            ips.organizations_uid IN {uids_list}
         """
     )
     conn.commit()
@@ -966,7 +979,7 @@ def sqs_identify_ip_sub_changes(staging, org_id):
             AND
             (ips_subs.last_seen < (CURRENT_DATE - INTERVAL '15 days') or ips_subs.last_seen isnull)
             AND
-            ips.organizations_uid = '{org_id}'
+            ips.organizations_uid IN {uids_list}
         """
     )
     conn.commit()
@@ -974,14 +987,16 @@ def sqs_identify_ip_sub_changes(staging, org_id):
     # Close database connection
     conn.close()
 
-def sqs_identified_sub_domains(staging, org_id):
-    """Set sub-domains to identified, single organization."""
+
+def sqs_identified_sub_domains(staging, org_ids):
+    """Set sub-domains to identified, specific organizations."""
     # Connect to database
     if staging:
         conn = pe_db_staging_connect()
     else:
         conn = pe_db_connect()
     # If the sub's root-domain has enumerate=False, then "identified" is True
+    uids_list = "('" + "', '".join(org_ids) + "')"
     cursor = conn.cursor()
     LOGGER.info("Marking identified subdomains")
     cursor.execute(
@@ -997,7 +1012,7 @@ def sqs_identified_sub_domains(staging, org_id):
             AND
             rd.enumerate_subs = false
             AND
-            rd.organizations_uid = '{org_id}'
+            rd.organizations_uid IN {uids_list}
         """
     )
     conn.commit()

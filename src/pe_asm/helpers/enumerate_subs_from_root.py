@@ -87,11 +87,11 @@ def get_subdomains(staging=False, orgs_df=None):
 
     # Get root domains
     if not isinstance(orgs_df, pd.DataFrame):
-        # If no org specified, get all of them
+        # If no orgs specified, get all roots
         roots_df = query_roots(conn)
     else:
-        # If org specified, only get roots for that org
-        roots_df = sqs_query_roots(conn, orgs_df["organizations_uid"][0])
+        # If orgs specified, only get roots for those orgs
+        roots_df = sqs_query_roots(conn, list(orgs_df["organizations_uid"]))
 
     total_roots = len(roots_df.index)
     LOGGER.info("Found %d root domains.", total_roots)
