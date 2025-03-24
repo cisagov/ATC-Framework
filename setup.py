@@ -133,7 +133,7 @@ setup(
         "flask_wtf == 1.2.1",
         "Flask-SQLAlchemy == 3.1.1",
         "glob2 == 0.7",
-        "googletrans == 4.0.2",
+        "googletrans < 4",
         "h11==0.14.0",
         "httpcore==0.17.3",
         "httpx==0.24.1",
