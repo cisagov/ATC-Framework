@@ -168,7 +168,7 @@ setup(
         "shodan == 1.27.0",
         "spacy == 3.7.2",
         "sshtunnel == 0.4.0",
-        "sslyze==6.0.0",
+        "sslyze==6.1.0",
         "sublist3r ==  1.0",
         "types-PyYAML == 6.0.4",
         "urllib3 == 1.26",
