@@ -45,7 +45,7 @@ from .dnsmonitor import DNSMonitor
 from .dnstwistscript import run_dnstwist
 from .hibp import Hibp
 from .intelx_identity import IntelX
-from .pshtt_wrapper import launch_pe_pshtt
+# from .pshtt_wrapper import launch_pe_pshtt
 from .shodan_wrapper import Get_shodan
 from .was_findings_sync import run_was_findings_sync
 from .was_report_pull import run_was_report_pull
@@ -121,7 +121,8 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
         intelx = IntelX(orgs_list)
         intelx.run_intelx()
     elif source == "pshtt":
-        launch_pe_pshtt()
+        # launch_pe_pshtt()
+        LOGGER.error("ERROR: Pshtt has been disabled due to failing tests. Do not reenable until fixed.")
     elif source == "shodan":
         shodan = Get_shodan(orgs_list)
         shodan.run_shodan()
