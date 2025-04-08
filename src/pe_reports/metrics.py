@@ -724,7 +724,12 @@ class Cyber_Six:
             columns={"cve_id": "CVE", "summary_short": "Description", "dynamic_rating": "DVE Rating"}
         )
         top_cve_table["Identified By"] = "Cybersixgill"
+
+        # Convert to float for proper sorting
+        top_cve_table["DVE Rating"] = top_cve_table["DVE Rating"].astype(float) 
         top_cve_table.sort_values(by=["DVE Rating"], ascending=False, inplace=True)
+        top_cve_table["DVE Rating"] = top_cve_table["DVE Rating"].astype(str) 
+        
         # Get all CVEs found in shodan
         shodan_cves = self.all_cves_df
         for cve_index, cve_row in top_cve_table.iterrows():
@@ -760,6 +765,11 @@ class Core_Cyber_Six:
             columns={"cve_id": "CVE", "summary_short": "Description"}
         )
         top_cve_table["Identified By"] = "Cybersixgill"
+
+        # Convert to float for proper sorting
+        top_cve_table["DVE Rating"] = top_cve_table["DVE Rating"].astype(float) 
+        top_cve_table.sort_values(by=["DVE Rating"], ascending=False, inplace=True)
+        top_cve_table["DVE Rating"] = top_cve_table["DVE Rating"].astype(str) 
 
         # Get all CVEs found in shodan
         shodan_cves = self.all_cves_df
