@@ -1,7 +1,7 @@
 """A tool for gathering pe asm data.
 
 Usage:
-    pe-asm-sync METHOD [--log-level=LEVEL] [--staging] [--org=ORG]
+    pe-asm-sync METHOD [--log-level=LEVEL] [--staging] [--orgs=ORGS]
 
 Options:
   -h --help                         Show this message.
@@ -10,9 +10,9 @@ Options:
   -l --log-level=LEVEL              If specified, then the log level will be set to
                                     the specified value.  Valid values are "debug", "info",
                                     "warning", "error", and "critical". [default: info]
-  -o --org=ORG                      The cyhy_db_name of the single organization to collect data for.
+  -o --orgs=ORGS                    The cyhy_db_name(s) of the organizations to collect data for.
                                     This option is only used for the SQS version of the ASM Sync.
-                                    Org name must match the ID in the cyhy-db. E.g. DHS,DHS_ICE,DOC.
+                                    Org names must match the ID in the cyhy-db. E.g. DHS,DHS_ICE,DOC.
                                     [default: all]
   -s --staging                      Run on the staging database. Otherwise will run on a local copy.
 """
@@ -43,7 +43,7 @@ from .data.cyhy_db_query import (
     pe_db_connect,
     pe_db_staging_connect,
     # SQS version imports
-    sqs_query_org,
+    sqs_query_orgs,
     sqs_identify_cidr_changes,
     sqs_identify_ip_changes,
     sqs_identify_sub_changes,
@@ -71,7 +71,7 @@ from .port_scans.run_port_scans import get_cyhy_port_scans
 LOGGER = logging.getLogger(__name__)
 
 
-def run_asm_sync(staging, method, org):
+def run_asm_sync(staging, method, orgs):
     """Collect and sync ASM data."""
     if method == "asm":
         # Non-SQS version of ASM Sync
@@ -148,8 +148,15 @@ def run_asm_sync(staging, method, org):
         LOGGER.info("--- ASM Sync Process Complete ---")
 
     if method == "asm-sqs":
-        # SQS version of the ASM Sync (single org)
-        LOGGER.info(f"--- SQS ASM Sync Process Starting for {org} ---")
+        # SQS version of the ASM Sync (specific orgs)
+        orgs = orgs.split(",")
+        if len(orgs) > 1:
+            orgs.sort()
+            orgs_logging = f"{orgs[0]} - {orgs[-1]}"
+        else:
+            orgs_logging = orgs[0]
+
+        LOGGER.info(f"--- SQS ASM Sync Process Starting for {orgs_logging} ---")
         sqs_asm_start = time.time()
 
         # --- Local Portion of ASM Sync ---
@@ -163,56 +170,56 @@ def run_asm_sync(staging, method, org):
         # Accessor because it does not require connecting to the CyHy environment
 
         # Retrieve additional info for the specified org
-        org_df = sqs_query_org(staging, org)
-        org_uid = org_df["organizations_uid"][0]
+        orgs_df = sqs_query_orgs(staging, orgs)
+        orgs_uids = list(orgs_df["organizations_uid"])
 
         # Fill the cidrs table with new data from the cyhy_db_assets
         LOGGER.info("Filling the CIDRs table using the retrieved CyHy assets...")
-        fill_cidrs(staging, org_df) 
+        fill_cidrs(staging, orgs_df) 
         LOGGER.info("Finished filling the CIDRs table using the retrieved CyHy assets")
 
         # Identify which CIDRs are current
         LOGGER.info("Identifying CIDR changes...")
-        sqs_identify_cidr_changes(staging, org_uid) 
+        sqs_identify_cidr_changes(staging, orgs_uids) 
         LOGGER.info("Finished identifying CIDR changes")
 
         # Enumerate subdomains from roots
         LOGGER.info("Enumerating sub-domains from root domains...")
-        get_subdomains(staging, org_df) 
+        get_subdomains(staging, orgs_df) 
         LOGGER.info("Finished enumerating sub-domains from root domains")
 
         # Enumerate subdomains from IPs
         LOGGER.info("Linking sub-domains and ips using ips...")
-        connect_subs_from_ips(staging, org_df) 
+        connect_subs_from_ips(staging, orgs_df) 
         LOGGER.info("Finished linking sub-domains and ips using ips")
 
         # Enumerate IPs from subdomains
         LOGGER.info("Linking sub-domains and ips using sub-domains...")
-        connect_ips_from_subs(staging, org_df) 
+        connect_ips_from_subs(staging, orgs_df) 
         LOGGER.info("Finished linking sub-domains and ips using sub-domains")
 
         # Identify which IPs, sub-domains, and connections are current
         LOGGER.info("Identify IP changes...")
-        sqs_identify_ip_changes(staging, org_uid) 
+        sqs_identify_ip_changes(staging, orgs_uids) 
         LOGGER.info("Finished identifying IP changes")
         LOGGER.info("Identifying sub-domain changes...")
-        sqs_identify_sub_changes(staging, org_uid) 
+        sqs_identify_sub_changes(staging, orgs_uids) 
         LOGGER.info("Finished identifying sub-domain changes")
         LOGGER.info("Identifying IP sub-domain link changes...")
-        sqs_identify_ip_sub_changes(staging, org_uid) 
+        sqs_identify_ip_sub_changes(staging, orgs_uids) 
         LOGGER.info("Finished identifying IP sub-domain link changes")
         LOGGER.info("Updating identified sub-domains...")
-        sqs_identified_sub_domains(staging, org_uid) 
+        sqs_identified_sub_domains(staging, orgs_uids) 
         LOGGER.info("Finished updating identified sub-domains")
 
         # Run shodan dedupe
         LOGGER.info("Running Shodan dedupe...")
-        dedupe(staging, org_df) 
+        dedupe(staging, orgs_df) 
         LOGGER.info("Finished running Shodan dedupe")
 
         sqs_asm_end = time.time()
-        LOGGER.info(f"SQS ASM Sync execution time for {org}: {str(timedelta(seconds=(sqs_asm_end - sqs_asm_start)))} (H:M:S)")
-        LOGGER.info(f"--- SQS ASM Sync Process Complete for {org} ---")
+        LOGGER.info(f"SQS ASM Sync execution time for {orgs_logging}: {str(timedelta(seconds=(sqs_asm_end - sqs_asm_start)))} (H:M:S)")
+        LOGGER.info(f"--- SQS ASM Sync Process Complete for {orgs_logging} ---")
 
     elif method == "scorecard":
         LOGGER.info("STARTING")
@@ -276,7 +283,7 @@ def main():
         staging = False
 
     # Run ASM Sync
-    run_asm_sync(staging, validated_args["METHOD"], validated_args["--org"])
+    run_asm_sync(staging, validated_args["METHOD"], validated_args["--orgs"])
 
     # Stop logging and clean up
     logging.shutdown()
