@@ -114,6 +114,9 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
             try:
                 results = api.host(ip_chunk)
                 for r in results:
+                    # Catch situation where response is a single string
+                    if isinstance(r, str):
+                        continue
                     for d in r["data"]:
                         # Convert Shodan date string to UTC datetime
                         shodan_datetime = datetime.datetime.strptime(

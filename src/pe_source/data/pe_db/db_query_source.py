@@ -1113,7 +1113,11 @@ def getSubdomain(domain):
         result = requests.post(endpoint_url, headers=headers, data=data).json()
         # Process data and return
         tup_result = [tuple(row.values()) for row in result]
-        return tup_result[0][0]
+        # Catch deleted subdomain error
+        try:
+            return tup_result[0][0]
+        except Exception as e:
+            return -1
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:

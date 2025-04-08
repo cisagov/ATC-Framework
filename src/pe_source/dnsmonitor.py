@@ -105,6 +105,12 @@ class DNSMonitor:
                 # Get subdomain_uid
                 root_domain = alert_row["rootDomain"]
                 sub_domain_uid = getSubdomain(root_domain)
+
+                # Catch deleted subdomain scenario
+                if sub_domain_uid == -1:
+                    LOGGER.warning(f"alert found for {root_domain}, but domain is not in PE DB")
+                    continue
+
                 if not sub_domain_uid:
                     LOGGER.info(
                         "Domain %s isn't in the subdomain table, attempting to add it",

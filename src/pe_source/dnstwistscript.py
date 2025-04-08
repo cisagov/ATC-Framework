@@ -2,6 +2,7 @@
 # Standard Python Libraries
 import contextlib
 import datetime
+from datetime import timedelta
 import json
 import logging
 import pathlib
@@ -23,7 +24,8 @@ from .data.pe_db.db_query_source import (
     org_root_domains,
 )
 
-date = datetime.datetime.now().strftime("%Y-%m-%d")
+# Save findings as the last day of the report period
+date = (datetime.datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 LOGGER = logging.getLogger(__name__)
 
 

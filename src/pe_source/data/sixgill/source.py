@@ -123,6 +123,7 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
     token = cybersix_token()
     all_mentions = []
     try:
+        total_mentions = 0
         LOGGER.info(f"Retrieving total number of mentions for {org_abbrv}")
         [resp, token] = intel_post(token, query, frm=0, scroll=True, result_size=100)
         total_mentions = resp["total_intel_items"]
