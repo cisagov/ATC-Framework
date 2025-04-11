@@ -54,3 +54,4 @@ adhoc_investigations/adhoc_investigation.ini
 adhoc_investigations/input_data
 adhoc_investigations/output_data
 adhoc_investigations/dnsmonitor_monitored_domains.csv
+src/pe_asm/local_step/asm_sync_local.ini
