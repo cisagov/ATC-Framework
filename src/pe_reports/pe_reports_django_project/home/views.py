@@ -52,8 +52,11 @@ from pe_reports.data.db_query import (
     set_org_to_demo,
     set_org_to_report_on,
 )
-from pe_source.data.sixgill.api import setNewCSGOrg
-
+from pe_source.data.sixgill.api import (
+    org_assets,
+    setOrganizationExecs,
+    setNewCSGOrg
+)
 from .forms import (
     GenerateWeeklyStatusReportingForm,
     PeBulkUpload,
@@ -667,11 +670,12 @@ class FetchUserWeeklyStatusesView(View):
 
 def theExecs(URL):
     """Fetch executives from about page."""
+    """Manually cleanup before adding to C6G"""
     # Scrape the page with Beautiful Soup
     nlp = spacy.load("en_core_web_lg")
     page = requests.get(URL).text
     soup = BeautifulSoup(page, "lxml")
-    body = soup.body.text
+    body = soup.body.text if soup is not None and soup.body is not None else ""
     body = body.replace("\n", " ")
     body = body.replace("\t", " ")
     body = body.replace("\r", " ")
@@ -785,6 +789,21 @@ def add_stakeholders(request, orgs_df):
     LOGGER.info(f"Finished {count} orgs.")
     return count
 
+def updateExecNames(orgs_df, exec_names_df):
+    """Add new Executive names to C6G"""
+    """Manually cleanup exec_names list from theExec function"""
+    """orgs_df needs sixgill_id from a C6G table, like alerts"""
+    
+    for i, row in orgs_df.iterrows():
+        org_id = row['organization_uid']
+        c6g_id = str(row['sixgill_id'])
+        org_assets_dict = org_assets(c6g_id)
+        org_exec_names_df = exec_names_df[exec_names_df['organization_uid'] == org_id]
+        org_exec_names_list = org_exec_names_df["exec_name"].values
+
+        if len(org_exec_names_list) > 0:
+            all_exec_names = list(set(org_exec_names_list) | set(org_assets_dict["executives"]["explicit"]))
+            setOrganizationExecs(c6g_id, all_exec_names)
 
 class PeBulkUploadView(TemplateView):
     """CBV route to bulk upload page."""

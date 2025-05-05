@@ -394,6 +394,25 @@ def setOrganizationDetails(org_id, orgAliases, orgDomain, orgIP, orgExecs):
     response = requests.put(url, headers=headers, data=newOrganizationDetails).json()
     LOGGER.info("The response is %s", response)
 
+def setOrganizationExecs(org_id, orgExecs):
+    """Set stakeholder details at newly created.
+
+    stakeholder at CSG portal via API.
+    """
+    newOrganizationDetails = json.dumps(
+        {
+            "executives": {"explicit": orgExecs},
+        }
+    )
+    url = f"https://api.cybersixgill.com/multi-tenant/" f"organization/{org_id}/assets"
+    headers = {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        "Authorization": f"Bearer {cybersix_token()}",
+    }
+    response = requests.put(url, headers=headers, data=newOrganizationDetails).json()
+    LOGGER.info("The response is %s", response)
+
 
 def getUserInfo():
     """Get all organization details from Cybersixgill via API."""
