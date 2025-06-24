@@ -760,9 +760,9 @@ class Core_Cyber_Six:
         """Get top CVEs."""
         top_cves = self.top_cves
         top_cves["summary_short"] = top_cves["summary"].str[:500]
-        top_cve_table = top_cves[["cve_id", "summary_short"]]
+        top_cve_table = top_cves[["cve_id", "summary_short", "dynamic_rating"]]
         top_cve_table = top_cve_table.rename(
-            columns={"cve_id": "CVE", "summary_short": "Description"}
+            columns={"cve_id": "CVE", "summary_short": "Description", "dynamic_rating": "DVE Rating"}
         )
         top_cve_table["Identified By"] = "Cybersixgill"
 

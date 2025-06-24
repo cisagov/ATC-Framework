@@ -1209,12 +1209,8 @@ def core_report_gen(data_dict):
         format_table(
             data_dict["top_cves"],
             table_header,
-            [1.5 * inch, 3.5 * inch, 1.5 * inch],
-            [
-                None,
-                body,
-                None,
-            ],
+            [1.5*inch, 3.5*inch, 0.75*inch, 1.25*inch], # col widths
+            [None, body, None, None], # col styles
         )
     )
     Story.append(point12_spacer)
