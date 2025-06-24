@@ -1708,11 +1708,8 @@ def insert_sixgill_mentions_tsql(df):
         logging.error(e)
 
     # Remove any "[\x00|NULL]" characters
-    df = df.apply(
-        lambda col: col.str.replace(r"[\x00|NULL]", "", regex=True)
-        if col.dtype == object
-        else col
-    )
+    df = df.replace("\x00","")
+
     table = "mentions"
     # Create a list of tuples from the dataframe values
     tuples = [tuple(x) for x in df.to_numpy()]

@@ -38,7 +38,7 @@ def alerts(org_id, sixgill_org_id):
     # - Recommended "fetch_size" is 25. The maximum is 400.
     token = cybersix_token()
     token_refresh_counter = 1
-    fetch_size = 50
+    fetch_size = 10 # 50
     all_alerts = []
     df_all_alerts = pd.DataFrame()
     # Retrieve alert data for each chunk
@@ -106,19 +106,11 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
         alias_str += '"' + alias + '",'
     alias_str = alias_str[:-1]
     if soc_media_included:
-        query = "date:" + date + " AND " + "(" + str(alias_str) + ")"
+        query = f"date:{date} AND (content:({str(alias_str)}) OR title:({str(alias_str)})) AND NOT tags:(Code_script, Credit_card, Cryptocurrency) AND NOT site:(paste_pastebin)"
     else:
-        query = (
-            "date:"
-            + date
-            + " AND "
-            + "("
-            + str(alias_str)
-            + """)
-                NOT site:(twitter, Twitter, reddit, Reddit, Parler, parler,
-                linkedin, Linkedin, discord, forum_discord, raddle, telegram,
-                jabber, ICQ, icq, mastodon)"""
-        )
+        query = f"date:{date} AND (content:({str(alias_str)}) OR title:({str(alias_str)})) AND NOT tags:(Code_script, Credit_card, Cryptocurrency) AND NOT site:(paste_pastebin, twitter, Twitter, reddit, Reddit, Parler, parler, linkedin, Linkedin, discord, forum_discord, raddle, telegram, jabber, ICQ, icq, mastodon)"
+
+    
     # Make initial API call and get the total number of mentions
     token = cybersix_token()
     all_mentions = []
@@ -161,6 +153,13 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
             more_results = False
     # When all mentions retrieved, convert to df and return
     df_all_mentions = pd.DataFrame(all_mentions)
+    # Remove mention records where content field is blank
+    df_all_mentions = df_all_mentions.loc[~df_all_mentions["content"].isnull()]
+    # Add keyword highlights in title and content columns
+    aliases = sorted(aliases, key=len)
+    for alias in aliases:
+        df_all_mentions[["title", "content"]] = df_all_mentions[["title", "content"]].replace(f"(?i){alias}", f"@@mention_start@@{alias}@@mention_end@@", regex=True)
+    
     return df_all_mentions
 
 
