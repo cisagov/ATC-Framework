@@ -19,7 +19,11 @@ Options:
 
 # Standard Python Libraries
 from datetime import timedelta
+import datetime
 import logging
+import openpyxl
+from openpyxl import load_workbook
+import os
 import sys
 import time
 from typing import Any, Dict
@@ -188,7 +192,7 @@ def run_asm_sync(staging, method, orgs):
         get_subdomains(staging, orgs_df) 
         LOGGER.info("Finished enumerating sub-domains from root domains")
 
-        # Enumerate subdomains from IPs
+        # Enumerate subdomains from IPs, this takes the longest
         LOGGER.info("Linking sub-domains and ips using ips...")
         connect_subs_from_ips(staging, orgs_df) 
         LOGGER.info("Finished linking sub-domains and ips using ips")
@@ -217,6 +221,112 @@ def run_asm_sync(staging, method, orgs):
         dedupe(staging, orgs_df) 
         LOGGER.info("Finished running Shodan dedupe")
 
+        sqs_asm_end = time.time()
+        LOGGER.info(f"SQS ASM Sync execution time for {orgs_logging}: {str(timedelta(seconds=(sqs_asm_end - sqs_asm_start)))} (H:M:S)")
+        LOGGER.info(f"--- SQS ASM Sync Process Complete for {orgs_logging} ---")
+
+    elif method == "asm-seq":
+        # Experimental version of ASM Sync, running specified orgs sequentially
+
+        # --- Local Portion of ASM Sync ---
+        # *** Warning: The local portion of the ASM Sync process needs 
+        # to be run locally on a Macbook before the following code can
+        # run. A dedicated python script is available for this 
+        # "local step" of the ASM Sync
+        
+        # --- Non-Local Portion of ASM Sync ---
+        # *** This portion of the ASM Sync process can run remotely on the
+        # Accessor because it does not require connecting to the CyHy environment
+        orgs = orgs.split(",")
+        if len(orgs) > 1:
+            orgs.sort()
+            orgs_logging = f"{orgs[0]} - {orgs[-1]}"
+        else:
+            orgs_logging = orgs[0]
+
+        LOGGER.info(f"--- SQS ASM Sync Process Starting for {orgs_logging} ---")
+        sqs_asm_start = time.time()
+
+        # Retrieve additional info for the specified orgs
+        orgs_df = sqs_query_orgs(staging, orgs)
+        # Create exe time logging file
+        current_date = datetime.date.today().strftime("%Y-%m-%d")
+        first_org = orgs_df.iloc[0]["cyhy_db_name"]
+        last_org = orgs_df.iloc[-1]["cyhy_db_name"]
+        perf_log_file = os.path.dirname(os.path.abspath(__file__)) + f"/exe_time_logs/{current_date}_{first_org}-{last_org}_exe_times.xlsx"
+        if not os.path.exists(perf_log_file):
+            workbook = openpyxl.Workbook()
+            workbook.save(perf_log_file)
+        # Begin iterating over each org
+        for idx, org in orgs_df.iterrows():
+            # Run ASM Sync process for this org
+            org_start_time = time.time()
+            curr_org_name = org.get("cyhy_db_name")
+            curr_org_df = org.to_frame().T
+            curr_org_uid = list(curr_org_df["organizations_uid"])
+
+            LOGGER.info(f"Running ASM Sync process on {curr_org_name}, {idx+1} of {len(orgs_df)}")
+            print(f"Running ASM Sync on {curr_org_name}, {idx+1} of {len(orgs_df)}")
+
+            # Fill the cidrs table with new data from the cyhy_db_assets
+            LOGGER.info("Filling the CIDRs table using the retrieved CyHy assets...")
+            fill_cidrs(staging, curr_org_df) 
+            LOGGER.info("Finished filling the CIDRs table using the retrieved CyHy assets")
+
+            # Identify which CIDRs are current
+            LOGGER.info("Identifying CIDR changes...")
+            sqs_identify_cidr_changes(staging, curr_org_uid) 
+            LOGGER.info("Finished identifying CIDR changes")
+
+            # Enumerate subdomains from roots
+            LOGGER.info("Enumerating sub-domains from root domains...")
+            get_subdomains(staging, curr_org_df) 
+            LOGGER.info("Finished enumerating sub-domains from root domains")
+
+            # Enumerate subdomains from IPs, this takes the longest
+            LOGGER.info("Linking sub-domains and ips using ips...")
+            connect_subs_from_ips(staging, curr_org_df) 
+            LOGGER.info("Finished linking sub-domains and ips using ips")
+
+            # Enumerate IPs from subdomains
+            LOGGER.info("Linking sub-domains and ips using sub-domains...")
+            connect_ips_from_subs(staging, curr_org_df) 
+            LOGGER.info("Finished linking sub-domains and ips using sub-domains")
+
+            # Identify which IPs, sub-domains, and connections are current
+            LOGGER.info("Identify IP changes...")
+            sqs_identify_ip_changes(staging, curr_org_uid) 
+            LOGGER.info("Finished identifying IP changes")
+            LOGGER.info("Identifying sub-domain changes...")
+            sqs_identify_sub_changes(staging, curr_org_uid) 
+            LOGGER.info("Finished identifying sub-domain changes")
+            LOGGER.info("Identifying IP sub-domain link changes...")
+            sqs_identify_ip_sub_changes(staging, curr_org_uid) 
+            LOGGER.info("Finished identifying IP sub-domain link changes")
+            LOGGER.info("Updating identified sub-domains...")
+            sqs_identified_sub_domains(staging, curr_org_uid) 
+            LOGGER.info("Finished updating identified sub-domains")
+
+            # Run shodan dedupe
+            LOGGER.info("Running Shodan dedupe...")
+            dedupe(staging, curr_org_df) 
+            LOGGER.info("Finished running Shodan dedupe")
+
+            org_end_time = time.time()
+            # Log exe time data for org
+            org_exe_time = '{:.5f}'.format(datetime.timedelta(seconds=(org_end_time - org_start_time)).total_seconds())
+            org_exe_stats = [
+                str(datetime.datetime.now()),
+                curr_org_name,
+                org_exe_time,
+            ]
+            workbook = load_workbook(perf_log_file)
+            sheet = workbook["Sheet"]
+            sheet.append(org_exe_stats)
+            workbook.save(perf_log_file)
+
+            print(f"Finished running ASM Sync on {curr_org_name}, {idx+1} of {len(orgs_df)}")
+        
         sqs_asm_end = time.time()
         LOGGER.info(f"SQS ASM Sync execution time for {orgs_logging}: {str(timedelta(seconds=(sqs_asm_end - sqs_asm_start)))} (H:M:S)")
         LOGGER.info(f"--- SQS ASM Sync Process Complete for {orgs_logging} ---")

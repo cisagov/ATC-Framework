@@ -895,25 +895,25 @@ def sqs_identify_cidr_changes(staging, org_ids):
     # Execute queries
     uids_list = "('" + "', '".join(org_ids) + "')"
     cursor = conn.cursor()
-    LOGGER.info("Marking CIDRs as current if seen within the last 3 days")
+    LOGGER.info("Marking CIDRs as current if seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE cidrs
         set current = True
         where 
-            last_seen > (CURRENT_DATE - INTERVAL '3 days')
+            last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
             organizations_uid IN {uids_list}
         """
     )
     conn.commit()
-    LOGGER.info("Marking CIDRs as not current if not seen within the last 3 days")
+    LOGGER.info("Marking CIDRs as not current if not seen within the last 15 days")
     cursor.execute(
         f"""
         UPDATE cidrs
         set current = False
         where
-            last_seen < (CURRENT_DATE - INTERVAL '3 days')
+            last_seen < (CURRENT_DATE - INTERVAL '15 days')
             AND
             organizations_uid IN {uids_list}
         """
