@@ -12,7 +12,8 @@ REPORT_DB_CONFIG = files("pe_reports").joinpath("data/database.ini")
 
 def config(filename=REPORT_DB_CONFIG, section="postgres"):
     """Parse Postgres configuration details from database configuration file."""
-    parser = ConfigParser()
+    # parser = ConfigParser()
+    parser = ConfigParser(interpolation=None) # Turning off interpolation to avoid issues with '%' symbol
     parser.read(filename, encoding="utf-8")
 
     db = dict()
@@ -31,7 +32,8 @@ def config(filename=REPORT_DB_CONFIG, section="postgres"):
 
 def staging_config(filename=REPORT_DB_CONFIG, section="staging"):
     """Parse Postgres configuration details from database configuration file."""
-    parser = ConfigParser()
+    # parser = ConfigParser()
+    parser = ConfigParser(interpolation=None) # Turning off interpolation to avoid issues with '%' symbol
     parser.read(filename, encoding="utf-8")
 
     db = dict()
