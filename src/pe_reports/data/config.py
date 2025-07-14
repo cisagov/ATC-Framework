@@ -12,7 +12,7 @@ REPORT_DB_CONFIG = files("pe_reports").joinpath("data/database.ini")
 
 def config(filename=REPORT_DB_CONFIG, section="postgres"):
     """Parse Postgres configuration details from database configuration file."""
-    parser = ConfigParser()
+    parser = ConfigParser(interpolation=None) # Turning off interpolation to avoid issues with '%' symbol
     parser.read(filename, encoding="utf-8")
 
     db = dict()
@@ -31,7 +31,7 @@ def config(filename=REPORT_DB_CONFIG, section="postgres"):
 
 def staging_config(filename=REPORT_DB_CONFIG, section="staging"):
     """Parse Postgres configuration details from database configuration file."""
-    parser = ConfigParser()
+    parser = ConfigParser(interpolation=None) # Turning off interpolation to avoid issues with '%' symbol
     parser.read(filename, encoding="utf-8")
 
     db = dict()
@@ -50,7 +50,7 @@ def whois_xml_api_key():
     """Fetch the WhoisXML API key."""
     section = "whoisxml"
     if os.path.isfile(REPORT_DB_CONFIG):
-        parser = ConfigParser()
+        parser = ConfigParser(interpolation=None) # Turning off interpolation to avoid issues with '%' symbol
         parser.read(REPORT_DB_CONFIG, encoding="utf-8")
         if parser.has_section(section):
             params = parser.items(section)
@@ -69,7 +69,7 @@ def whois_xml_api_key():
 
 def db_password_key(filename=REPORT_DB_CONFIG, section="pe_db_password_key"):
     """Get key to encrypt/decrypt P&E passwords."""
-    parser = ConfigParser()
+    parser = ConfigParser(interpolation=None) # Turning off interpolation to avoid issues with '%' symbol
     parser.read(filename, encoding="utf-8")
     db = dict()
     if parser.has_section(section):
@@ -83,7 +83,7 @@ def db_password_key(filename=REPORT_DB_CONFIG, section="pe_db_password_key"):
 def get_hibp_token(filename=REPORT_DB_CONFIG, section="hibp"):
     """Get hibp token."""
     if os.path.isfile(filename):
-        parser = ConfigParser()
+        parser = ConfigParser(interpolation=None) # Turning off interpolation to avoid issues with '%' symbol
         parser.read(filename, encoding="utf-8")
         if parser.has_section(section):
             params = parser.items(section)
