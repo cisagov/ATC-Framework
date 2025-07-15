@@ -1186,6 +1186,7 @@ def execute_dnsmonitor_alert_data(df):
         'Content-Type': '' 
     }
     # Adjust data types and convert to list of dictionaries
+    df = df.copy()
     df["date"] = pd.to_datetime(df["date"])
     df["date"] = df["date"].dt.strftime("%Y-%m-%d")
     df_dict_list = df.to_dict("records")
