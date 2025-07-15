@@ -86,6 +86,11 @@ def search_circl(cve):
 
 def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
     """Search IPs in the Shodan API."""
+    # Initialize lists to store Shodan results
+    data = []
+    risk_data = []
+    vuln_data = []
+
     # Build dictionaries for naming conventions and definitions
     risky_ports, name_dict, risk_dict, av_dict, ac_dict, ci_dict = get_shodan_dicts()
 
@@ -106,10 +111,6 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
         try_count = 1
         while try_count < 7:
             try:
-                # Initialize lists to store Shodan results
-                data = []
-                risk_data = []
-                vuln_data = []
                 results = api.host(ip_chunk)
                 for r in results:
                     # Catch situation where response is a single string
@@ -242,15 +243,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                                     "data_source_uid": source_uid,
                                 }
                             )
-                all_vulns = vuln_data + risk_data
 
-                # *** USITC PE inbox request 11/20/2024 to omit port80/http (Akamai) findings
-                if org_uid == '7d2dbd06-f247-11ec-bb6e-02c6a3fe975b':
-                    all_vulns = [d for d in all_vulns if (d.get("port") != 80 and d.get("http") != "http")]
-
-                # Insert shodan assets/vulns for this ip chunk
-                failed = insert_shodan_assets(data, failed)
-                failed = insert_shodan_vulns(all_vulns, failed)
                 time.sleep(1)
                 break
             except shodan.APIError as e:
@@ -262,6 +255,16 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                     )
                     failed.append(
                         "{} chunk {} failed 5 times and skipped".format(org_name, count)
+                    )
+                    break
+                if "No information available for that IP." in str(e):
+                    LOGGER.error(
+                        "{} No info for that IP error. Continuing to next chunk - {}".format(
+                            thread_name, org_name
+                        )
+                    )
+                    failed.append(
+                        "{} chunk {} no info for IP and skipped".format(org_name, count)
                     )
                     break
                 LOGGER.error("{} {} - {}".format(thread_name, e, org_name))
@@ -284,6 +287,17 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                 break
 
         LOGGER.info("{} chunk {}/{} complete - {}".format(thread_name, count, tot, org_name))
+
+    all_vulns = vuln_data + risk_data
+    # Grab the data source uid and add to each dataframe
+
+    # *** USITC PE inbox request 11/20/2024 to omit port80/http (Akamai) findings
+    if org_uid == '7d2dbd06-f247-11ec-bb6e-02c6a3fe975b':
+        all_vulns = [d for d in all_vulns if (d.get("port") != 80 and d.get("http") != "http")]
+
+    # Insert data into the PE database
+    failed = insert_shodan_assets(data, failed)
+    failed = insert_shodan_vulns(all_vulns, failed)
 
     return failed
 

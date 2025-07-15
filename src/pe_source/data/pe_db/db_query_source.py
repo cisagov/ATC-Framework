@@ -94,9 +94,13 @@ def get_orgs():
         # Process data and return
         for row in result:
             if row.get("date_first_reported") is not None:
-                row["date_first_reported"] = datetime.strptime(row.get("date_first_reported"), "%Y-%m-%d")
+                row["date_first_reported"] = datetime.strptime(
+                    row.get("date_first_reported"), "%Y-%m-%d"
+                )
             if row.get("cyhy_period_start") is not None:
-                row["cyhy_period_start"] = datetime.strptime(row.get("cyhy_period_start"), "%Y-%m-%d")
+                row["cyhy_period_start"] = datetime.strptime(
+                    row.get("cyhy_period_start"), "%Y-%m-%d"
+                )
             if row.get("county_fips") is not None:
                 row["county_fips"] = Decimal(row.get("county_fips"))
             if row.get("state_fips") is not None:
@@ -153,6 +157,7 @@ def get_ips_tsql(org_uid):
 def get_ips(org_uid):
     """
     Query API to get all ips for an org to run through Shodan.
+
     Return:
         All ips to run through Shodan
     """
@@ -166,36 +171,6 @@ def get_ips(org_uid):
     try:
         result = requests.get(endpoint_url, headers=headers).json()
         # Process data and return
-        print(result)
-        return result
-    except requests.exceptions.HTTPError as errh:
-        LOGGER.error(errh)
-    except requests.exceptions.ConnectionError as errc:
-        LOGGER.error(errc)
-    except requests.exceptions.Timeout as errt:
-        LOGGER.error(errt)
-    except requests.exceptions.RequestException as err:
-        LOGGER.error(err)
-    except json.decoder.JSONDecodeError as err:
-        LOGGER.error(err)
-        
-def get_ips(org_uid):
-    """
-    Query API to get all ips for an org to run through Shodan.
-    Return:
-        All ips to run through Shodan
-    """
-    # Endpoint info
-    endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
-    headers = {
-        "access_token": pe_api_key,
-        "X-API-KEY": cf_api_key,
-        'Content-Type': '' 
-    }
-    try:
-        result = requests.get(endpoint_url, headers=headers).json()
-        # Process data and return
-        print(result)
         return result
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
@@ -474,6 +449,7 @@ def insert_shodan_assets(asset_data, failed):
 def insert_shodan_vulns(vuln_data, failed):
     """
     Query API to insert Shodan data into the shodan_vulns table.
+
     Args:
         data: Dataframe of the shodan data to be inserted into shodan_vulns.
     """
