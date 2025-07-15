@@ -359,6 +359,37 @@ def get_data_source_uid(source):
 
 
 def get_breaches():
+    """
+    Query API to get all the breach_names and uids from credential_breaches table.
+
+    Return:
+        All breach_names and uids as a list of tuples
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "breach_names_and_uids"
+    headers = {
+        "access_token": pe_api_key,
+        "X-API-KEY": cf_api_key,
+        'Content-Type': '' 
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        return tup_result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+def get_breaches_tsql():
     """Get credential breaches."""
     conn = connect()
     try:
@@ -936,6 +967,16 @@ def insert_sixgill_alerts(new_alerts):
         LOGGER.info(
             "Working on chunk " + str(chunk_ct) + " of " + str(len(chunked_list))
         )
+        # Check total content field data size for this chunk
+        total_content_size = sum([len(entry["content"]) for entry in chunk])
+        # If total content field size is too big, trim content field for this chunk
+        if total_content_size > 400000:
+            LOGGER.warning("Excessive alert content data for this chunk, trimming...")
+            for entry in chunk:
+                over_limit = len(entry["content"]) > 2000
+                entry["content"] = entry["content"][:2000]
+                if over_limit:
+                    entry["content"] += "\n[content has been trimmed for space savings]"
         # Endpoint info
         task_url = "alerts_insert"
         status_url = "alerts_insert/task/"
@@ -1476,11 +1517,8 @@ def insert_sixgill_mentions(df):
         logging.error(e)
 
     # Remove any "[\x00|NULL]" characters
-    df = df.apply(
-        lambda col: col.str.replace(r"[\x00|NULL]", "", regex=True)
-        if col.dtype == object
-        else col
-    )
+    df = df.replace("\x00","")
+
     table = "mentions"
     # Create a list of tuples from the dataframe values
     tuples = [tuple(x) for x in df.to_numpy()]

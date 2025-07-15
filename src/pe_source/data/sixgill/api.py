@@ -132,6 +132,8 @@ def intel_post(auth, query, frm, scroll, result_size):
         "sort": "date",
         "sort_type": "desc",
         "highlight": False,
+        # "custom_highlight_start_tag": "@@mention_start@@",
+        # "custom_highlight_end_tag": "@@mention_end@@",
         "recent_items": False,
         "safe_content_size": True,
     }

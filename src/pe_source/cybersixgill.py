@@ -204,13 +204,9 @@ class Cybersixgill:
                     # content_snip, asset_mentioned, asset_type = get_alerts_content(
                     #     sixgill_org_id, alert_id, org_assets_dict
                     # )
-                    # alerts_df.at[alert_index, "content_snip"] = content_snip
-                    # alerts_df.at[alert_index, "asset_mentioned"] = asset_mentioned
-                    # alerts_df.at[alert_index, "asset_type"] = asset_type
-
-                    alerts_df.at[alert_index, "content_snip"] = ""
-                    alerts_df.at[alert_index, "asset_mentioned"] = ""
-                    alerts_df.at[alert_index, "asset_type"] = ""
+                    alerts_df.at[alert_index, "content_snip"] = "" # content_snip
+                    alerts_df.at[alert_index, "asset_mentioned"] = "" # asset_mentioned
+                    alerts_df.at[alert_index, "asset_type"] = "" # asset_type
                 except Exception as e:
                     # LOGGER.error(
                     #     "Failed fetching a specific alert content for %s", org_id
@@ -325,7 +321,7 @@ class Cybersixgill:
             LOGGER.error(traceback.format_exc())
             return 1
 
-        # Catch no mentions found scenario:
+        # Catch no mentions found scenario
         if mentions_df.empty:
             LOGGER.info(f"No mention data found for {org_id}, moving on")
             return 0

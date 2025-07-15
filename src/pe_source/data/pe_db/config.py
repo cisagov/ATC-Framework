@@ -60,10 +60,9 @@ def cybersix_token():
         parser = ConfigParser()
         parser.read(REPORT_DB_CONFIG, encoding="utf-8")
         if parser.has_section(section):
-            params = parser.items(section)
-            _id, _secret = params[0], params[1]
-            client_id = _id[1]
-            client_secret = _secret[1]
+            params = dict(parser.items(section))
+            client_id = params.get(f"client_id")
+            client_secret = params.get(f"client_secret")
         else:
             raise Exception(
                 "Section {} not found in the {} file".format(section, REPORT_DB_CONFIG)
