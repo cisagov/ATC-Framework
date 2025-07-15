@@ -100,14 +100,13 @@ class IntelX:
         # Get the org root domains
         LOGGER.info(f"Retrieving root domains for {cyhy_org_id}")
         try:
-            roots_df = get_root_domains(pe_org_uid) # api ver.
             # conn = connect()
-            # roots_df = get_root_domains(conn, pe_org_uid) # tsql ver. 
+            roots_df = get_root_domains(pe_org_uid)
         except Exception as e:
             LOGGER.error("Failed fetching root domains for %s", cyhy_org_id)
             LOGGER.error(e)
             return 1
-        
+
         # Catch situation where org has no eligble root domains
         if roots_df.empty:
             LOGGER.warning(f"{cyhy_org_id} does not have any eligible root domains for IntelX")
@@ -173,26 +172,24 @@ class IntelX:
 
     def get_search_results(self, id):
         """Search IntelX for email leaks."""
+        # Call API
         url = f"https://3.intelx.io/live/search/result?id={id}&format=1&k={api_key}"
         payload = {}
         headers = {}
-        attempts = 0
-        # Call IntelX endpoint to retrieve search results
-        try:
-            response = requests.request("GET", url, headers=headers, data=payload)
-        except requests.exceptions.Timeout:
-            time.sleep(5)
-            attempts += 1
-            if attempts == 5:
-                LOGGER.error("IntelX identity is not responding. Exiting program.")
-                sys.exit()
-            LOGGER.info("IntelX Identity API response timed out. Trying again.")
-        except Exception as e:
-            LOGGER.error(f"Error occured geting search results: {e}")
-            return 0
-        response = response.json()
-
-        return response
+        resp = requests.request("GET", url, headers=headers, data=payload)
+        # Retry clause in case API falters
+        retry_count, max_retries, time_delay = 1, 10, 5
+        while resp.status_code != 200 and retry_count <= max_retries:
+            print(f"\tRetrying IntelX email leak API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+            time.sleep(time_delay)
+            resp = requests.request("GET", url, headers=headers, data=payload)
+            retry_count += 1
+        # Return results
+        if retry_count == max_retries:
+            LOGGER.error(f"Error: Failed to retrieve IntelX email leaks for {id}")
+            return None
+        else:
+            return resp.json()
 
     def find_credential_leaks(self, domain_list, start_date, end_date):
         """Find leaks for a domain between two dates."""
