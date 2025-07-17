@@ -46,7 +46,6 @@ def connect():
         conn = psycopg2.connect(**CONN_PARAMS_DIC)
     except OperationalError as err:
         show_psycopg2_exception(err)
-        LOGGER.error("Except condition reached for connect()")
         conn = None
     return conn
 
@@ -762,6 +761,45 @@ def api_pshtt_insert(pshtt_dict):
 
 
 def getSubdomain(domain):
+    """
+    Query API to get the uid for the specified subdomain.
+
+    Args:
+        domain: The name of the specified subdomain
+
+    Return:
+        uid for the specified subdomain
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "subdomain_uid_by_domain"
+    headers = {
+        "access_token": pe_api_key,
+        "X-API-KEY": cf_api_key,
+        'Content-Type': '' 
+    }
+    data = json.dumps({"domain": domain})
+    try:
+        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        # Catch deleted subdomain error
+        try:
+            return tup_result[0][0]
+        except Exception as e:
+            return -1
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+def getSubdomain_tsql(domain):
     """Get subdomain."""
     conn = connect()
     try:

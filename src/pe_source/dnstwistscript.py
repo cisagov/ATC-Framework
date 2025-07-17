@@ -11,7 +11,7 @@ import traceback
 # Third-Party Libraries
 import dnstwist
 import dshield
-import psycopg2.extras as extras
+import pandas as pd
 import requests
 
 from .data.pe_db.db_query_source import (
@@ -24,100 +24,138 @@ from .data.pe_db.db_query_source import (
     org_root_domains,
 )
 
+# Save findings as the last day of the report period
+# date = (datetime.datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 date = datetime.datetime.now().strftime("%Y-%m-%d")
 LOGGER = logging.getLogger(__name__)
 
+def check_local_blocklist(ip):
+    """Check the local PE DB blocklist for the specified IP."""
+    query = f"SELECT * FROM blocklist WHERE ip = '{ip}'"
+    try:
+        conn = connect()
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        if not df.empty:
+            print(f"*** Local db blocklist results found for: {ip}")
+            # malicious = df["malicious"]
+            attacks = df["attacks"][0]
+            reports = df["reports"][0]
+            # return malicious, attacks, reports
+            return attacks, reports
+        else:
+            # return False, 0, 0 
+            print(f"*** No local db blocklist results found for: {ip}")
+            return 0, 0
+    except Exception as e:
+        LOGGER.warning(f"Failed to retrieve local blocklist info for {ip} - {e}")
+
+def check_api_blocklist(ip):
+    """Check Blocklist.de's API for the specified IP."""
+    blocklist_url = "http://api.blocklist.de/api.php?ip=" + str(ip)
+    response = requests.get(blocklist_url)
+    # Retry clause
+    retry_count, max_retries, time_delay = 1, 10, 5
+    while response.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"Retrying Blocklist.de API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {blocklist_url})")
+        time.sleep(time_delay)
+        response = requests.get(blocklist_url)
+        retry_count += 1
+    response = response.content
+    # Parse response
+    try:
+        if str(response) != "b'attacks: 0<br />reports: 0<br />'":
+            attacks = int(str(response).split("attacks: ")[1].split("<")[0])
+            reports = int(str(response).split("reports: ")[1].split("<")[0])
+            return attacks, reports
+        else:
+            return 0, 0
+    except Exception as e:
+        LOGGER.error(f"Error: Failed retrieving blocklist.de info for ip: {ip}")
+        return 0, 0
 
 def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
     """Cross reference the dnstwist results with DShield Blocklist."""
     malicious = False
-    attacks = 0
-    reports = 0
+    ipv4_blocklist_reports = 0
+    ipv4_blocklist_attacks = 0
+    ipv4_dshield_records = 0
+    ipv4_dshield_attacks = 0
+    ipv6_blocklist_reports = 0
+    ipv6_blocklist_attacks = 0
+    ipv6_dshield_records = 0
+    ipv6_dshield_attacks = 0
 
-    # Check IPv4
+    # Skip if original input domain
     if "original" in dom["fuzzer"]:
         return None, perm_list
-    elif "dns_a" not in dom:
+
+    # Check if IPv4 available
+    if "dns_a" not in dom:
+        # skip if no IPv4 IP
+        return None, perm_list
+    elif str(dom["dns_a"][0]) == "!ServFail":
+        # skip if IPv4 is servfail
         return None, perm_list
     else:
-        if str(dom["dns_a"][0]) == "!ServFail":
-            return None, perm_list
-        # Check IP in Blocklist API
-        blocklist_url = "http://api.blocklist.de/api.php?ip=" + str(dom["dns_a"][0])
-        response = requests.get(blocklist_url)
-        # Retry clause
-        retry_count, max_retries, time_delay = 1, 10, 5
-        while response.status_code != 200 and retry_count <= max_retries:
-            LOGGER.warning(f"Retrying Blocklist.de API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {blocklist_url})")
-            time.sleep(time_delay)
-            response = requests.get(blocklist_url)
-            retry_count += 1
-        response = response.content
-
-        if str(response) != "b'attacks: 0<br />reports: 0<br />'":
-            try:
-                malicious = True
-                attacks = int(str(response).split("attacks: ")[1].split("<")[0])
-                reports = int(str(response).split("reports: ")[1].split("<")[0])
-            except Exception:
-                malicious = False
-                dshield_attacks = 0
-                dshield_count = 0
-        # Check IP in DSheild API
+        # If valid IPv4 is available, check against blocklist
+        # Check IP in local DB blocklist
         try:
-            results = dshield.ip(str(dom["dns_a"][0]), return_format=dshield.JSON)
-            results = json.loads(results)
-            threats = results["ip"]["threatfeeds"]
-            attacks = results["ip"]["attacks"]
-            attacks = int(0 if attacks is None else attacks)
-            malicious = True
-            dshield_attacks = attacks
-            dshield_count = len(threats)
+            # ipv4_blocklist_attacks, ipv4_blocklist_reports = check_local_blocklist(str(dom["dns_a"][0])) # local blocklist version
+            ipv4_blocklist_attacks, ipv4_blocklist_reports = check_api_blocklist(str(dom["dns_a"][0])) # blocklist.de api version
         except Exception:
-            dshield_attacks = 0
-            dshield_count = 0
+            ipv4_blocklist_attacks = 0
+            ipv4_blocklist_reports = 0
+        # Check IP in DShield API
+        try:
+            ipv4_dshield_results = dshield.ip(str(dom["dns_a"][0]), return_format=dshield.JSON)
+            ipv4_dshield_results = json.loads(ipv4_dshield_results)
+            ipv4_dshield_threats = ipv4_dshield_results["ip"]["threatfeeds"]
+            ipv4_dshield_attacks = ipv4_dshield_results["ip"]["attacks"]
+            ipv4_dshield_attacks = int(0 if ipv4_dshield_attacks is None else ipv4_dshield_attacks)
+            ipv4_dshield_records = len(ipv4_dshield_threats)
+        except Exception:
+            ipv4_dshield_attacks = 0
+            ipv4_dshield_records = 0
 
-    # Check IPv6
+    # Check if IPv6 available
     if "dns_aaaa" not in dom:
+        # If no IPv6 IP, set to blank
         dom["dns_aaaa"] = [""]
     elif str(dom["dns_aaaa"][0]) == "!ServFail":
+        # If IPv6 is servfail, set to blank
         dom["dns_aaaa"] = [""]
     else:
-        # Check IP in Blocklist API
-        blocklist_url = "http://api.blocklist.de/api.php?ip=" + str(dom["dns_aaaa"][0])
-        response = requests.get(blocklist_url)
-        # Retry clause
-        retry_count, max_retries, time_delay = 1, 10, 5
-        while response.status_code != 200 and retry_count <= max_retries:
-            LOGGER.warning(f"Retrying Blocklist.de API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {blocklist_url})")
-            time.sleep(time_delay)
-            response = requests.get(blocklist_url)
-            retry_count += 1
-        response = response.content
-        if str(response) != "b'attacks: 0<br />reports: 0<br />'":
-            try:
-                malicious = True
-                attacks = int(str(response).split("attacks: ")[1].split("<")[0])
-                reports = int(str(response).split("reports: ")[1].split("<")[0])
-            except Exception:
-                malicious = False
-                dshield_attacks = 0
-                dshield_count = 0
+        # If valid IPv6 is available, check against blocklist
+        # Check IP in local DB blocklist
+        try:
+            # ipv6_blocklist_attacks, ipv6_blocklist_reports = check_local_blocklist(str(dom["dns_aaaa"][0])) # local blocklist version
+            ipv6_blocklist_attacks, ipv6_blocklist_reports = check_api_blocklist(str(dom["dns_aaaa"][0])) # blocklist.de api version
+        except Exception:
+            ipv6_blocklist_attacks = 0
+            ipv6_blocklist_reports = 0
         # Check IP in DSheild API
         try:
-            results = dshield.ip(str(dom["dns_aaaa"][0]), return_format=dshield.JSON)
-            results = json.loads(results)
-            threats = results["ip"]["threatfeeds"]
-            attacks = results["ip"]["attacks"]
-            attacks = int(0 if attacks is None else attacks)
-            malicious = True
-            dshield_attacks = attacks
-            dshield_count = len(threats)
+            ipv6_dshield_results = dshield.ip(str(dom["dns_aaaa"][0]), return_format=dshield.JSON)
+            ipv6_dshield_results = json.loads(ipv6_dshield_results)
+            ipv6_dshield_threats = ipv6_dshield_results["ip"]["threatfeeds"]
+            ipv6_dshield_attacks = ipv6_dshield_results["ip"]["attacks"]
+            ipv6_dshield_attacks = int(0 if ipv6_dshield_attacks is None else ipv6_dshield_attacks)
+            ipv6_dshield_records = len(ipv6_dshield_threats)
         except Exception:
-            dshield_attacks = 0
-            dshield_count = 0
-
-    # Clean-up other fields
+            ipv6_dshield_attacks = 0
+            ipv6_dshield_records = 0
+    
+    # Calculate total stats
+    total_blocklist_reports = ipv4_blocklist_reports + ipv6_blocklist_reports
+    total_blocklist_attacks = ipv4_blocklist_attacks + ipv6_blocklist_attacks
+    total_dshield_records = ipv4_dshield_records + ipv6_dshield_records
+    total_dshield_attacks = ipv4_dshield_attacks + ipv6_dshield_attacks
+    # If any attacks/records/reports are found from either blocklist or dshield, mark as malicious
+    if total_blocklist_reports > 0 or total_blocklist_attacks > 0 or total_dshield_records > 0 or total_dshield_attacks > 0:
+        malicious = True
+    
+    # Clean-up other fields if missing
     if "ssdeep_score" not in dom:
         dom["ssdeep_score"] = ""
     if "dns_mx" not in dom:
@@ -132,6 +170,7 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
     else:
         perm_list.append(permutation)
 
+    # Return blocklist/dshield info for this domain permutation
     domain_dict = {
         "organizations_uid": pe_org_uid,
         "data_source_uid": source_uid,
@@ -145,11 +184,12 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
         "date_active": date,
         "ssdeep_score": dom["ssdeep_score"],
         "malicious": malicious,
-        "blocklist_attack_count": attacks,
-        "blocklist_report_count": reports,
-        "dshield_record_count": dshield_count,
-        "dshield_attack_count": dshield_attacks,
+        "blocklist_attack_count": total_blocklist_attacks, # attacks,
+        "blocklist_report_count": total_blocklist_reports, # reports,
+        "dshield_record_count": total_dshield_records, # dshield_count,
+        "dshield_attack_count": total_dshield_attacks, # dshield_attacks,
     }
+
     return domain_dict, perm_list
 
 
