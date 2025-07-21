@@ -166,11 +166,19 @@ def format_table(
         current_row = []
         for cell in row:
             if column_style_list[current_cell] is not None:
-                # Remove emojis from content because the report generator can't display them
+                # Remove emojis and escape special characters b/c the report generator can't display them
                 print(str(cell))
-                cell = Paragraph(
-                    demoji.replace(str(cell), "").replace("&", "[and]"), column_style_list[current_cell]
-                )
+                try:
+                    clean_txt = demoji.replace(str(cell), "").replace("&", "&amp;")
+                    clean_txt = clean_txt.replace("<", "&lt;")
+                    clean_txt = clean_txt.replace(">", "&gt;")
+                    cell = Paragraph(
+                        clean_txt, column_style_list[current_cell]
+                    )
+                except Exception as e:
+                    # Catch any formatting issues
+                    print("*** Warning: issue encountered with format_table():")
+                    print(e)
 
             current_row.append(cell)
             current_cell += 1
