@@ -23,6 +23,7 @@ from reportlab.lib.units import inch
 
 # cisagov Libraries
 from pe_reports.data.db_query import (
+    get_subs_origin_ip,
     query_cidrs_by_org,
     query_foreign_IPs,
     query_extra_ips,
@@ -134,11 +135,29 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx):
 
     # Sub-domains
     sd_df = query_subs(org_uid)
-    # sd_df = sd_df[["sub_domain"]]
-    #sd_df = sd_df[["sub_domain", "origin_root_domain", "pe_discovered_asset"]]
-    sd_df = sd_df[["sub_domain", "origin_root_domain"]]
+    sd_df_cols = ["sub_domain", "from_root_domain", "origin_root_domain", "from_ip", "origin_ip", "origin_cidr"]
+    # Isolate subdomains that come from a stakeholder root domain
+    root_sub_df = sd_df.loc[sd_df["pe_discovered_asset"] == False].reset_index(drop=True)
+    if not root_sub_df.empty:
+        root_sub_df = root_sub_df.assign(from_root_domain=True, from_ip=False, origin_ip="N/A", origin_cidr="N/A")
+        root_sub_df = root_sub_df[sd_df_cols]
+    else:
+        root_sub_df = pd.DataFrame(columns=sd_df_cols)
+    # Isolate subdomains that did not come from a stakeholder root domain (from IP)
+    ident_sub_df = sd_df.loc[sd_df["pe_discovered_asset"] == True].reset_index(drop=True)
+    if not ident_sub_df.empty:
+        # Retrieve the IPs that these identified subdomains came from
+        ident_sub_df = get_subs_origin_ip(ident_sub_df, org_uid)
+        ident_sub_df = ident_sub_df.assign(from_root_domain=False, from_ip=True, origin_root_domain="N/A")
+        ident_sub_df = ident_sub_df[sd_df_cols]
+        # non-root domains can sometimes resolve back to multiple IPs
+        ident_sub_df = ident_sub_df.drop_duplicates(subset=["sub_domain"]) 
+    else:
+        ident_sub_df = pd.DataFrame(columns=sd_df_cols)
+    # Combine root and non-root subdomains
+    sd_df = pd.concat([root_sub_df, ident_sub_df]).reset_index(drop=True)
+    # sd_df = sd_df[["sub_domain", "origin_root_domain"]]
     sd_df.to_excel(asmWriter, sheet_name="Subdomains", index=False)
-    # sd_dict = sd_df["sub_domain"].to_list()
     sd_dict = sd_df.to_dict(orient="records")
 
     # Software

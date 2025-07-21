@@ -2128,6 +2128,36 @@ def query_subs(org_uid):
     return total_data
 
 
+def get_subs_origin_ip(sub_df, org_uid):
+    """Given a df of identified subdomains, retrieve their origin IPs."""
+    subs_str = ""
+    for idx, row in sub_df.iterrows():
+        curr_sub = row["sub_domain"]
+        subs_str += f"'{curr_sub}',\n"
+    subs_str = subs_str[:-2]    
+    conn = connect()
+    sql = f"""
+    SELECT
+        sd.sub_domain,
+        ips.ip as origin_ip,
+        cidrs.network as origin_cidr
+    FROM
+        sub_domains sd JOIN
+        ips_subs ON
+        sd.sub_domain_uid = ips_subs.sub_domain_uid JOIN
+        ips ON
+        ips_subs.ip_hash = ips.ip_hash JOIN
+        cidrs ON
+        ips.origin_cidr = cidrs.cidr_uid
+    WHERE
+        sd.sub_domain in ({subs_str}) AND
+        cidrs.organizations_uid = '{org_uid}'
+    """
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    return df
+
+
 # --- Issue 634 ---
 def query_previous_period(org_uid, prev_end_date):
     """
