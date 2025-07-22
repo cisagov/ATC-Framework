@@ -144,28 +144,24 @@ class IntelX:
 
     def query_identity_api(self, domain, start_date, end_date):
         """Create an initial search and return the search id."""
+        # Call API
         url = f"https://3.intelx.io/accounts/csv?selector={domain}&k={api_key}&datefrom={start_date}&dateto={end_date}"
         payload = {}
         headers = {}
-        attempts = 0
-        # Call IntelX endpoint to submit initial search query
-        while attempts < 5:
-            try:
-                response = requests.request("GET", url, headers=headers, data=payload)
-                response.raise_for_status()
-                break
-            except requests.exceptions.Timeout:
-                time.sleep(5)
-                attempts += 1
-                if attempts == 5:
-                    LOGGER.error("IntelX identity is not responding. Exiting program.")
-                    sys.exit()
-                LOGGER.info("IntelX Identity API response timed out. Trying again.")
-            except Exception as e:
-                LOGGER.error(f"Error occured geting search id: {e}")
-                return 0
-        time.sleep(5)
-        return response.json()
+        resp = requests.request("GET", url, headers=headers, data=payload)
+        # Retry clause in case API falters
+        retry_count, max_retries, time_delay = 1, 10, 5
+        while resp.status_code != 200 and retry_count <= max_retries:
+            LOGGER.warning(f"\tRetrying IntelX identity API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+            time.sleep(time_delay)
+            resp = requests.request("GET", url, headers=headers, data=payload)
+            retry_count += 1
+        # Return results
+        if retry_count == max_retries:
+            LOGGER.error(f"Error: Failed to retrieve IntelX identity for {domain}")
+            return None
+        else:
+            return resp.json()
 
     def get_search_results(self, id):
         """Search IntelX for email leaks."""
@@ -177,7 +173,7 @@ class IntelX:
         # Retry clause in case API falters
         retry_count, max_retries, time_delay = 1, 10, 5
         while resp.status_code != 200 and retry_count <= max_retries:
-            print(f"\tRetrying IntelX email leak API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+            LOGGER.warning(f"\tRetrying IntelX email leak API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
             time.sleep(time_delay)
             resp = requests.request("GET", url, headers=headers, data=payload)
             retry_count += 1
