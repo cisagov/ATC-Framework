@@ -11,6 +11,7 @@ from .data.db_query import (
     query_creds_view,
     query_credsbyday_view,
     query_darkweb,
+    query_darkweb_asset_alerts,
     query_darkweb_cves,
     query_domMasq,
     query_domMasq_alerts,
@@ -584,15 +585,11 @@ class Cyber_Six:
 
     def asset_alerts(self):
         """Get top executive mentions."""
-        asset_alerts = query_darkweb(
+        asset_alerts = query_darkweb_asset_alerts(
             self.org_uid,
             self.start_date,
             self.end_date,
             "vw_darkweb_assetalerts",
-        )
-        asset_alerts = asset_alerts.drop(
-            columns=["organizations_uid", "date"],
-            errors="ignore",
         )
         if not self.soc_med_included:
             asset_alerts = asset_alerts[

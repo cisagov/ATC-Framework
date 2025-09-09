@@ -2008,6 +2008,33 @@ def query_darkweb(org_uid, start_date, end_date, table):
     else:
         LOGGER.error("query_darkweb() error, invalid table")
 
+def query_darkweb_asset_alerts(org_uid, start_date, end_date, table):
+    """Retrieve asset alerts for the specified organization and date range."""
+    conn = connect()
+    sql = f"""
+    SELECT
+        q1.site AS "Site",
+        q1.title AS "Title",
+        count(*) AS "Events"
+    FROM (
+        SELECT *
+        FROM alerts a
+        WHERE
+            a.organizations_uid = '{org_uid}' AND
+            a.date between '{start_date}' AND '{end_date}' AND
+            a.alert_name !~~ '%executive%'::text AND 
+            a.site IS NOT NULL AND 
+            a.site <> 'NaN'::text
+        ) q1
+    GROUP BY
+        q1.site, 
+        q1.title, 
+        q1.organizations_uid
+    ORDER BY (count(*)) DESC;
+    """
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    return df
 
 # --- Issue 630 ---
 def query_darkweb_cves(table):
