@@ -94,7 +94,7 @@ def alerts_content(organization_id, alert_id):
     retry_count, max_retries, time_delay = 0, 10, 5
     while content.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /actionable_alert_content endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /actionable_alert_content endpoint (code {content.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         content = requests.get(url, headers=headers, params=payload)
         retry_count += 1
@@ -283,7 +283,7 @@ def get_sixgill_organizations():
     retry_count, max_retries, time_delay = 0, 10, 5
     while orgs.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {orgs.status_code}), attmept {retry_count+1} of {max_retries}")
         time.sleep(time_delay)
         orgs = requests.get(url, headers=headers)
         retry_count += 1
