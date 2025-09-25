@@ -41,8 +41,11 @@ import pe_reports
 
 from ._version import __version__
 from .cybersixgill import Cybersixgill
+from .cybersixgill_refresh import run_cybersixgill_asset_refresh
 from .dnsmonitor import DNSMonitor
 from .dnstwistscript import run_dnstwist
+from .flare_refresh import run_flare_ident_refresh
+from .flare import run_flare
 from .intelx_identity import IntelX
 from .pshtt_wrapper import launch_pe_pshtt
 from .shodan_wrapper import Get_shodan
@@ -77,11 +80,14 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
     # Log scan start details
     scan_full_names = {
         "alerts": "Cybersixgill Alerts",
+        "cybersixgill_asset_refresh": "Cybersixgill Asset Refresh",
         "mentions": "Cybersixgill Mentions",
         "credentials": "Cybersixgill Credentials",
         "topCVEs": "Cybersixgill Top CVEs",
         "dnsmonitor": "DNSMonitor",
         "dnstwist": "DNSTwist",
+        "flare": "Flare",
+        "flare_ident_refresh": "Flare Identifier Refresh",
         "intelx": "IntelX",
         "pshtt": "Pshtt",
         "shodan": "Shodan",
@@ -103,11 +109,17 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
     if source == "cybersixgill":
         cybersix = Cybersixgill(orgs_list, cybersix_methods, soc_med_included)
         cybersix.run_cybersixgill()
+    elif source == "cybersixgill_asset_refresh":
+        run_cybersixgill_asset_refresh(orgs_list)
     elif source == "dnsmonitor":
         dnsMonitor = DNSMonitor(orgs_list)
         dnsMonitor.run_dnsMonitor()
     elif source == "dnstwist":
         run_dnstwist(orgs_list)
+    elif source == "flare":
+        run_flare(orgs_list)
+    elif source == "flare_ident_refresh":
+        run_flare_ident_refresh(orgs_list)
     elif source == "intelx":
         intelx = IntelX(orgs_list)
         intelx.run_intelx()
