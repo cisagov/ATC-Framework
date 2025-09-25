@@ -264,8 +264,3 @@ def run_cybersixgill_asset_refresh(orgs_list):
         f"{failed}/{len(pe_orgs_final)} organizations encountered an error while updating CyberSixGill assets"
     )
 
-# testing
-# test_org = "OGE"
-# csg_id = get_sixgill_id(test_org)
-# assets_df = get_sixgill_assets(csg_id)
-# print(assets_df)
