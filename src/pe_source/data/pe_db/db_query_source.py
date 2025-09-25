@@ -2540,3 +2540,106 @@ def getRootdomain(domain):
     root = cur.fetchone()
     cur.close()
     return root
+
+def get_execs_by_org_uid(org_uid):
+    """Get executives for the specified organization_uid."""
+    conn = connect()
+    sql = f"""
+    SELECT *
+    FROM executives
+    WHERE organizations_uid = '{org_uid}'
+    """
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    return df
+
+def insert_flare_events(event_list):
+    """Insert list of flare event dictionaries into the PE DB."""
+    # Build query
+    insert_vals = ""
+    for event in event_list:
+        org_uid = event.get("organizations_uid")
+        flare_uid = event.get("flare_uid")
+        event_type = event.get("event_type")
+        event_date = event.get("event_date")
+        collect_date = event.get("collection_date")
+        title = event.get("title")
+        content = event.get("content")
+        content_hash = event.get("content_hash")
+        actor = event.get("actor")
+        category = event.get("category")
+        source = event.get("source")
+        url = event.get("url")
+        risk_scores = event.get("risk_scores")
+        related_ident = event.get("related_identifiers")
+        data_source_uid = event.get("data_source_uid")
+        insert_vals += f"(\'{org_uid}\', \'{flare_uid}\', \'{event_type}\', \'{event_date}\', \'{collect_date}\', \'{title}\', \'{content}\', \'{content_hash}\', \'{actor}\', \'{category}\', \'{source}\', \'{url}\', \'{risk_scores}\', {related_ident}, \'{data_source_uid}\'),\n"
+    insert_vals = insert_vals[:-2]
+    sql = f"""
+    INSERT INTO flare_events(organizations_uid, flare_uid, event_type, event_date, collection_date, title, content, content_hash, actor, category, source, url, risk_scores, related_identifiers, data_source_uid)
+    VALUES
+    {insert_vals}
+    ON CONFLICT (organizations_uid, flare_uid)
+    DO UPDATE SET
+    event_date = EXCLUDED.event_date,
+    collection_date = EXCLUDED.collection_date
+    """
+    # Execute query
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def get_pe_aliases(org_uid):
+    """Get full name and abbreviation in the PE DB for the specified organization."""
+    sql = f"""
+    SELECT name, cyhy_db_name
+    FROM organizations
+    WHERE organizations_uid = '{org_uid}'
+    """
+    conn = connect()
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    return df
+
+def get_pe_roots(org_uid):
+    """Get the current root domains in the PE DBfor the specified organization."""
+    sql = f"""
+    SELECT root_domain
+    FROM root_domains
+    WHERE 
+        organizations_uid = '{org_uid}' AND
+        enumerate_subs = True
+    """
+    conn = connect()
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    return df
+
+def get_pe_cidrs(org_uid):
+    """Get the current CIDRs in the PE DB for the specified organization."""
+    sql = f"""
+    SELECT network
+    FROM cidrs
+    WHERE
+        organizations_uid = '{org_uid}' AND
+        current = True
+    """
+    conn = connect()
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    return df
+
+def get_pe_execs(org_uid):
+    """Get the current executive names in the PE DB for the specified organization."""
+    sql = f"""
+    SELECT executive
+    FROM executives
+    WHERE organizations_uid = '{org_uid}'
+    """
+    conn = connect()
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    return df
