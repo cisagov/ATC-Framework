@@ -36,7 +36,7 @@ def reverseLookup(ip_obj, failed_ips, conn, thread):
     response = requests.request("GET", url, headers=headers, data=payload)
 
     # Retry clause
-    retry_count, max_retries, time_delay = 1, 3, 1
+    retry_count, max_retries, time_delay = 1, 5, 3
     while response.status_code != 200 and retry_count <= max_retries:
         if retry_count >= 2:
             LOGGER.warning(f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})")
@@ -112,7 +112,8 @@ def run_ip_chunk(org_name, org_uid, ips_df, thread, conn):
     for ip_index, ip in ips_df.iterrows():
         # internal status logging
         if count % 10 == 0:
-            print(f"{thread}: Currently on {org_name}'s IP {count}/{len(ips_df)}")
+            log_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"({log_time}) {thread}: Currently on {org_name}'s IP {count}/{len(ips_df)}")
         # Log progress
         count += 1
         if count % 10000 == 0:

@@ -332,8 +332,13 @@ def retrieve_all_cyhy_data(cyhy_db):
                 "retired": cyhy_request.get("retired", False),
             }
 
+            # If no contact is found save "None"
+            if len(cyhy_request["agency"]["contacts"]) == 0:
+                print("\tNo contacts found")
+                sector_dict["email"] = None
+                sector_dict["contact_name"] = None
             # If only one contact is available save it to the dictionary
-            if cyhy_request["agency"]["contacts"][0]["email"]:
+            elif len(cyhy_request["agency"]["contacts"]) == 1:
                 print("\tOnly 1 contact found")
                 sector_dict["email"] = cyhy_request["agency"]["contacts"][0]["email"]
                 sector_dict["contact_name"] = cyhy_request["agency"]["contacts"][0][
@@ -342,19 +347,28 @@ def retrieve_all_cyhy_data(cyhy_db):
             # If multiple contacts are identified save the DISTRO email to the dictionary
             elif len(cyhy_request["agency"]["contacts"]) > 1:
                 print("\tMultiple contacts found")
+                distro_email = None
+                distro_name = None
+                # Look for distro contact
                 for i in range(len(cyhy_request["agency"]["contacts"])):
                     if cyhy_request["agency"]["contacts"][i]["type"] == "DISTRO":
-                        sector_dict["email"] = cyhy_request["agency"]["contacts"][i][
+                        distro_email = cyhy_request["agency"]["contacts"][i][
                             "email"
                         ]
-                        sector_dict["contact_name"] = cyhy_request["agency"][
+                        distro_name = cyhy_request["agency"][
                             "contacts"
                         ][i]["name"]
-            # If no contact is found save "None"
-            else:
-                print("\tNo contacts found")
-                sector_dict["email"] = None
-                sector_dict["contact_name"] = None
+                # If none of the contacts were marked as distros, just use the first contact
+                if distro_email is None:
+                    distro_email = cyhy_request["agency"]["contacts"][0][
+                        "email"
+                    ]
+                    distro_name = cyhy_request["agency"][
+                        "contacts"
+                    ][0]["name"]
+                # Add distro info to sector dict
+                sector_dict["email"] = distro_email
+                sector_dict["contact_name"] = distro_name
 
             # Since ROOT and DOD are not sectors ignore them
             if sector_dict["acronym"] in ["ROOT", "DOD"]:

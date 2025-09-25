@@ -878,10 +878,21 @@ def sqs_query_orgs(staging, cyhy_db_names):
             organizations o
         WHERE 
             cyhy_db_name IN {org_list}
-        ORDER BY
-            cyhy_db_name ASC
     """
     df = pd.read_sql(sql, conn)
+
+    # Sort to preserve input organization order
+    cyhy_db_names_df = pd.DataFrame(cyhy_db_names, columns=['cyhy_db_name'])
+    df = pd.merge(cyhy_db_names_df, df, on="cyhy_db_name", how="left")
+    df = df[
+        [
+            "organizations_uid",
+            "cyhy_db_name",
+            "name",
+            "agency_type",
+        ]
+    ]
+
     conn.close()
     return df
 

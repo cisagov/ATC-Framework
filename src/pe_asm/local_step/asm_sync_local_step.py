@@ -95,7 +95,7 @@ def asm_sync_local_step(staging=False):
 
 
 # --- TEST RUN ---
-asm_sync_local_step(True)
+# asm_sync_local_step(True)
 
 # DB connection testing:
 # conn = local_db_connect()

@@ -239,7 +239,7 @@ def run_asm_sync(staging, method, orgs):
         # Accessor because it does not require connecting to the CyHy environment
         orgs = orgs.split(",")
         if len(orgs) > 1:
-            orgs.sort()
+            # orgs.sort() # disabling sort to preserve input order
             orgs_logging = f"{orgs[0]} - {orgs[-1]}"
         else:
             orgs_logging = orgs[0]

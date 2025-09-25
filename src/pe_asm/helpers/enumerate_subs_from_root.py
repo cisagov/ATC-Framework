@@ -51,7 +51,7 @@ def enumerate_roots(root_domain, root_uid):
     # print(len(sub_domains))
     data_source = get_data_source_uid("WhoisXML")
 
-    # First add the root domain to the subs table
+    # First add the root domain to the total subs list
     found_subs = [
         {
             "sub_domain": root_domain,
@@ -63,7 +63,7 @@ def enumerate_roots(root_domain, root_uid):
         }
     ]
 
-    # Loop through the subdomain list and attach foreign keys
+    # Then add any found subdomains that aren't www.root.gov to the total list
     for sub in sub_domains:
         if sub != f"www.{root_domain}":
             found_subs.append(
@@ -76,6 +76,7 @@ def enumerate_roots(root_domain, root_uid):
                     "identified": False,
                 }
             )
+            
     return found_subs
 
 
