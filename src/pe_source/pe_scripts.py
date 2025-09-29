@@ -45,7 +45,7 @@ from .cybersixgill_refresh import run_cybersixgill_asset_refresh
 from .dnsmonitor import DNSMonitor
 from .dnstwistscript import run_dnstwist
 from .flare_refresh import run_flare_ident_refresh
-from .flare import run_flare
+from .flare import run_flare, run_top_cves_shodan
 from .intelx_identity import IntelX
 from .pshtt_wrapper import launch_pe_pshtt
 from .shodan_wrapper import Get_shodan
@@ -91,6 +91,7 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
         "intelx": "IntelX",
         "pshtt": "Pshtt",
         "shodan": "Shodan",
+        "shodan_top_cves": "Shodan Top CVEs",
         "xpanse": "Xpanse",
     }
     if source == "cybersixgill":
@@ -128,6 +129,8 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
     elif source == "shodan":
         shodan = Get_shodan(orgs_list)
         shodan.run_shodan()
+    elif source == "shodan_top_cves":
+        run_top_cves_shodan()
     elif source == "xpanse":
         run_xpanse_scans("", orgs_list)
     else:
