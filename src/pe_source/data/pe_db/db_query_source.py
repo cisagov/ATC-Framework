@@ -2531,7 +2531,7 @@ def api_was_finding_insert(finding_dict):
 
 
 def getRootdomain(domain):
-    """Get root domain."""
+    """Get the record for the specified root domain."""
     conn = connect()
     cur = conn.cursor()
     sql = """SELECT * FROM root_domains rd
@@ -2543,14 +2543,17 @@ def getRootdomain(domain):
 
 def get_execs_by_org_uid(org_uid):
     """Get executives for the specified organization_uid."""
+    # Build query
     conn = connect()
     sql = f"""
     SELECT *
     FROM executives
     WHERE organizations_uid = '{org_uid}'
     """
+    # Execute query
     df = pd.read_sql(sql, conn)
     conn.close()
+    # Return results
     return df
 
 def insert_flare_events(event_list):
@@ -2558,25 +2561,43 @@ def insert_flare_events(event_list):
     # Build query
     insert_vals = ""
     for event in event_list:
+        # Extra formatting for certain fields
+        keys_to_format = [
+            "flare_uid",
+            "title",
+            "content",
+            "actor",
+            "category",
+            "source",
+            "url",
+            "risk_scores",
+        ]
+        for key in keys_to_format:
+            val = event.get(key)
+            if val is not None:
+                # Handle characters that need to be escaped
+                event.update({key: event.get(key).replace("'", "''")})
         org_uid = event.get("organizations_uid")
-        flare_uid = event.get("flare_uid")
+        flare_uid = event.get("flare_uid") # escaped '
         event_type = event.get("event_type")
         event_date = event.get("event_date")
         collect_date = event.get("collection_date")
-        title = event.get("title")
-        content = event.get("content")
+        title = event.get("title") # escaped '
+        content = event.get("content") # escaped '
         content_hash = event.get("content_hash")
-        actor = event.get("actor")
-        category = event.get("category")
-        source = event.get("source")
-        url = event.get("url")
+        actor = event.get("actor") # escaped '
+        category = event.get("category") # escaped '
+        source = event.get("source") # escaped '
+        url = event.get("url") # escaped '
         risk_scores = event.get("risk_scores")
         related_ident = event.get("related_identifiers")
         data_source_uid = event.get("data_source_uid")
-        insert_vals += f"(\'{org_uid}\', \'{flare_uid}\', \'{event_type}\', \'{event_date}\', \'{collect_date}\', \'{title}\', \'{content}\', \'{content_hash}\', \'{actor}\', \'{category}\', \'{source}\', \'{url}\', \'{risk_scores}\', {related_ident}, \'{data_source_uid}\'),\n"
+        severity = event.get("severity")
+        insert_vals += f"(\'{org_uid}\', \'{flare_uid}\', \'{event_type}\', \'{event_date}\', \'{collect_date}\', \'{title}\', \'{content}\', \'{content_hash}\', \'{actor}\', \'{category}\', \'{source}\', \'{url}\', \'{risk_scores}\', {related_ident}, \'{data_source_uid}\', \'{severity}\'),\n"
+
     insert_vals = insert_vals[:-2]
     sql = f"""
-    INSERT INTO flare_events(organizations_uid, flare_uid, event_type, event_date, collection_date, title, content, content_hash, actor, category, source, url, risk_scores, related_identifiers, data_source_uid)
+    INSERT INTO flare_events(organizations_uid, flare_uid, event_type, event_date, collection_date, title, content, content_hash, actor, category, source, url, risk_scores, related_identifiers, data_source_uid, severity)
     VALUES
     {insert_vals}
     ON CONFLICT (organizations_uid, flare_uid)
@@ -2592,20 +2613,126 @@ def insert_flare_events(event_list):
     cursor.close()
     conn.close()
 
+def insert_flare_breaches(breach_df):
+    """Insert Flare credential breach data into the PE DB."""
+    breach_df = breach_df.drop_duplicates(subset=["breach_name"])
+    # Build query
+    insert_vals = ""
+    for idx, row in breach_df.iterrows():
+        breach_name = row.get("breach_name")
+        desc = row.get("description")
+        breach_date = row.get("breach_date")
+        add_date = row.get("added_date")
+        mod_date = row.get("modified_date")
+        pass_incl = row.get("password_included")
+        source_uid = row.get("data_source_uid")
+        # Escape special characters
+        breach_name = breach_name.replace("'", "''")
+        desc = desc.replace("'", "''")
+        insert_vals += f"('{breach_name}', '{desc}', '{breach_date}', '{add_date}', '{mod_date}', {pass_incl}, '{source_uid}'),\n"
+    insert_vals = insert_vals[:-2]
+    sql = f"""
+    INSERT INTO credential_breaches(breach_name, description, breach_date, added_date, modified_date, password_included, data_source_uid) VALUES 
+    {insert_vals}
+    ON CONFLICT (breach_name) 
+    DO UPDATE SET
+    password_included = EXCLUDED.password_included;
+    """
+    # Execute query
+    try:
+        conn = connect()
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        LOGGER.info("Successfully inserted/updated Flare breaches into PE database.")
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error(error)
+        conn.rollback()
+        conn.close()
+
+def get_cred_breach_uids(breach_name_list):
+    """Get the credential breach uids for the specified list of breach names."""
+    conn = connect()
+    # Build query
+    breach_name_str = "("
+    for name in breach_name_list:
+        breach_name_str += f"'{name}',"
+    breach_name_str = breach_name_str[:-1] + ")"
+    sql = f"""
+    SELECT credential_breaches_uid, breach_name
+    FROM credential_breaches
+    WHERE breach_name IN {breach_name_str}
+    """
+    # Execute query
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    # Return results
+    return df
+
+def insert_flare_credentials(cred_df):
+    """Insert Flare credential exposure data into the PE DB."""
+    cred_df = cred_df.drop_duplicates(subset=["breach_name", "email"])
+    # Build query
+    insert_vals = ""
+    for idx, row in cred_df.iterrows():
+        email = row.get("email")
+        org_uid = row.get("organizations_uid")
+        root = row.get("root_domain")
+        sub = row.get("sub_domain")
+        breach_name = row.get("breach_name")
+        mod_date = row.get("modified_date")
+        breach_uid = row.get("credential_breaches_uid")
+        source_uid = row.get("data_source_uid")
+        password = row.get("password")
+        hash_type = row.get("has_type")
+        intelx_id = row.get("intelx_system_id")
+        # Escape special characters
+        email = email.replace("'", "''")
+        breach_name = breach_name.replace("'", "''")
+        password = password.replace("'", "''")
+        insert_vals += f"('{email}', '{org_uid}', '{root}', '{sub}', '{breach_name}', '{mod_date}', '{breach_uid}', '{source_uid}', '{password}', '{hash_type}', '{intelx_id}'),\n"
+    insert_vals = insert_vals[:-2]
+    sql = f"""
+    INSERT INTO credential_exposures(email, organizations_uid, root_domain, sub_domain, breach_name, modified_date, credential_breaches_uid, data_source_uid, password, hash_type, intelx_system_id) VALUES 
+    {insert_vals}
+    ON CONFLICT (breach_name, email) 
+    DO UPDATE SET
+    modified_date = EXCLUDED.modified_date;
+    """
+    # Execute query
+    try:
+        conn = connect()
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        LOGGER.info("Successfully inserted/updated Flare credentials into PE database.")
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error(error)
+        conn.rollback()
+        conn.close()
+
 def get_pe_aliases(org_uid):
     """Get full name and abbreviation in the PE DB for the specified organization."""
+    # Build query
     sql = f"""
     SELECT name, cyhy_db_name
     FROM organizations
     WHERE organizations_uid = '{org_uid}'
     """
+    # Execute query
     conn = connect()
     df = pd.read_sql(sql, conn)
     conn.close()
+    # Return result
     return df
 
 def get_pe_roots(org_uid):
     """Get the current root domains in the PE DBfor the specified organization."""
+    # Build query
     sql = f"""
     SELECT root_domain
     FROM root_domains
@@ -2613,13 +2740,16 @@ def get_pe_roots(org_uid):
         organizations_uid = '{org_uid}' AND
         enumerate_subs = True
     """
+    # Execute query
     conn = connect()
     df = pd.read_sql(sql, conn)
     conn.close()
+    # Return result
     return df
 
 def get_pe_cidrs(org_uid):
     """Get the current CIDRs in the PE DB for the specified organization."""
+    # Build query
     sql = f"""
     SELECT network
     FROM cidrs
@@ -2627,25 +2757,31 @@ def get_pe_cidrs(org_uid):
         organizations_uid = '{org_uid}' AND
         current = True
     """
+    # Execute query
     conn = connect()
     df = pd.read_sql(sql, conn)
     conn.close()
+    # Return result
     return df
 
 def get_pe_execs(org_uid):
     """Get the current executive names in the PE DB for the specified organization."""
+    # Build query
     sql = f"""
     SELECT executive
     FROM executives
     WHERE organizations_uid = '{org_uid}'
     """
+    # Execute query
     conn = connect()
     df = pd.read_sql(sql, conn)
     conn.close()
+    # Return result
     return df
 
 def query_all_shodan_cves(start_date, end_date):
     """Retrieve a list of all distinct CVEs across all stakeholders for the specified report period."""
+    # Build query
     sql = f"""
     SELECT DISTINCT cve
     FROM
@@ -2668,9 +2804,11 @@ def query_all_shodan_cves(start_date, end_date):
     ORDER BY
         cve DESC
     """
+    # Execute query
     conn = connect()
     df = pd.read_sql(sql, conn)
     conn.close()
+    # Return result
     return df
 
 def insert_shodan_top_cves(top_cves):

@@ -1,18 +1,22 @@
 """Scripts to collect data and findings from Flare."""
 
-import pprint # testing
-
 # Imports
 import datetime
 import logging
+import numpy as np
 import pandas as pd
+import re
 import requests
 from requests.auth import HTTPBasicAuth
 import time
+import traceback
 
 from .data.pe_db.config import get_params
 from .data.pe_db.db_query_source import (
+    get_cred_breach_uids,
     get_orgs,
+    insert_flare_breaches,
+    insert_flare_credentials,
     insert_flare_events,
     insert_shodan_top_cves,
     query_all_shodan_cves,
@@ -23,9 +27,12 @@ LOGGER = logging.getLogger(__name__)
 
 # Calculate start and end dates for data collection period
 TODAY = datetime.date.today()
-DAYS_BACK = datetime.timedelta(days=30)
+DAYS_BACK = datetime.timedelta(days=20) # 20 days back default
 START_DATE = (TODAY - DAYS_BACK).strftime("%Y-%m-%d")
 END_DATE = TODAY.strftime("%Y-%m-%d")
+# Or manually set data collection window
+# START_DATE = "2025-11-01"
+# END_DATE = "2025-11-15"
 
 # Retrieve Flare API credentials
 params_section = "flare"
@@ -86,6 +93,7 @@ def get_ident_by_group_id(ident_group_id):
             "type": ident_type
         }
         ident_list.append(ident_dict)
+    # Return results
     if len(ident_list) == 0:
         return [
             {
@@ -113,7 +121,7 @@ def get_ident_group_events_chunk(token, ident_group_id, payload):
         resp = requests.post(url, headers=headers, json=payload)
         retry_count += 1
     # Return results
-    if retry_count == max_retries:
+    if retry_count == max_retries + 1:
         LOGGER.error(f"Error: Failed to retrieve Flare events for {ident_group_id}")
         return None
     else:
@@ -128,7 +136,7 @@ def get_ident_group_events_chunk(token, ident_group_id, payload):
         # Return results
         return resp
 
-def get_ident_group_events(identifier_group, event_types, start_date, end_date):
+def get_ident_group_events(identifier_group, event_severities, event_types, start_date, end_date):
     """Retrieve all events for the specified identifier group (organization)."""
     ident_group_name = identifier_group.get("name")
     ident_group_id = identifier_group.get("id")
@@ -137,12 +145,13 @@ def get_ident_group_events(identifier_group, event_types, start_date, end_date):
     results_list = []
     more_data = False
     curr_next = ""
-    chunk_size = 10
+    chunk_size = 10 # max size is 10
     # Make initial data feed call
     print(f"Working on data feed chunk 1")
     ini_payload = {
         "size": chunk_size,
         "filters": {
+            "severity": event_severities,
             "type": event_types,
             "estimated_created_at": {
                 "gte": start_date,
@@ -156,9 +165,10 @@ def get_ident_group_events(identifier_group, event_types, start_date, end_date):
     if ini_resp.get("next"):
         more_data = True
         curr_next = ini_resp.get("next")
-    # If there's a next value, continue fetching data
+    # If there's a "next" value, continue fetching data
     retrieve_ct = 2
     while more_data:
+        # rate control delay
         time.sleep(1)
         print(f"Working on data feed chunk {retrieve_ct}")
         # Make API call for current chunk
@@ -166,6 +176,7 @@ def get_ident_group_events(identifier_group, event_types, start_date, end_date):
             "size": chunk_size,
             "from": curr_next,
             "filters": {
+                "severity": event_severities,
                 "type": event_types,
                 "estimated_created_at": {
                     "gte": start_date,
@@ -174,8 +185,10 @@ def get_ident_group_events(identifier_group, event_types, start_date, end_date):
             }
         }
         curr_resp = get_ident_group_events_chunk(flare_token, ident_group_id, curr_payload)
-        # Append results
-        results_list += curr_resp.get("items")
+        # Handle edge case where no results found for this chunk
+        if len(curr_resp.get("items")) != 0:
+            # Append results
+            results_list += curr_resp.get("items")
         # Check if there's anymore data to retrieve
         if curr_resp.get("next"):
             # If there's more data, update next value
@@ -184,11 +197,13 @@ def get_ident_group_events(identifier_group, event_types, start_date, end_date):
             # If no next value, there's no more data to retrieve
             more_data = False
         retrieve_ct +=1
-    # Once all data has been retrieved, return results
+
+    # Once all data has been retrieved, format and return results
     results_list = [
         {
             "event_uid": item.get("metadata").get("uid"),
             "event_type": item.get("metadata").get("type"),
+            "severity": item.get("metadata").get("severity"),
             "identifiers": item.get("identifiers"),
             "event_date": item.get("metadata").get("estimated_created_at"),
         } for item in results_list
@@ -212,83 +227,86 @@ def get_event_details(event_uid, token):
         resp = requests.get(event_detail_url, headers=headers)
         retry_count += 1
     # Return results
-    if retry_count == max_retries:
+    if retry_count == max_retries + 1:
         LOGGER.error(f"Error: Failed to retrieve Flare event details for {event_uid}")
         return None
     else:
-        # Return results
         return resp.json()
 
-def get_all_event_details(event_list, org_uid):
+def get_all_event_details(event_list, org_uid, org_idents):
     """Retrieve the full set of details for each of the specified events."""
     flare_token = get_flare_token()
     # Iterate over each event
     total_event_list = []
+    total_cred_list = []
     for idx, event in enumerate(event_list):
         # Retrieve further details for event
         event_uid = event.get("event_uid")
         event_type = event.get("event_type")
+        # List of this org's domain identifiers
+        org_domain_idents = [d["value"] for d in org_idents if d["type"] == "domain"] 
+        # If event doesn't have related identifiers, skip
+        if len(event.get("identifiers")) == 0:
+            print("\tERROR: no related identifiers for this event")
+            continue
+        # If event type is leaked_credential, skip (incompatible with event details endpoint)
+        if event_type == "leaked_credential":
+            print("WARNING: leaked_credential event encountered, skipping")
+            print(f"\tevent_uid: {event_uid}")
+            continue
+        # Call event details endpoint
         event_details = get_event_details(event_uid, flare_token)
+        # Skip event if no details available
+        if event_details is None:
+            continue
         event.update({"event_date": event.get("event_date")[:10]})
-
-        # Format event details for the database, varies based on event type
         print(f"Retrieved details for event {idx+1} of {len(event_list)} - Type: {event_type}")
-        # Parse social media post mention data
-        if event_type in (
-            "social_media", 
-            "social_media_account",
-        ):
-            # Note: Very few results for "social_media"/"social_media_account"
-            # Format social media post data
-            soc_med_post_dict = parse_soc_media_post_event(event, event_details, org_uid)
-            # Append record
-            total_event_list.append(soc_med_post_dict)
-        # Parse darkweb post mention data
-        if event_type in (
-            "blog_post",
-            "forum_post",
-        ):
-            # Format darkweb post data
-            darkweb_post_dict = parse_darkweb_post_event(event, event_details, org_uid) # in progress
-            # Append record
-            total_event_list.append(darkweb_post_dict)
-        # Parse potential-threat/asset "alert" data
-        if event_type in (
-            "bot", # from infected_devices
-            "leak",
-            "ransomleak",
-            "stealer_log", # from infected_devices
-        ):
-            # parse event
-            if event_type == "bot":
-                # Format bot event data
-                potential_threat_alert_dict = parse_bot_event(event, event_details, org_uid)
-            elif event_type == "leak":
-                # Format leak event data
-                potential_threat_alert_dict = parse_leak_event(event, event_details, org_uid) # updated
-            elif event_type == "ransomleak":
-                # Format ransomleak event data
-                potential_threat_alert_dict = parse_ransomleak_event(event, event_details, org_uid)
-            elif event_type == "stealer_log":
-                # Format stealer_log event data
-                potential_threat_alert_dict = parse_stealer_log_event(event, event_details, org_uid)
-            # Append record
-            total_event_list.append(potential_threat_alert_dict)
-        # Parse invite-only market alert data
-        if event_type in (
-            "listing", 
-            "seller",
-        ):
-            # Notes: Essentially no results for "seller"
-            # parse event
-            if event_type == "listing":
-                # Format listing event data
-                inv_market_alert_dict = parse_inv_market_event(event, event_details, org_uid)
-            # Append record
-            total_event_list.append(inv_market_alert_dict)
 
+        # Parse out releveant data based on event type
+        if event_type == "stealer_log":
+            # Parse stealer_log events with custom title + content_preview
+            stealer_log_title = f"A stealer log has been offered for sale."
+            event_dict = parse_default_event_fields(event, event_details, org_uid, True, stealer_log_title)
+            # Also parse stealer_logs for any leaked credentials
+            cred_list = parse_creds_stealer_log(event_details, org_domain_idents)
+            # Append record
+            total_event_list.append(event_dict)
+            if cred_list is not None:
+                total_cred_list.extend(cred_list)
+        elif event_type == "bot":
+            # Parse bot events with custom title + content_preview
+            bot_title = f"A device has potentially been infected by botnet malware and the data stolen from it has been offered for sale."
+            event_dict = parse_default_event_fields(event, event_details, org_uid, True, bot_title)
+            # Append record
+            total_event_list.append(event_dict)
+        elif event_type in ("leak", "ransomleak", "listing", "seller"):
+            # Parse event types that: use content_preview field, no custom title
+            event_dict = parse_default_event_fields(event, event_details, org_uid, True)
+            # Append record
+            total_event_list.append(event_dict)
+        else:
+            # Parse event types that: use content field, no custom title
+            event_dict = parse_default_event_fields(event, event_details, org_uid)
+            # Append record
+            total_event_list.append(event_dict)
+        
     # Return parsed event detail data
-    return total_event_list
+    return total_event_list, total_cred_list
+
+def remove_emoji(txt):
+    """Remove emoji characters from a given string."""
+    # Regex pattern to match various emoji Unicode ranges
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "\U00002702-\U000027B0"  # Dingbats
+        "\U000024C2-\U0001F251"
+        "]+", flags=re.UNICODE
+    )
+    return emoji_pattern.sub(r'', txt)
 
 def parse_related_identifiers(event):
     """Parse identifiers related to this event for use in SQL query."""
@@ -299,17 +317,32 @@ def parse_related_identifiers(event):
     identifier_list_str = identifier_list_str[:-2] + "]"
     return identifier_list_str
 
-def parse_soc_media_post_event(event, event_details, org_uid):
-    """Parse and format data for social media post events."""
+def parse_default_event_fields(event, event_details, org_uid, content_preview=False, custom_title=None):
+    """Parse and format the standard data fields from the specified event."""
     event_details = event_details.get("activity")
+    # Use custom title if provided
+    if custom_title is not None:
+        title = custom_title
+    else:
+        title = event_details.get("header").get("title")
+    # Use content_preview instead of content if specified
+    if content_preview:
+        content = event_details.get("header").get("content_preview")
+    else:
+        content = event_details.get("data").get("content")
+    # Special formatting to get rid of emojis and null chars
+    if isinstance(content, str):
+        content = remove_emoji(content)
+        content = content.replace('\x00', '')
+    # Return parsed info
     return {
         "organizations_uid": org_uid,
         "flare_uid": event.get("event_uid"),
         "event_type": event.get("event_type"),
         "event_date": event.get("event_date"),
         "collection_date": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "title": event_details.get("header").get("title"),
-        "content": event_details.get("data").get("content"), # *different
+        "title": title,
+        "content": content,
         "content_hash": event_details.get("header").get("content_hash"),
         "actor": event_details.get("header").get("actor"),
         "category": event_details.get("header").get("category_name"),
@@ -318,138 +351,135 @@ def parse_soc_media_post_event(event, event_details, org_uid):
         "risk_scores": event_details.get("header").get("risk"),
         "related_identifiers": parse_related_identifiers(event),
         "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
+        "severity": event.get("severity"),
     }
 
-def parse_darkweb_post_event(event, event_details, org_uid):
-    """Parse and format data for darkweb post events."""
-    event_details = event_details.get("activity")
-    return {
-        "organizations_uid": org_uid,
-        "flare_uid": event.get("event_uid"),
-        "event_type": event.get("event_type"),
-        "event_date": event.get("event_date"),
-        "collection_date": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "title": event_details.get("header").get("title"),
-        "content": event_details.get("data").get("content"), # *different
-        "content_hash": event_details.get("header").get("content_hash"),
-        "actor": event_details.get("header").get("actor"),
-        "category": event_details.get("header").get("category_name"),
-        "source": event_details.get("metadata").get("source"), # (source ~= site for mentions)
-        "url": event_details.get("data").get("url"),
-        "risk_scores": event_details.get("header").get("risk"),
-        "related_identifiers": parse_related_identifiers(event),
-        "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
-    }
+def parse_creds_stealer_log(event_details, domain_idents):
+    """Extract leaked username password pairs from stealer_log events if available."""
+    # Check if this stealer_log event has any credentials
+    try:
+        raw_creds_list = event_details.get("activity").get("data").get("credentials")
+    except Exception as e:
+        print("\tError: No credentials found for this stealer_log event")
+        return None
+    if raw_creds_list is None:
+        print("\tError: No credentials found for this stealer_log event")
+        return None
+    # If it does, iterate over the list of creds to find the ones relevant to the organization
+    creds_list = []
+    for dict in raw_creds_list:
+        curr_url = dict.get("url")
+        curr_username = dict.get("username")
+        # Extract only leaked creds whose URL involves the organization's domains
+        for domain in domain_idents:
+            if (domain in curr_url) and (curr_username != ""):
+                append_dict = {
+                    # uid,
+                    "username": dict.get("username"),
+                    # org_uid, 
+                    "root_domain": domain,
+                    "sub_domain": domain,
+                    "breach_name": dict.get("application"),
+                    # "modified_date": datetime.datetime.now().strftime("%Y-%m-%d"),
+                    "modified_date": event_details.get("activity").get("data").get("metadata").get("estimated_created_at"),
+                    "credential_breaches_uid": None, 
+                    "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
+                    # name,
+                    # login_id,
+                    # phone,
+                    "password": dict.get("password"),
+                    "hash_type": "plain-text",
+                    # intelx_system_id,
+                    "url": dict.get("url")
+                }
+                # Append results to the overall list for this stealer_log event
+                creds_list.append(append_dict)
 
-def parse_leak_event(event, event_details, org_uid):
-    """Parse and format data for leak events."""
-    event_details = event_details.get("activity")
-    return {
-        "organizations_uid": org_uid,
-        "flare_uid": event.get("event_uid"), 
-        "event_type": event.get("event_type"), 
-        "event_date": event.get("event_date"), 
-        "collection_date": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "title": event_details.get("header").get("title"), 
-        "content": event_details.get("header").get("content_preview"), # adjusted, iffy leak_source?
-        "content_hash": event_details.get("header").get("content_hash"),
-        "actor": event_details.get("header").get("actor"), 
-        "category": event_details.get("header").get("category_name"), 
-        "source": event_details.get("metadata").get("source"), 
-        "url": event_details.get("data").get("url"), 
-        "risk_scores": event_details.get("header").get("risk"), 
-        "related_identifiers": parse_related_identifiers(event), 
-        "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f", 
-    }
+    # Format and return results
+    creds_df = pd.DataFrame(creds_list)
+    creds_list = creds_df.to_dict(orient="records")
+    return creds_list
 
-def parse_ransomleak_event(event, event_details, org_uid):
-    """Parse and format data for ransomleak events."""
-    event_details = event_details.get("activity")
-    return {
-        "organizations_uid": org_uid,
-        "flare_uid": event.get("event_uid"),  
-        "event_type": event.get("event_type"), 
-        "event_date": event.get("event_date"), 
-        "collection_date": datetime.datetime.now().strftime("%Y-%m-%d"), 
-        "title": event_details.get("header").get("title"), 
-        "content": event_details.get("header").get("content_preview"), # adjusted, iffy
-        "content_hash": event_details.get("header").get("content_hash"),
-        "actor": event_details.get("header").get("actor"),
-        "category": event_details.get("header").get("category_name"), 
-        "source": event_details.get("metadata").get("source"), 
-        "url": event_details.get("data").get("url"), 
-        "risk_scores": event_details.get("header").get("risk"), 
-        "related_identifiers": parse_related_identifiers(event), 
-        "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
-    }
-
-def parse_stealer_log_event(event, event_details, org_uid):
-    """Parse and format data for stealer_log events."""
-    # Create custom content string
-    content_str = f"A stealer log has been offered for sale." # break credentials into content records?
-    event_details = event_details.get("activity")
-    return {
-        "organizations_uid": org_uid,
-        "flare_uid": event.get("event_uid"), 
-        "event_type": event.get("event_type"), 
-        "event_date": event.get("event_date"), 
-        "collection_date": datetime.datetime.now().strftime("%Y-%m-%d"), 
-        "title": event_details.get("header").get("title"), 
-        "content": event_details.get("header").get("content_preview"), # adjusted, iffy
-        "content_hash": event_details.get("header").get("content_hash"),
-        "actor": event_details.get("header").get("actor"), 
-        "category": event_details.get("header").get("category_name"), 
-        "source": event_details.get("metadata").get("source"), 
-        "url": event_details.get("data").get("url"), 
-        "risk_scores": event_details.get("header").get("risk"), 
-        "related_identifiers": parse_related_identifiers(event), 
-        "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f", 
-    }
-
-def parse_bot_event(event, event_details, org_uid):
-    """Parse and format data for bot events."""
-    # Create custom content string
-    content_str = f"A device has potentially been infected by botnet malware and the data stolen from it has been offered for sale."
-    event_details = event_details.get("activity")
-    return {
-        "organizations_uid": org_uid,
-        "flare_uid": event.get("event_uid"),  
-        "event_type": event.get("event_type"), 
-        "event_date": event.get("event_date"), 
-        "collection_date": datetime.datetime.now().strftime("%Y-%m-%d"), 
-        "title": event_details.get("header").get("title"), 
-        "content": event_details.get("header").get("content_preview"), # adjusted, iffy
-        "content_hash": event_details.get("header").get("content_hash"),
-        "actor": event_details.get("header").get("actor"), 
-        "category": event_details.get("header").get("category_name"), 
-        "source": event_details.get("metadata").get("source"), 
-        "url": event_details.get("data").get("url"), 
-        "risk_scores": event_details.get("header").get("risk"), 
-        "related_identifiers": parse_related_identifiers(event), 
-        "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
-    }
-
-def parse_inv_market_event(event, event_details, org_uid):
-    """Parse and format data for invite only market events."""
-    event_details = event_details.get("activity")
-    return {
-        "organizations_uid": org_uid,
-        "flare_uid": event.get("event_uid"),
-        "event_type": event.get("event_type"), 
-        "event_date": event.get("event_date"), 
-        "collection_date": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "title": event_details.get("header").get("title"), 
-        "content": event_details.get("header").get("content_preview"), # adjusted, iffy
-        "content_hash": event_details.get("header").get("content_hash"),
-        "actor": event_details.get("header").get("actor"), 
-        "category": event_details.get("header").get("category_name"), 
-        "source": event_details.get("metadata").get("source"), 
-        "url": event_details.get("data").get("url"), 
-        "risk_scores": event_details.get("header").get("risk"), 
-        "related_identifiers": parse_related_identifiers(event), 
-        "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
-    }
-
+def format_creds_for_db(cred_list, org_abbrv, org_uid):
+    """Format list of flare credential leak dictionaries to be inserted into PE DB."""
+    # Convert list of creds to dataframe
+    all_df = pd.DataFrame.from_dict(cred_list)
+    all_df["username"] = all_df["username"].str.lower()
+    # Only include credentials that feature a @ in the username
+    all_df = all_df[all_df["username"].str.contains("@", na=False)].reset_index(drop=True)
+    all_df = all_df.drop_duplicates(subset=["username", "breach_name"], keep="first")
+    # Add additional columns
+    all_df["password_included"] = np.where(
+        (pd.isna(all_df["password"])) | (all_df["password"] == ""), 0, 1
+    )
+    all_df["sub_domain"] = all_df["username"].str.split("@").str[1]
+    all_df["sub_domain"].fillna("None", inplace=True)
+    all_df["organizations_uid"] = org_uid
+    all_df["intelx_system_id"] = "None"
+    all_df = all_df.loc[all_df["breach_name"] != ""]
+    all_df.rename(
+        columns={
+            "username": "email",
+        },
+        inplace=True,
+    )
+    # Assemble credential exposures dataframe
+    creds_df = all_df[
+        [
+            "email",
+            "organizations_uid",
+            "root_domain",
+            "sub_domain",
+            "breach_name",
+            "modified_date",
+            "credential_breaches_uid",
+            "data_source_uid",
+            "password",
+            "hash_type",
+            "intelx_system_id",
+        ]
+    ].reset_index(drop=True)
+    # Assemble credential breaches dataframe
+    breaches_df = all_df.groupby(
+        [
+            "breach_name", 
+            "modified_date", 
+            # "bucket", 
+            "url",
+            "data_source_uid",
+        ]
+    ).aggregate({"email": "count", "password_included": "sum"})
+    breaches_df = breaches_df.reset_index()
+    breaches_df["password_included"] = breaches_df["password_included"] > 0
+    breaches_df.rename(columns={"email": "exposed_cred_count"}, inplace=True)
+    breaches_df["description"] = (
+        breaches_df["breach_name"]
+        + " was identified on "
+        + breaches_df["modified_date"]
+        + ". The post "
+        + (
+            "does not contain"
+            if breaches_df["password_included"] is True
+            else "contains"
+        )
+        + " passwords. This data came from a stealer log where credentials were recorded while being used at this URL: "
+        + breaches_df["url"]
+    )
+    breaches_df["breach_date"] = breaches_df["modified_date"]
+    breaches_df["added_date"] = END_DATE
+    breaches_df = breaches_df[
+        [
+            "breach_name",
+            "description",
+            "breach_date",
+            "added_date",
+            "modified_date",
+            "password_included",
+            "data_source_uid",
+        ]
+    ]
+    # Return results
+    return creds_df, breaches_df
 
 def run_flare(orgs_list):
     """Retrieve Flare data for the specified list of organizations and insert into the PE DB."""
@@ -477,18 +507,43 @@ def run_flare(orgs_list):
     # Alphabetize org list for consistent order
     pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
 
+    # Specify which event severities to collect
+    event_severities = [
+        # "info",
+        "low",
+        "medium",
+        "high",
+        "critical",
+    ]
     # Specify which event types to collect
     event_types = [
-        # Mention Data:
-        "social_media", # non-existant
-        "forum_post", # common
-        "blog_post", # rare
-        # Alert Data:
-        # "infected_devices", # very common, lots of results - specifically from stealer_logs
-        "leaks", # somewhat common
-        "ransomleak", # moderate results
-        "listing", # somewhat common
-        "seller", # non-existant,
+        # > Asset Alert Data: 
+        # Any events involving IP/Domain assets
+        # > Executive Alert Data:
+        # Any events involving executive name assets
+        # > Potential Threat Alert Data:
+        "bot", 
+        "bucket", 
+        "bucket_object", 
+        "domain", 
+        "service",
+        # > Market Alert Data:
+        "listing", 
+        "stealer_log", # warning, lots of results (still somewhat acceptable)
+        # > Credential Data:
+        "leak",
+        "leaked_credential", # *** Incompatible with event details endpoint for some reason
+        "leaked_data",
+        "leaked_file",
+        "ransomleak",
+        # > Chat (Mention) Data:
+        "chat_message",
+        # > Dark Web Media (Mention) Data:
+        "blog_content",
+        "blog_post",
+        "forum_post",
+        "forum_profile",
+        "forum_topic",
     ]
     # Run Flare data collection on each org
     LOGGER.info(f"Gathering Flare event data of the following types: {event_types}")
@@ -505,33 +560,62 @@ def run_flare(orgs_list):
             )
             # Retrieve identifier group info for this org
             ident_group_info = get_ident_group_info(org_abbrv)
+            # Retrieve identifiers for this org
+            org_identifiers = get_ident_by_group_id(ident_group_info.get("id"))
             # Retrieve all Flare events for this org
             LOGGER.info(f"Retrieving all Flare events for {org_abbrv}")
-            event_list = get_ident_group_events(ident_group_info, event_types, start_date, end_date)
+            event_list = get_ident_group_events(ident_group_info, event_severities, event_types, start_date, end_date)
+            LOGGER.info(f"Found {len(event_list)} events for {org_abbrv}")
             # Retrieve further details for the events and format
             LOGGER.info(f"Retrieving additional details for {org_abbrv}'s events")
-            final_event_list = get_all_event_details(event_list, org_uid)
-            # Extra formatting to handle special characters in certain fields
+            final_event_list, final_cred_list = get_all_event_details(event_list, org_uid, org_identifiers)
+            # Convert risk_score field to string type
             for event in final_event_list:
-                event.update(
-                    {
-                        "content": event.get("content").replace("'", "''"),
-                        "risk_scores": str(event.get("risk_scores")).replace("'", "''"),
-                    }
-                )
+                if event.get("risk_scores") is not None:
+                    event.update({"risk_scores": str(event.get("risk_scores"))})
             final_event_df = pd.DataFrame(final_event_list)
             final_event_df.drop_duplicates(inplace=True)
             final_event_list = final_event_df.to_dict(orient="records")
-            # Insert Flare data into PE DB
+
+            # Insert Flare event data into PE DB
             LOGGER.info(f"Inserting Flare event data for {org_abbrv} into the PE database")
             if len(final_event_list) > 0:
                 insert_flare_events(final_event_list)
                 LOGGER.info(f"Flare events for {org_abbrv} successfully inserted into PE database")
             else:
-                LOGGER.info(f"No Flare events for {org_abbrv} to insert, proceeding")
+                LOGGER.info(f"No Flare events for {org_abbrv} to insert, skipping")
+
+            # Insert Flare credential leak data into PE DB if available
+            if len(final_cred_list) > 0:
+                # Format cred leak data to match PE DB tables
+                final_cred_df, final_breach_df = format_creds_for_db(final_cred_list, org_abbrv, org_uid) 
+                # Skip if no valid cred data to insert after formatting
+                if (len(final_cred_df) == 0) or (len(final_breach_df) == 0):
+                    LOGGER.info(f"No Flare credential information to insert, skipping")
+                else:
+                    LOGGER.info(f"Found {len(final_cred_list)} credentials for {org_abbrv}, formatting credential data")
+                    # Insert Flare breach data into PE DB
+                    insert_flare_breaches(final_breach_df)
+                    LOGGER.info(f"Flare breaches for {org_abbrv} successfully inserted into PE database")
+                    # Retrieve breach uids for the credential records
+                    breach_uid_df = get_cred_breach_uids(list(final_cred_df["breach_name"]))
+                    breach_dict = dict(zip(breach_uid_df["breach_name"], breach_uid_df["credential_breaches_uid"]))
+                    # Add credential_breaches_uid to credential records
+                    for idx, row in final_cred_df.iterrows():
+                        breach_uid = breach_dict.get(row["breach_name"])
+                        final_cred_df.at[idx, "credential_breaches_uid"] = breach_uid
+                    # Insert Flare credential data into PE DB
+                    insert_flare_credentials(final_cred_df)
+                    LOGGER.info(f"Flare credentials for {org_abbrv} successfully inserted into PE database")
+            else:
+                LOGGER.info(f"No Flare credential information to insert, skipping")
+
+            # Log successful data collection for this org
             success += 1
         except Exception as e:
             LOGGER.error(f"Error encountered during Flare scan for {org_abbrv} - {e}")
+            traceback.print_exc()
+            # Log failed data collection for this org
             failed += 1
             
     # Log overall success/fail statistics
@@ -554,7 +638,7 @@ def get_shodan_cve_info(cve):
             resp = requests.get(url)
             retry_count += 1
         # Return results
-        if retry_count == max_retries:
+        if retry_count == max_retries + 1:
             LOGGER.error(f"Error: Failed to retrieve Shodan CVE info for {cve}")
             return None
         else:
@@ -564,7 +648,7 @@ def get_cve_details(cve_list):
         """Retrieve details for the specified list of CVEs."""
         cve_detail_list = []
         for idx, cve in enumerate(cve_list):
-            # Call shodan API to grab CVE info
+            # Call shodan API to get CVE info
             print(f"Retrieving CVE details for {cve} ({idx+1} of {len(cve_list)})")
             cve_details = get_shodan_cve_info(cve)
             epss = round(cve_details.get("epss") * 100, 2)
@@ -603,5 +687,3 @@ def run_top_cves_shodan():
     # Insert top 10 CVEs into the P&E database
     insert_shodan_top_cves(top_epss_cves)
     LOGGER.info("Recorded top 10 CVEs with the highest EPSS score in the P&E database")
-
-   
