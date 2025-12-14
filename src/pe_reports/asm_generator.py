@@ -1,6 +1,7 @@
 """Generate a stakeholders ASM summary based on a data dictionary."""
 
 # Standard Python Libraries
+import datetime
 import io
 import json
 import logging
@@ -104,7 +105,7 @@ def add_stat_frame(current_value, last_value, x, y, width, height, style, can):
     return can
 
 
-def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx):
+def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx, start_date, end_date):
     """Create and add JSON attachment."""
     LOGGER.info("Creating ASM attachments")
     # Create ASM Excel file
@@ -167,6 +168,8 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx):
 
     # Foreign Ips
     for_ips_df = query_foreign_IPs(org_uid)
+    for_ips_df["timestamp"] = pd.to_datetime(for_ips_df["timestamp"])
+    for_ips_df = for_ips_df.loc[(for_ips_df["timestamp"] >= start_date) & (for_ips_df["timestamp"] <= end_date)].reset_index(drop=True)
     for_ips_df = for_ips_df[
         [
             "organization",
@@ -222,10 +225,16 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx):
     return asm_xlsx
 
 
-def create_summary(org_uid, final_output, data_dict, file_name, json_filename, excel_filename):
+def create_summary(org_uid, final_output, data_dict, file_name, json_filename, excel_filename, datestring):
     """Create ASM summary PDF."""
-    packet = io.BytesIO()
+    # Calculate start/end dates
+    end_date = datetime.datetime.strptime(datestring, "%Y-%m-%d")
+    if end_date.day == 15:
+        start_date = datetime.datetime(end_date.year, end_date.month, 1)
+    else:
+        start_date = datetime.datetime(end_date.year, end_date.month, 16)
 
+    packet = io.BytesIO()
     # Create a new PDF with Reportlab
     can = canvas.Canvas(packet, pagesize=letter)
     can.setFillColorRGB(0, 0, 0)  # choose your font color
@@ -354,7 +363,13 @@ def create_summary(org_uid, final_output, data_dict, file_name, json_filename, e
     outputStream.close()
 
     asm_xlsx = add_attachment(
-        org_uid, final_output, file_name, json_filename, excel_filename
+        org_uid, 
+        final_output, 
+        file_name, 
+        json_filename, 
+        excel_filename,
+        start_date,
+        end_date,
     )
     
     return asm_xlsx
