@@ -1,7 +1,7 @@
 """cisagov/pe-reports: A tool for creating Posture & Exposure reports.
 
 Usage:
-    pe-reports REPORT_DATE OUTPUT_DIRECTORY [--log-level=LEVEL] [--soc_med_included] [--orgs=ORG_LIST]
+    pe-reports REPORT_DATE OUTPUT_DIRECTORY [--log-level=LEVEL] [--soc_med_included] [--flare] [--orgs=ORG_LIST]
 
 Options:
     -h --help                       Show this message.
@@ -12,6 +12,7 @@ Options:
                                     the specified value.  Valid values are "debug", "info",
                                     "warning", "error", and "critical". [default: info]
     -s --soc_med_included           Include social media posts from Cybersixgill in the report.
+    -f --flare                      Replace any Cybersixgill data in the report with data from Flare
     -o --orgs=ORG_LIST              A comma-separated list of orgs to generate P&E reports for.
                                     If not specified, reports will be generated for all
                                     orgs P&E delivers reports to. Orgs in the list must match the
@@ -40,18 +41,17 @@ from schema import And, Schema, SchemaError, Use
 
 # cisagov Libraries
 import pe_reports
-
 from ._version import __version__
 from .asm_generator import create_summary
 from .data.db_query import connect, get_demo_orgs, get_orgs, get_specific_orgs, refresh_asset_counts_vw
-
 # from .helpers.generate_score import get_pe_scores
 from .pages import init
 from .reportlab_core_generator import core_report_gen
 from .reportlab_generator import report_gen
-
+from .reportlab_generator_flare import report_gen_flare
 # from .scorecard_generator import create_scorecard
 
+# Setup logging
 LOGGER = logging.getLogger(__name__)
 ACCESSOR_AWS_PROFILE = os.getenv("ACCESSOR_PROFILE")
 
@@ -60,10 +60,8 @@ def upload_file_to_s3(file_name, datestring, bucket, excel_org):
     """Upload a file to an S3 bucket."""
     session = boto3.Session(profile_name=ACCESSOR_AWS_PROFILE)
     s3_client = session.client("s3")
-
     # If S3 object_name was not specified, use file_name
     object_name = f"{datestring}/{os.path.basename(file_name)}"
-
     if excel_org is not None:
         object_name = f"{datestring}/{excel_org}-raw-data/{os.path.basename(file_name)}"
 
@@ -75,10 +73,6 @@ def upload_file_to_s3(file_name, datestring, bucket, excel_org):
             LOGGER.info(response)
     except ClientError as e:
         LOGGER.error(e)
-
-
-LOGGER = logging.getLogger(__name__)
-
 
 def embed(
     output_directory,
@@ -93,12 +87,16 @@ def embed(
     da_xlsx,
     vuln_xlsx,
     mi_xlsx,
+    flare=False,
 ):
     """Embeds raw data into PDF and encrypts file."""
     doc = fitz.open(file)
     # Get the summary page of the PDF on page 4
     page = doc[4]
-    output = f"{output_directory}/{org_code}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+    if flare:
+        output = f"{output_directory}/{org_code}/FLARE_Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+    else:
+        output = f"{output_directory}/{org_code}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
 
     # Open CSV data as binary
     cc = open(cred_json, "rb").read()
@@ -166,7 +164,7 @@ def embed(
     return filesize, tooLarge, output
 
 
-def generate_reports(orgs_list, datestring, output_directory, soc_med_included=False):
+def generate_reports(orgs_list, datestring, output_directory, soc_med_included=False, flare=False):
     """Process steps for generating report data."""
     # Determine list of organizations to run on
     conn = connect()
@@ -189,160 +187,253 @@ def generate_reports(orgs_list, datestring, output_directory, soc_med_included=F
                 orgs_list_log = f"{pe_orgs[0][2]} - {pe_orgs[-1][2]}"
     else:
         return 1
+    # alphabetize org list for consistent order
+    pe_orgs = sorted(pe_orgs, key=lambda d: d[2])
 
     # Resfresh ASM counts view
     LOGGER.info("Refreshing ASM asset count view and IPs from cidrs view")
     refresh_asset_counts_vw()
-    
-    # set_from_cidr()
     LOGGER.info("Finished refreshing ASM asset count view and IPs from cidrs view")
 
-    # Iterate over organizations
+    # Ensure there's a list of organizations to generate reports for
     generated_reports = 0
     if pe_orgs:
+        # Uncomment this to exclude the specified orgs from report generation
+        # pe_orgs = [x for x in pe_orgs if x[2] not in ["SEC"]]
+
         # Generate PE scores for all stakeholders WIP
         # LOGGER.info("Calculating P&E Scores")
         # pe_scores_df = get_pe_scores(datestring, 12)
         # pe_orgs.reverse()
 
-        # Uncomment this to exclude these orgs from report generation
-        # pe_orgs = [x for x in pe_orgs if x[2] not in ["SEC"]]
-        
+        # Iterate over organizations
         LOGGER.info(f"Generating PE reports for {len(pe_orgs)} requested organizations ({orgs_list_log})")
-
         for org_idx, org in enumerate(pe_orgs):
             # Assign organization values
             org_uid = org[0]
             org_name = org[1]
             org_code = org[2]
             premium = org[8]
-
             LOGGER.info(f"-- Generating report for {org_code} ({org_idx+1} of {len(pe_orgs)}) --")
-
             # Create folders in output directory
             for dir_name in ("ppt", org_code):
                 if not os.path.exists(f"{output_directory}/{dir_name}"):
                     os.mkdir(f"{output_directory}/{dir_name}")
-
-            pe_scores_df = pd.DataFrame()
-            if not pe_scores_df.empty:
-                score = pe_scores_df.loc[
-                    pe_scores_df["cyhy_db_name"] == org_code, "PE_score"
-                ].item()
-                grade = pe_scores_df.loc[
-                    pe_scores_df["cyhy_db_name"] == org_code, "letter_grade"
-                ].item()
-            else:
-                score = "NA"
-                grade = "NA"
-
-            # Insert Charts and Metrics into PDF
-            (
-                chevron_dict,
-                scorecard_dict,
-                summary_dict,
-                cred_json,
-                da_json,
-                vuln_json,
-                mi_json,
-                cred_xlsx,
-                da_xlsx,
-                vuln_xlsx,
-                mi_xlsx,
-            ) = init(
-                datestring,
-                org_name,
-                org_code,
-                org_uid,
-                premium,
-                score,
-                grade,
-                output_directory,
-                soc_med_included,
-            )
-
-            # Create ASM Summary
-            LOGGER.info("Creating ASM summary")
-            summary_filename = f"{output_directory}/Posture-and-Exposure-ASM-Summary_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
-            final_summary_output = f"{output_directory}/{org_code}/Posture-and-Exposure-ASM-Summary_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
-            summary_json_filename = f"{output_directory}/{org_code}/ASM_Summary.json"
-            summary_excel_filename = f"{output_directory}/{org_code}/ASM_Summary.xlsx"
-            asm_xlsx = create_summary(
-                org_uid,
-                final_summary_output,
-                summary_dict,
-                summary_filename,
-                summary_json_filename,
-                summary_excel_filename,
-            )
-            LOGGER.info("Finished creating ASM summary")
-
-            # Create scorecard
-            # LOGGER.info("Creating scorecard")
-            # scorecard_filename = f"{output_directory}/{org_code}/Posture-and-Exposure-Scorecard_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
-            # create_scorecard(scorecard_dict, scorecard_filename)
-            # LOGGER.info("Finished creating scorecard")
-
-            # Convert to HTML to PDF
-            output_filename = f"{output_directory}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
-            # convert_html_to_pdf(source_html, output_filename)#TODO possibly generate report here
-            chevron_dict["filename"] = output_filename
-            if premium:
-                report_gen(chevron_dict, soc_med_included)
-            else:
-                core_report_gen(chevron_dict)
-
-            # Grab the PDF
-            pdf = f"{output_directory}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
-
-            # Embed Excel files
-            (filesize, tooLarge, output) = embed(
-                output_directory,
-                org_code,
-                datestring,
-                pdf,
-                cred_json,
-                da_json,
-                vuln_json,
-                mi_json,
-                cred_xlsx,
-                da_xlsx,
-                vuln_xlsx,
-                mi_xlsx,
-            )
-
-            # Log a message if the report is too large.  Our current mailer
-            # cannot send files larger than 20MB.
-            if tooLarge:
-                LOGGER.info(
-                    "%s is too large. File size: %s Limit: 20MB", org_code, filesize
+            # If "flare" flag is true, generate P&E Report with Flare data instead of CyberSixGill data
+            if flare:
+                LOGGER.warning(f"WARNING: GENERATING EXPERIMENTAL FLARE P&E REPORT FOR \"{org_code}\"")
+                # (WIP) retrieve PE score for this org
+                pe_scores_df = pd.DataFrame()
+                if not pe_scores_df.empty:
+                    score = pe_scores_df.loc[
+                        pe_scores_df["cyhy_db_name"] == org_code, "PE_score"
+                    ].item()
+                    grade = pe_scores_df.loc[
+                        pe_scores_df["cyhy_db_name"] == org_code, "letter_grade"
+                    ].item()
+                else:
+                    score = "NA"
+                    grade = "NA"
+                # Calculate charts, metrics, and raw data files
+                (
+                    chevron_dict,
+                    scorecard_dict,
+                    summary_dict,
+                    cred_json,
+                    da_json,
+                    vuln_json,
+                    mi_json,
+                    cred_xlsx,
+                    da_xlsx,
+                    vuln_xlsx,
+                    mi_xlsx,
+                ) = init(
+                    datestring,
+                    org_name,
+                    org_code,
+                    org_uid,
+                    premium,
+                    score,
+                    grade,
+                    output_directory,
+                    soc_med_included,
+                    flare, 
                 )
+                # Create ASM Summary
+                LOGGER.info("Creating ASM summary")
+                summary_filename = f"{output_directory}/Posture-and-Exposure-ASM-Summary_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
+                final_summary_output = f"{output_directory}/{org_code}/Posture-and-Exposure-ASM-Summary_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
+                summary_json_filename = f"{output_directory}/{org_code}/ASM_Summary.json"
+                summary_excel_filename = f"{output_directory}/{org_code}/ASM_Summary.xlsx"
+                asm_xlsx = create_summary(
+                    org_uid,
+                    final_summary_output,
+                    summary_dict,
+                    summary_filename,
+                    summary_json_filename,
+                    summary_excel_filename,
+                    datestring,
+                )
+                LOGGER.info("Finished creating ASM summary")
+                # Convert from HTML template to PDF
+                output_filename = f"{output_directory}/FLARE_Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+                chevron_dict["filename"] = output_filename
+                report_gen_flare(chevron_dict, soc_med_included)
+                # Grab the PDF that was generated
+                pdf = f"{output_directory}/FLARE_Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+                # Embed raw data files
+                (filesize, tooLarge, output) = embed(
+                    output_directory,
+                    org_code,
+                    datestring,
+                    pdf,
+                    cred_json,
+                    da_json,
+                    vuln_json,
+                    mi_json,
+                    cred_xlsx,
+                    da_xlsx,
+                    vuln_xlsx,
+                    mi_xlsx,
+                    flare,
+                )
+                # Log a message if the report is too large
+                # Current mailer can't send files larger than 20MB
+                if tooLarge:
+                    LOGGER.error(
+                        "%s is too large. File size: %s Limit: 20MB", org_code, filesize
+                    )
+                # # Upload backup copies of files to S3 bucket
+                # bucket_name = "cisa-crossfeed-staging-reports"
+                # # Upload excel files
+                # upload_file_to_s3(cred_xlsx, datestring, bucket_name, org_code)
+                # upload_file_to_s3(da_xlsx, datestring, bucket_name, org_code)
+                # upload_file_to_s3(vuln_xlsx, datestring, bucket_name, org_code)
+                # if premium:
+                #     upload_file_to_s3(mi_xlsx, datestring, bucket_name, org_code)
+                # upload_file_to_s3(asm_xlsx, datestring, bucket_name, org_code)
+                # # Upload report
+                # upload_file_to_s3(output, datestring, bucket_name, None)
+                # # Upload ASM Summary
+                # upload_file_to_s3(final_summary_output, datestring, bucket_name, None)
+                # # Upload scorecard
+                # # upload_file_to_s3(scorecard_filename, datestring, bucket_name, None)
+            else:
+                # If "flare" flag is false, generate the P&E report with CyberSixGill data
+                # WIP retrieve PE score for this org
+                pe_scores_df = pd.DataFrame()
+                if not pe_scores_df.empty:
+                    score = pe_scores_df.loc[
+                        pe_scores_df["cyhy_db_name"] == org_code, "PE_score"
+                    ].item()
+                    grade = pe_scores_df.loc[
+                        pe_scores_df["cyhy_db_name"] == org_code, "letter_grade"
+                    ].item()
+                else:
+                    score = "NA"
+                    grade = "NA"
+                # Calculate charts, metrics, and raw data files
+                (
+                    chevron_dict,
+                    scorecard_dict,
+                    summary_dict,
+                    cred_json,
+                    da_json,
+                    vuln_json,
+                    mi_json,
+                    cred_xlsx,
+                    da_xlsx,
+                    vuln_xlsx,
+                    mi_xlsx,
+                ) = init(
+                    datestring,
+                    org_name,
+                    org_code,
+                    org_uid,
+                    premium,
+                    score,
+                    grade,
+                    output_directory,
+                    soc_med_included,
+                )
+                # Create ASM Summary
+                LOGGER.info("Creating ASM summary")
+                summary_filename = f"{output_directory}/Posture-and-Exposure-ASM-Summary_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
+                final_summary_output = f"{output_directory}/{org_code}/Posture-and-Exposure-ASM-Summary_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
+                summary_json_filename = f"{output_directory}/{org_code}/ASM_Summary.json"
+                summary_excel_filename = f"{output_directory}/{org_code}/ASM_Summary.xlsx"
+                asm_xlsx = create_summary(
+                    org_uid,
+                    final_summary_output,
+                    summary_dict,
+                    summary_filename,
+                    summary_json_filename,
+                    summary_excel_filename,
+                    datestring,
+                )
+                LOGGER.info("Finished creating ASM summary")
 
-            bucket_name = "cisa-crossfeed-staging-reports"
+                # Create scorecard
+                # LOGGER.info("Creating scorecard")
+                # scorecard_filename = f"{output_directory}/{org_code}/Posture-and-Exposure-Scorecard_{org_code}_{scorecard_dict['end_date'].strftime('%Y-%m-%d')}.pdf"
+                # create_scorecard(scorecard_dict, scorecard_filename)
+                # LOGGER.info("Finished creating scorecard")
 
-            # Upload excel files
-            upload_file_to_s3(cred_xlsx, datestring, bucket_name, org_code)
-            upload_file_to_s3(da_xlsx, datestring, bucket_name, org_code)
-            upload_file_to_s3(vuln_xlsx, datestring, bucket_name, org_code)
-            if premium:
-                upload_file_to_s3(mi_xlsx, datestring, bucket_name, org_code)
-            upload_file_to_s3(asm_xlsx, datestring, bucket_name, org_code)
-
-            # Upload report
-            upload_file_to_s3(output, datestring, bucket_name, None)
-
-            # Upload scorecard
-            upload_file_to_s3(final_summary_output, datestring, bucket_name, None)
-
-            # Upload ASM Summary
-            # upload_file_to_s3(scorecard_filename, datestring, bucket_name, None)
+                # Convert from HTML template to PDF
+                output_filename = f"{output_directory}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+                # convert_html_to_pdf(source_html, output_filename)#TODO possibly generate report here
+                chevron_dict["filename"] = output_filename
+                if premium:
+                    report_gen(chevron_dict, soc_med_included)
+                else:
+                    core_report_gen(chevron_dict)
+                # Grab the PDF that was just generated
+                pdf = f"{output_directory}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+                # Embed raw data files
+                (filesize, tooLarge, output) = embed(
+                    output_directory,
+                    org_code,
+                    datestring,
+                    pdf,
+                    cred_json,
+                    da_json,
+                    vuln_json,
+                    mi_json,
+                    cred_xlsx,
+                    da_xlsx,
+                    vuln_xlsx,
+                    mi_xlsx,
+                )
+                # Log a message if the report is too large
+                # Current mailer can't send files larger than 20MB
+                if tooLarge:
+                    LOGGER.info(
+                        "%s is too large. File size: %s Limit: 20MB", org_code, filesize
+                    )
+                # Upload backup copies of files to S3 bucket
+                bucket_name = "cisa-crossfeed-staging-reports"
+                # Upload excel files
+                upload_file_to_s3(cred_xlsx, datestring, bucket_name, org_code)
+                upload_file_to_s3(da_xlsx, datestring, bucket_name, org_code)
+                upload_file_to_s3(vuln_xlsx, datestring, bucket_name, org_code)
+                if premium:
+                    upload_file_to_s3(mi_xlsx, datestring, bucket_name, org_code)
+                upload_file_to_s3(asm_xlsx, datestring, bucket_name, org_code)
+                # Upload report
+                upload_file_to_s3(output, datestring, bucket_name, None)
+                # Upload ASM Summary
+                upload_file_to_s3(final_summary_output, datestring, bucket_name, None)
+                # Upload scorecard
+                # upload_file_to_s3(scorecard_filename, datestring, bucket_name, None)
+            
+            # Keep track of sucessful report generations
             generated_reports += 1
-
     else:
         LOGGER.error(
             "Connection to pe database failed and/or there are 0 organizations stored."
         )
 
+    # Log overall stats
     LOGGER.info(f"In total, {generated_reports}/{len(pe_orgs)} reports were generated")
     LOGGER.info(f"Generated reports have been output to the directory: {output_directory}")
 
@@ -350,7 +441,6 @@ def generate_reports(orgs_list, datestring, output_directory, soc_med_included=F
 def main():
     """Generate PDF reports."""
     args: Dict[str, str] = docopt.docopt(__doc__, version=__version__)
-
     # Validate and convert arguments as needed
     schema: Schema = Schema(
         {
@@ -364,17 +454,14 @@ def main():
             str: object,  # Don't care about other keys, if any
         }
     )
-
     try:
         validated_args: Dict[str, Any] = schema.validate(args)
     except SchemaError as err:
-        # Exit because one or more of the arguments were invalid
+        # Exit if one or more of the arguments were invalid
         print(err, file=sys.stderr)
         sys.exit(1)
-
     # Assign validated arguments to variables
     log_level: str = validated_args["--log-level"]
-
     # Setup logging to central file
     logging.basicConfig(
         filename=pe_reports.CENTRAL_LOGGING_FILE,
@@ -383,27 +470,25 @@ def main():
         datefmt="%m/%d/%Y %I:%M:%S",
         level=log_level.upper(),
     )
-
+    # Log start message
     LOGGER.info("--- PE Report Generation Starting ---")
     LOGGER.info("Posture & Exposure Report, Version : %s", __version__)
     report_gen_start_time = time.time()
-
     # Create output directory
     if not os.path.exists(validated_args["OUTPUT_DIRECTORY"]):
         os.mkdir(validated_args["OUTPUT_DIRECTORY"])
-
     # Generate reports
     generated_reports = generate_reports(
         validated_args["--orgs"],
         validated_args["REPORT_DATE"],
         validated_args["OUTPUT_DIRECTORY"],
         validated_args["--soc_med_included"],
+        validated_args["--flare"]
     )
-
+    # log end message
     report_gen_end_time = time.time()
     report_gen_exe_time = str(timedelta(seconds=(report_gen_end_time - report_gen_start_time)))
     LOGGER.info(f"Execution time for PE report generation: {report_gen_exe_time} (H:M:S)")
     LOGGER.info("--- PE Report Generation Complete ---")
-
     # Stop logging and clean up
     logging.shutdown()

@@ -3240,14 +3240,20 @@ def query_extra_ips_tsql(org_uid):
     """Get IP data."""
     conn = connect()
 
-    sql2 = """select i.ip_hash, i.ip
-    from ips i
-    join ips_subs is2 ON i.ip_hash = is2.ip_hash
-    join sub_domains sd on sd.sub_domain_uid = is2.sub_domain_uid
-    join root_domains rd on rd.root_domain_uid = sd.root_domain_uid
-    JOIN organizations o on o.organizations_uid = rd.organizations_uid
-    where o.organizations_uid = %(org_uid)s and i.origin_cidr is null
-    and i.current and sd.current;"""
+    sql2 = """
+    select 
+        i.ip_hash, 
+        i.ip
+    from 
+        ips i
+        join ips_subs is2 ON i.ip_hash = is2.ip_hash
+        join sub_domains sd on sd.sub_domain_uid = is2.sub_domain_uid
+        join root_domains rd on rd.root_domain_uid = sd.root_domain_uid
+        JOIN organizations o on o.organizations_uid = rd.organizations_uid
+    where 
+        o.organizations_uid = %(org_uid)s and 
+        i.origin_cidr is null and 
+        i.current and sd.current;"""
     df = pd.read_sql(sql2, conn, params={"org_uid": org_uid})
     ips = list(set(list(df["ip"].values)))
 
@@ -3342,6 +3348,8 @@ def query_creds_view_tsql(org_uid, start_date, end_date):
     """Query credentials view ."""
     conn = connect()
     try:
+        # used to pull data from mat_vw_breachcomp,
+        # but that's broken now -> use vw_breachcomp
         sql = """SELECT * FROM vw_breachcomp
         WHERE organizations_uid = %(org_uid)s
         AND modified_date BETWEEN %(start_date)s AND %(end_date)s"""
@@ -3700,6 +3708,160 @@ def get_specific_orgs(conn, org_list):
         pe_orgs = cur.fetchall()
         cur.close()
         return pe_orgs
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    finally:
+        if conn is not None:
+            close(conn)
+
+def query_flare_all_events(org_uid, start_date, end_date):
+    """Retrieve all Flare events for the specified organization and time period."""
+    # Build query
+    sql = f"""
+    SELECT *
+    FROM flare_events
+    WHERE
+        organizations_uid = '{org_uid}'
+        AND 
+        event_date BETWEEN '{start_date}' AND '{end_date}'
+    """
+    # Execute query
+    conn = connect()
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    # Return results
+    return df
+
+def query_flare_event_type_defs():
+    """Retrieve definitions for all Flare event types used in the report."""
+    # Build query
+    sql = f"""
+    SELECT event_type, definition
+    FROM flare_event_types
+    WHERE used_in_report = True
+    ORDER BY event_type ASC
+    """
+    # Execute query
+    conn = connect()
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    # Return results
+    return df
+
+def query_flare_mentions_by_date(start_date, end_date, org_uid, mention_event_types):
+    """Get the number of Flare mention events for each day in the specified date range."""
+    # Build query
+    event_types_str = "("
+    for event_type in mention_event_types:
+        event_types_str += f"'{event_type}',"
+    event_types_str = event_types_str[:-1] + ")"
+    sql = f"""
+    SELECT
+        fe.organizations_uid,
+        fe.event_date as date,
+        count(*) AS "Count"
+    FROM flare_events fe
+    WHERE
+        fe.event_date BETWEEN '{start_date}' AND '{end_date}' AND
+        fe.organizations_uid = '{org_uid}' AND
+        fe.event_type IN {event_types_str}
+    GROUP BY fe.organizations_uid, fe.event_date
+    ORDER BY fe.event_date ASC
+    """
+    # Execute query
+    conn = connect()
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    # Return results
+    return df
+
+def query_shodan_top_cves():
+    """Retrieve the most recent top 10 CVEs in the top_cves_shodan table."""
+    # Build query
+    sql = f"""
+    SELECT
+        cve_id,
+        epss_score,
+        nvd_base_score,
+        collection_date,
+        summary,
+        data_source_uid
+    FROM
+        top_cves_shodan
+    ORDER BY
+        collection_date DESC
+    LIMIT 10
+    """
+    # Execute query
+    conn = connect()
+    df = pd.read_sql(sql, conn)
+    conn.close()
+    # Return results
+    return df
+
+def query_flare_creds_view(org_uid, start_date, end_date):
+    """Query Flare version of the vw_breachcomp view."""
+    conn = connect()
+    try:
+        # Build query
+        sql = """SELECT * 
+        FROM vw_flare_breachcomp
+        WHERE organizations_uid = %(org_uid)s
+        AND modified_date BETWEEN %(start_date)s AND %(end_date)s"""
+        # Execute query
+        df = pd.read_sql(
+            sql,
+            conn,
+            params={"org_uid": org_uid, "start_date": start_date, "end_date": end_date},
+        )
+        # Return results
+        return df
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    finally:
+        if conn is not None:
+            close(conn)
+
+def query_flare_credsbyday_view(org_uid, start_date, end_date):
+    """Query Flare version of the vw_breachcomp_credsbydate view."""
+    conn = connect()
+    try:
+        # Build query
+        sql = """SELECT mod_date, no_password, password_included 
+        FROM vw_flare_breachcomp_credsbydate
+        WHERE organizations_uid = %(org_uid)s
+        AND mod_date BETWEEN %(start_date)s AND %(end_date)s"""
+        # Execute query
+        df = pd.read_sql(
+            sql,
+            conn,
+            params={"org_uid": org_uid, "start_date": start_date, "end_date": end_date},
+        )
+        # Return results
+        return df
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    finally:
+        if conn is not None:
+            close(conn)
+
+def query_flare_breachdetails_view(org_uid, start_date, end_date):
+    """Query Flare version of the vw_breachcomp_breachdetails view."""
+    conn = connect()
+    try:
+        # Build query
+        sql = """SELECT breach_name, mod_date modified_date, breach_date, password_included, number_of_creds
+        FROM vw_flare_breachcomp_breachdetails
+        WHERE organizations_uid = %(org_uid)s
+        AND mod_date BETWEEN %(start_date)s AND %(end_date)s"""
+        # Execute query
+        df = pd.read_sql(
+            sql,
+            conn,
+            params={"org_uid": org_uid, "start_date": start_date, "end_date": end_date},
+        )
+        # Return results
+        return df
     except (Exception, psycopg2.DatabaseError) as error:
         LOGGER.error("There was a problem with your database query %s", error)
     finally:
