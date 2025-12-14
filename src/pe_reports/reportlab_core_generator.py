@@ -153,11 +153,13 @@ def format_table(
         for cell in row:
             if column_style_list[current_cell] is not None:
                 # Remove emojis and escape special characters b/c the report generator can't display them
-                print(str(cell))
-                try:
-                    clean_txt = demoji.replace(str(cell), "").replace("&", "&amp;")
+                clean_txt = demoji.replace(str(cell), "").replace("&", "&amp;")
+                # Don't escape special characters if string is for cred breach table which contains valid links to appendix
+                if not "<link href=" in str(cell):
                     clean_txt = clean_txt.replace("<", "&lt;")
                     clean_txt = clean_txt.replace(">", "&gt;")
+                # Create paragraph cell
+                try:
                     cell = Paragraph(
                         clean_txt, column_style_list[current_cell]
                     )
