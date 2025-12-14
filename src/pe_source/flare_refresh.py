@@ -6,6 +6,8 @@ import os
 import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
+import string
+import time
 
 from .data.pe_db.config import get_params
 from .data.pe_db.db_query_source import (
@@ -27,33 +29,57 @@ api_auth = HTTPBasicAuth('', api_key)
 
 def get_flare_token():
     """Get Flare API authentication token."""
-    token_url = "https://api.flare.io/tokens/generate"
+    url = "https://api.flare.io/tokens/generate"
     headers = {
         "Content-Type": "application/json",
     }
     data = f'{{"tenant_id": {tenant_id}}}'
-    resp = requests.post(token_url, data=data, headers=headers, auth=api_auth).json()
-    return resp.get("token")
+    resp = requests.post(url, data=data, headers=headers, auth=api_auth)
+    # Retry clause in case API falters
+    retry_count, max_retries, time_delay = 1, 5, 3
+    while resp.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"\tRetrying Flare token API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        time.sleep(time_delay)
+        resp = requests.post(url, data=data, headers=headers, auth=api_auth)
+        retry_count += 1
+    # Return results
+    if retry_count == max_retries + 1:
+        LOGGER.error("Error: Failed to retrieve Flare token")
+        return None
+    else:
+        resp = resp.json()
+        return resp.get("token")
 
 def get_ident_group_info(org_name):
     """Retrieve identifier group info for the specified organization."""
     flare_token = get_flare_token()
+    url = "https://api.flare.io/firework/v2/assets/groups/"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {flare_token}",
     }
-    # PE&T parent group id
-    group_id = 191286  
-    # Get the group id for the specified organization
-    orgs_url = "https://api.flare.io/firework/v2/assets/groups/"
-    orgs_resp = requests.get(orgs_url, headers=headers).json()
-    orgs_list = orgs_resp.get("assets_groups")
-    org_id = [o for o in orgs_list if o["name"] == org_name and o["parent_group_id"] == group_id][0].get("id")
+    resp = requests.get(url, headers=headers)
+    # Retry clause in case API falters
+    retry_count, max_retries, time_delay = 1, 5, 3
+    while resp.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"\tRetrying Flare identifier group info API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        time.sleep(time_delay)
+        resp = requests.get(url, headers=headers)
+        retry_count += 1
     # Return results
-    return {
-        "name": org_name,
-        "id": org_id,
-    }
+    if retry_count == max_retries + 1:
+        LOGGER.error("Error: Failed to retrieve Flare identifier group info")
+        return None
+    else:
+        # PE&T parent group id
+        resp = resp.json()
+        group_id = 191286
+        orgs_list = resp.get("assets_groups")
+        org_id = [o for o in orgs_list if o["name"] == org_name and o["parent_group_id"] == group_id][0].get("id")
+        return {
+            "name": org_name,
+            "id": org_id,
+        }
 
 def check_ident_group_exists(org_abbrv):
     """Check if an identifier group already exists for the specified org."""
@@ -66,13 +92,26 @@ def check_ident_group_exists(org_abbrv):
     group_id = 191286  
     # Check if ident group exists for the specified organization
     orgs_url = "https://api.flare.io/firework/v2/assets/groups/"
-    orgs_resp = requests.get(orgs_url, headers=headers).json()
-    orgs_list = orgs_resp.get("assets_groups")
-    ident_group_results = [o for o in orgs_list if o["name"] == org_abbrv and o["parent_group_id"] == group_id]
-    if len(ident_group_results) == 0:
-        return False
+    orgs_resp = requests.get(orgs_url, headers=headers)
+    # Retry clause in case API falters
+    retry_count, max_retries, time_delay = 1, 5, 3
+    while orgs_resp.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"\tRetrying Flare identifier group exists check API endpoint (code {orgs_resp.status_code}), attempt {retry_count} of {max_retries}")
+        time.sleep(time_delay)
+        orgs_resp = requests.get(orgs_url, headers=headers)
+        retry_count += 1
+    # Return results
+    if retry_count == max_retries + 1:
+        LOGGER.error("Error: Failed to check if Flare identifier group exists")
+        return None
     else:
-        return True
+        orgs_resp = orgs_resp.json()
+        orgs_list = orgs_resp.get("assets_groups")
+        ident_group_results = [o for o in orgs_list if o["name"] == org_abbrv and o["parent_group_id"] == group_id]
+        if len(ident_group_results) == 0:
+            return False
+        else:
+            return True
     
 def create_ident_group(org_abbrv):
     """Create a new identifier group for the specified org."""
@@ -90,48 +129,111 @@ def create_ident_group(org_abbrv):
     # Call endpoint to create identifier group for the org under PE&T
     url = "https://api.flare.io/firework/v2/assets/groups/"
     resp = requests.post(url, json=payload, headers=headers)
-    return resp
+    # Retry clause in case API falters
+    retry_count, max_retries, time_delay = 1, 5, 3
+    while resp.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"\tRetrying create Flare identifier group API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        time.sleep(time_delay)
+        resp = requests.post(url, json=payload, headers=headers)
+        retry_count += 1
+    if retry_count == max_retries + 1:
+        LOGGER.error("Error: Failed to create Flare identifier group")
+        return None
+    else:
+        return resp
 
 def get_ident_by_group_id(ident_group_id):
-    """Retrieve all identifiers for the specified group ID."""
-    flare_token = get_flare_token()
-    url = "https://api.flare.io/firework/v3/identifiers/"
-    params = {
-        "parent_group_id": ident_group_id,
-    }
-    headers = {"Authorization": f"Bearer {flare_token}"}
-    resp = requests.get(url, headers=headers, params=params).json()
-    # Format identifier info
-    ident_list = []
-    for ident in resp.get("items"):
-        ident_id = ident.get("id")
-        ident_value = ident.get("name")
-        ident_type = ident.get("type")
-        ident_dict = {
-            "id": ident_id,
-            "value": ident_value,
-            "type": ident_type
+        """Retrieve all identifiers for the specified group ID."""
+        flare_token = get_flare_token()
+        url = "https://api.flare.io/firework/v3/identifiers/"
+        params = {
+            "parent_group_id": ident_group_id,
         }
-        ident_list.append(ident_dict)
-    if len(ident_list) == 0:
-        return [
-            {
-                "id": None,
-                "value": None,
-                "type": None,
-            }
-        ]
-    else:
-        return ident_list
+        headers = {"Authorization": f"Bearer {flare_token}"}
+        resp = requests.get(url, headers=headers, params=params)
+        # Retry clause in case API falters
+        retry_count, max_retries, time_delay = 1, 5, 3
+        while resp.status_code != 200 and retry_count <= max_retries:
+            LOGGER.warning(f"\tRetrying org Flare identifiers API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+            time.sleep(time_delay)
+            resp = requests.get(url, headers=headers, params=params)
+            retry_count += 1
+        # Return results
+        if retry_count == max_retries + 1:
+            LOGGER.error("Error: Failed to retrieve org Flare identifiers")
+            return None
+        else:
+            resp = resp.json()
+            # Format identifier info
+            ident_list = []
+            for ident in resp.get("items"):
+                ident_id = ident.get("id")
+                ident_value = ident.get("name")
+                ident_type = ident.get("type")
+                ident_dict = {
+                    "id": ident_id,
+                    "value": ident_value,
+                    "type": ident_type
+                }
+                ident_list.append(ident_dict)
+            if len(ident_list) == 0:
+                return [
+                    {
+                        "id": None,
+                        "value": None,
+                        "type": None,
+                    }
+                ]
+            else:
+                return ident_list
+            
+def get_resp_ips_by_org_abbrv(org_abbrv):
+    """Retrieve all responsive attested IPs for the specified organization."""
+    # WIP: This info will eventually be stored in the database, not csv
+    file_path = os.getcwd() + "/src/pe_source/flare_responsive_ips_2025-08-25.csv"
+    resp_ip_df = pd.read_csv(file_path, index_col=False)
+    # Locate responsive IPs for this org
+    resp_ip_df = resp_ip_df.loc[resp_ip_df["cyhy_db_name"] == org_abbrv].reset_index(drop=True)
+    return resp_ip_df
 
-def create_keyword_ident(keyword_list, ident_group_id):
-    """Create a new keyword Flare identifier and add it to the specified group."""
+def format_exec_data(exec_list):
+    """Perform additional formatting for executive data for Flare registration."""
+    formatted_list = []
+    # Iterate over each executive in list
+    for exec in exec_list:
+        # Split into first and last names
+        name_parts = exec.split()
+        # Parse first/last name
+        name_dict = {
+            "first_name": string.capwords(name_parts[0].replace("-", " ")),
+            "last_name": string.capwords(name_parts[1].replace("-", " ")),
+        }
+        formatted_list.append(name_dict)
+    # Return formatted executive list
+    return formatted_list
+
+def create_flare_identifer(payload):
+    """Create an identifier within Flare given the specified payload."""
     flare_token = get_flare_token()
     create_ident_url = "https://api.flare.io/firework/v2/assets/"
     headers = {
         "Authorization": f"Bearer {flare_token}",
         "Content-Type": "application/json"
     }
+    resp = requests.post(create_ident_url, json=payload, headers=headers)
+    # Retry clause in case API falters
+    retry_count, max_retries, time_delay = 1, 5, 3
+    while resp.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"\tRetrying create Flare identifier API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        time.sleep(time_delay)
+        resp = requests.post(create_ident_url, json=payload, headers=headers)
+        retry_count += 1
+    # Return results
+    if retry_count == max_retries + 1:
+        LOGGER.error(f"Error: Failed to create Flare identifier - {payload}")
+
+def create_keyword_ident(keyword_list, ident_group_id):
+    """Create a new keyword Flare identifier and add it to the specified group."""
     # Iterate over each keyword
     for keyword in keyword_list:
         payload = {
@@ -142,16 +244,10 @@ def create_keyword_ident(keyword_list, ident_group_id):
             "type": "keyword"
         }
         # Add keyword to flare
-        resp = requests.post(create_ident_url, json=payload, headers=headers)
+        create_flare_identifer(payload)
     
 def create_domain_ident(domain_list, ident_group_id):
     """Create a new domain Flare identifier and add it to the specified group."""
-    flare_token = get_flare_token()
-    create_ident_url = "https://api.flare.io/firework/v2/assets/"
-    headers = {
-        "Authorization": f"Bearer {flare_token}",
-        "Content-Type": "application/json"
-    }
     # Iterate over each domain
     for domain in domain_list:
         payload = {
@@ -162,42 +258,10 @@ def create_domain_ident(domain_list, ident_group_id):
             "type": "domain"
         }
         # Add domain to flare
-        resp = requests.post(create_ident_url, json=payload, headers=headers)
-
-def format_exec_data(exec_list):
-    """Perform additional formatting for executive data for Flare registration."""
-    # PE DB exec names are in format: prefix. firstname MI. lastname, suffix
-    # Multi-part names are hyphenated
-    formatted_list = []
-    # Iterate over each executive in list
-    for exec in exec_list:
-        # Remove suffix e.g. jr/phd/ii etc.
-        name_parts = exec.split(',')
-        name_parts = name_parts[0].strip()
-        # Split into individual parts
-        name_parts = name_parts.split()
-        # Remove middle initial/prefix
-        name_parts = [s for s in name_parts if not s.endswith(".")]
-        # Disregard executives that don't have 2 names (first/last) left
-        if len(name_parts) != 2:
-            continue
-        # Parse first/last name
-        name_dict = {
-            "first_name": name_parts[0],
-            "last_name": name_parts[1],
-        }
-        formatted_list.append(name_dict)
-    # Return formatted executive list
-    return formatted_list
+        create_flare_identifer(payload)
 
 def create_exec_ident(exec_list, ident_group_id):
     """Create a new executive Flare identifier and add it to the specified group."""
-    flare_token = get_flare_token()
-    create_ident_url = "https://api.flare.io/firework/v2/assets/"
-    headers = {
-        "Authorization": f"Bearer {flare_token}",
-        "Content-Type": "application/json"
-    }
     # Iterate over each executive
     for exec in exec_list:
         first_name = exec.get("first_name")
@@ -214,25 +278,10 @@ def create_exec_ident(exec_list, ident_group_id):
             "type": "name"
         }
         # Add executive to flare
-        resp = requests.post(create_ident_url, json=payload, headers=headers)
-
-def get_resp_ips_by_org_abbrv(org_abbrv):
-    """Retrieve all responsive attested IPs for the specified organization."""
-    # WIP: This info will eventually be stored in the database, not csv
-    file_path = os.getcwd() + "/src/pe_source/flare_responsive_ips_2025-08-25.csv"
-    resp_ip_df = pd.read_csv(file_path, index_col=False)
-    # Locate responsive IPs for this org
-    resp_ip_df = resp_ip_df.loc[resp_ip_df["cyhy_db_name"] == org_abbrv].reset_index(drop=True)
-    return resp_ip_df
+        create_flare_identifer(payload)
 
 def create_ip_ident(ip_list, ident_group_id):
     """Create a new IP address Flare identifier and add it to the specified group."""
-    flare_token = get_flare_token()
-    create_ident_url = "https://api.flare.io/firework/v2/assets/"
-    headers = {
-        "Authorization": f"Bearer {flare_token}",
-        "Content-Type": "application/json"
-    }
     # Iterate over each IP
     for ip in ip_list:
         payload = {
@@ -243,21 +292,35 @@ def create_ip_ident(ip_list, ident_group_id):
             "type": "ip",
         }
         # Add IP to flare
-        resp = requests.post(create_ident_url, json=payload, headers=headers)
+        create_flare_identifer(payload)
 
-def delete_idents(ident_value_list, ident_df):
-    """Delete the specified identifiers from Flare."""
+def delete_flare_identifier(ident_id):
+    """Delete the Flare identifier with the specified id."""
+    delete_ident_url = f"https://api.flare.io/firework/v2/assets/{ident_id}"
     flare_token = get_flare_token()
     headers = {
         "Authorization": f"Bearer {flare_token}",
         "Content-Type": "application/json"
     }
+    resp = requests.delete(delete_ident_url, headers=headers)
+    # Retry clause in case API falters
+    retry_count, max_retries, time_delay = 1, 5, 3
+    while resp.status_code != 200 and retry_count <= max_retries:
+        LOGGER.warning(f"\tRetrying delete Flare identifier API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        time.sleep(time_delay)
+        resp = requests.delete(delete_ident_url, headers=headers)
+        retry_count += 1
+    # Return results
+    if retry_count == max_retries + 1:
+        LOGGER.error(f"Error: Failed to delete Flare identifier - {ident_id}")
+
+def delete_ident_list(ident_value_list, ident_df):
+    """Delete the specified identifiers from Flare."""
     # Iterate over each identifier
     for val in ident_value_list:
         del_id = ident_df.loc[ident_df["value"] == val, "id"].item()
-        delete_ident_url = f"https://api.flare.io/firework/v2/assets/{del_id}"
         # Delete identifier from Flare
-        resp = requests.delete(delete_ident_url, headers=headers)
+        delete_flare_identifier(del_id)
 
 
 def run_flare_ident_refresh(orgs_list):
@@ -314,7 +377,7 @@ def run_flare_ident_refresh(orgs_list):
             roots_resp = org_root_domains(org_uid)
             roots_df = pd.DataFrame(roots_resp)
             execs_df = get_execs_by_org_uid(org_uid)
-            ips_df = get_resp_ips_by_org_abbrv(org_abbrv) # WIP, pulling from CSV
+            ips_df = get_resp_ips_by_org_abbrv(org_abbrv) # WIP, pulling from CSV currently
 
             # Retrieve org's current identifiers in Flare
             LOGGER.info(f"Retrieving current flare identifiers for {org_abbrv}")
@@ -324,34 +387,45 @@ def run_flare_ident_refresh(orgs_list):
             # Calculating difference between PE DB assets and Flare identifiers
             LOGGER.info(f"Calculating identifiers that need to be updated")
             # Calculating which keywords (org names) to create/delete
-            pe_keywords = set([org_name.lower()])
+            pe_keywords = set([org_name.lower().strip()])
             flare_keywords = group_idents_df[group_idents_df["type"] == "keyword"]["value"].to_list()
-            flare_keywords = set([item.lower() for item in flare_keywords])
+            flare_keywords = set([item.lower().strip() for item in flare_keywords])
             keywords_create = list(pe_keywords - flare_keywords)
             keywords_delete = list(flare_keywords - pe_keywords)
             # Calculating which root domains to create/delete
             pe_roots = roots_df["root_domain"].to_list()
-            pe_roots = set([item.lower() for item in pe_roots])
+            pe_roots = set([item.lower().strip() for item in pe_roots])
             flare_roots = group_idents_df[group_idents_df["type"] == "domain"]["value"].to_list()
-            flare_roots = set([item.lower() for item in flare_roots])
+            flare_roots = set([item.lower().strip() for item in flare_roots])
             roots_create = list(pe_roots - flare_roots)
             roots_delete = list(flare_roots - pe_roots)
+            # Keep track of multi-part hyphenated first/last executive names
+            hyph_dict = {}
+            for idx, exec in execs_df.iterrows():
+                if ("-" in exec["first_name"]) or ("-" in exec["last_name"]):
+                    name_hyphen = exec["first_name"] + " " + exec["last_name"]
+                    name_no_hyphen = exec["first_name"].replace("-", " ") + " " + exec["last_name"].replace("-", " ")
+                    hyph_dict[name_no_hyphen.lower()] = name_hyphen.lower()
             # Calculating which executive names to create/delete
-            pe_execs = execs_df["executive"].to_list()
-            pe_execs = [item.lower() for item in pe_execs]
-            pe_execs_formatted = format_exec_data(pe_execs)
-            pe_execs_formatted = set([d["first_name"]+" "+d["last_name"] for d in pe_execs_formatted])
+            execs_df["full_name"] = (
+                execs_df["first_name"].replace("-", " ", regex=True) + 
+                " " + 
+                execs_df["last_name"].replace("-", " ", regex=True)
+            ).str.strip()
+            pe_execs = execs_df["full_name"].to_list()
+            pe_execs = set([item.lower().strip() for item in pe_execs])
             flare_execs = group_idents_df[group_idents_df["type"] == "name"]["value"].to_list()
-            flare_execs = [item.lower() for item in flare_execs]
-            flare_execs_formatted = format_exec_data(flare_execs)
-            flare_execs_formatted = set([d["first_name"]+" "+d["last_name"] for d in flare_execs_formatted])
-            execs_create = list(pe_execs_formatted - flare_execs_formatted)
-            execs_delete = list(flare_execs_formatted - pe_execs_formatted)
+            flare_execs = set([item.lower().strip() for item in flare_execs])
+            execs_create = list(pe_execs - flare_execs)
+            execs_delete = list(flare_execs - pe_execs)
+            # Replace hyphens for Flare API formatting
+            execs_create = [hyph_dict.get(item, item) for item in execs_create]
+            execs_delete = [hyph_dict.get(item, item) for item in execs_delete]
             # Calculating which IPs to create/delete
             pe_ips = ips_df["ip"].to_list() # WIP
-            pe_ips = set([item.lower() for item in pe_ips])
+            pe_ips = set([item.lower().strip() for item in pe_ips])
             flare_ips = group_idents_df[group_idents_df["type"] == "ip"]["value"].to_list()
-            flare_ips = set([item.lower() for item in flare_ips])
+            flare_ips = set([item.lower().strip() for item in flare_ips])
             ips_create = list(pe_ips - flare_ips)
             ips_delete = list(flare_ips - pe_ips)
 
@@ -365,14 +439,21 @@ def run_flare_ident_refresh(orgs_list):
             print(f"flare_roots: {flare_roots}")
             print(f"roots to create: {roots_create}")
             print(f"roots to delete: {roots_delete}\n")
-            print(f"pe_execs: {pe_execs_formatted}")
-            print(f"flare_execs: {flare_execs_formatted}")
+            print(f"pe_execs: {pe_execs}")
+            print(f"flare_execs: {flare_execs}")
             print(f"execs to create: {execs_create}")
             print(f"execs to delete: {execs_delete}\n")
             print(f"pe_ips (responsive): {pe_ips}")
             print(f"flare_ips: {flare_ips}")
             print(f"ips to create: {ips_create}")
             print(f"ips to delete: {ips_delete}\n")
+
+            # Optional manual input to approve asset refresh before execution
+            user_resp = input(f"Do you want to continue with asset refresh for {org_abbrv} Y/N?\n")
+            if user_resp != "Y":
+                print(f"User input: {user_resp}, skipping asset refresh for {org_abbrv}\n")
+                continue
+            print(f"User input: {user_resp}, proceeding with asset refresh for {org_abbrv}\n")
 
             # Create new identifiers for any assets that need to be added to Flare
             LOGGER.info("Creating identifiers for any assets that need to be added to Flare")
@@ -390,20 +471,22 @@ def run_flare_ident_refresh(orgs_list):
             # Delete identifiers for any assets that need to be removed from Flare
             LOGGER.info("Deleting identifiers for any assets that need to be removed to Flare")
             if len(keywords_delete) > 0:
-                delete_idents(keywords_delete, group_idents_df)
+                delete_ident_list(keywords_delete, group_idents_df)
             if len(roots_delete) > 0:
-                delete_idents(roots_delete, group_idents_df)
+                delete_ident_list(roots_delete, group_idents_df)
             if len(execs_delete) > 0:
-                delete_idents(execs_delete, group_idents_df)
+                delete_ident_list(execs_delete, group_idents_df)
             if len(ips_delete) > 0:
-                delete_idents(ips_delete, group_idents_df)
+                delete_ident_list(ips_delete, group_idents_df)
 
             success += 1
+            time.sleep(3)
         except Exception as e:
             LOGGER.error(f"Error encountered while updating Flare identifiers for {org_abbrv} - {e}")
             failed += 1
+            time.sleep(3)
 
-    # Log summary success/fail statistics
+    # Log final summary success/fail statistics
     LOGGER.info(
         f"{success}/{len(pe_orgs_final)} organizations successfully updated Flare identifiers"
     )
