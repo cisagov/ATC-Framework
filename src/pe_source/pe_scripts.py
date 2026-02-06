@@ -1,7 +1,7 @@
 """A tool for gathering pe source data.
 
 Usage:
-    pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST] [--cybersix-methods=METHODS] [--soc_med_included]
+    pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST] [--cybersix-methods=METHODS] [--flare_key=FLARE_KEY] [--soc_med_included]
 
 Arguments:
     DATA_SOURCE                     Source to collect data from. Valid values are "cybersixgill",
@@ -22,12 +22,15 @@ Options:
                                     If not specified, all will run. Valid values are "alerts",
                                     "credentials", "mentions", "topCVEs". E.g. alerts,mentions.
                                     [default: all]
+    -fk --flare_key=FLARE_KEY       The number of the Flare API key to use for the script if it involves Flare
+                                    [default: 1]
     -sc --soc_med_included          Include social media posts from cybersixgill in data collection.
 """
 
 # Standard Python Libraries
 from datetime import timedelta
 import logging
+import os
 import sys
 import time
 from typing import Any, Dict
@@ -44,17 +47,19 @@ from .cybersixgill import Cybersixgill
 from .cybersixgill_refresh import run_cybersixgill_asset_refresh
 from .dnsmonitor import DNSMonitor
 from .dnstwistscript import run_dnstwist
+from .flare_events import run_flare_events
+from .flare_creds import run_flare_creds
 from .flare_refresh import run_flare_ident_refresh
-from .flare import run_flare, run_top_cves_shodan
 from .intelx_identity import IntelX
 from .pshtt_wrapper import launch_pe_pshtt
+from .shodan_top_cves import run_top_cves_shodan
 from .shodan_wrapper import Get_shodan
 from .xpanse_alert_pull import run_xpanse_scans
 
 LOGGER = logging.getLogger(__name__)
 
 
-def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
+def run_pe_script(source, orgs_list, cybersix_methods, flare_key_num, soc_med_included):
     """Collect data from the source specified."""
     # Determine list of organizations to run on
     if orgs_list != "all" and orgs_list != "DEMO":
@@ -86,7 +91,8 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
         "topCVEs": "Cybersixgill Top CVEs",
         "dnsmonitor": "DNSMonitor",
         "dnstwist": "DNSTwist",
-        "flare": "Flare",
+        "flare_events": "Flare Events",
+        "flare_creds": "Flare Leaked Credentials",
         "flare_ident_refresh": "Flare Identifier Refresh",
         "intelx": "IntelX",
         "pshtt": "Pshtt",
@@ -103,7 +109,7 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
     else:
         scan_name = scan_full_names.get(source)
     LOGGER.info(f"--- {scan_name} Scan Starting ---")
-    LOGGER.info(f"Running {scan_name} on these orgs: {orgs_list}")
+    LOGGER.info(f"Running {scan_name} script on these orgs: {orgs_list}")
     scan_start_time = time.time()
     
     # Run the specified scans
@@ -117,8 +123,14 @@ def run_pe_script(source, orgs_list, cybersix_methods, soc_med_included):
         dnsMonitor.run_dnsMonitor()
     elif source == "dnstwist":
         run_dnstwist(orgs_list)
-    elif source == "flare":
-        run_flare(orgs_list)
+    elif source == "flare_events":
+        LOGGER.info(f"Using Flare API key number: {flare_key_num}")
+        os.environ["FLARE_KEY_NUM"] = flare_key_num
+        run_flare_events(orgs_list)
+    elif source == "flare_creds":
+        LOGGER.info(f"Using Flare API key number: {flare_key_num}")
+        os.environ["FLARE_KEY_NUM"] = flare_key_num
+        run_flare_creds(orgs_list)
     elif source == "flare_ident_refresh":
         run_flare_ident_refresh(orgs_list)
     elif source == "intelx":
@@ -185,6 +197,7 @@ def main():
         validated_args["DATA_SOURCE"],
         validated_args["--orgs"],
         validated_args["--cybersix-methods"],
+        validated_args["--flare_key"],
         validated_args["--soc_med_included"],
     )
 

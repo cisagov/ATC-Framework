@@ -2591,19 +2591,23 @@ def insert_flare_events(event_list):
         url = event.get("url") # escaped '
         risk_scores = event.get("risk_scores")
         related_ident = event.get("related_identifiers")
+        related_ident_txt = event.get("related_identifiers_txt")
         data_source_uid = event.get("data_source_uid")
         severity = event.get("severity")
-        insert_vals += f"(\'{org_uid}\', \'{flare_uid}\', \'{event_type}\', \'{event_date}\', \'{collect_date}\', \'{title}\', \'{content}\', \'{content_hash}\', \'{actor}\', \'{category}\', \'{source}\', \'{url}\', \'{risk_scores}\', {related_ident}, \'{data_source_uid}\', \'{severity}\'),\n"
+        insert_vals += f"(\'{org_uid}\', \'{flare_uid}\', \'{event_type}\', \'{event_date}\', \'{collect_date}\', \'{title}\', \'{content}\', \'{content_hash}\', \'{actor}\', \'{category}\', \'{source}\', \'{url}\', \'{risk_scores}\', {related_ident}, \'{data_source_uid}\', \'{severity}\', {related_ident_txt}),\n"
 
     insert_vals = insert_vals[:-2]
     sql = f"""
-    INSERT INTO flare_events(organizations_uid, flare_uid, event_type, event_date, collection_date, title, content, content_hash, actor, category, source, url, risk_scores, related_identifiers, data_source_uid, severity)
+    INSERT INTO flare_events(organizations_uid, flare_uid, event_type, event_date, collection_date, title, content, content_hash, actor, category, source, url, risk_scores, related_identifiers, data_source_uid, severity, related_identifiers_txt)
     VALUES
     {insert_vals}
     ON CONFLICT (organizations_uid, flare_uid)
     DO UPDATE SET
     event_date = EXCLUDED.event_date,
-    collection_date = EXCLUDED.collection_date
+    collection_date = EXCLUDED.collection_date,
+    content = EXCLUDED.content,
+    related_identifiers = EXCLUDED.related_identifiers,
+    related_identifiers_txt = EXCLUDED.related_identifiers_txt
     """
     # Execute query
     conn = connect()
