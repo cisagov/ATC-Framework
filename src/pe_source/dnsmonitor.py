@@ -68,20 +68,20 @@ class DNSMonitor:
 
         # Fetch the bearer token
         token = dnsmonitor_token()
-        # Get all of the Domains being monitored
+        # Get all of the domains being monitored
         domain_df = get_monitored_domains(token)
 
+        # Iterate over each org
         failed = []
         warnings = []
-        # Iterate through each org
         for org_idx, org in enumerate(pe_orgs_final):
             org_name = org["name"]
             org_uid = org["organizations_uid"]
             org_code = org["cyhy_db_name"]
             LOGGER.info(f"Running DNSMonitor on {org_code} ({org_idx+1} of {len(pe_orgs_final)})")
 
-            # Get respective domain IDs
-            domain_ids = domain_df[domain_df["org"] == org_name]
+            # Get the DNSMonitor domain IDs associated with this org
+            domain_ids = domain_df[domain_df["org"] == org_code]
             LOGGER.info(f"Found {len(domain_ids)} root domains being monitored for {org_code}")
             domain_ids = str(domain_ids["domainId"].tolist())
 
@@ -102,16 +102,12 @@ class DNSMonitor:
 
             # Process each alert
             for alert_index, alert_row in alerts_df.iterrows():
-                # Get subdomain_uid
+                # Get the subdomain_uid for this alert's domain
                 root_domain = alert_row["rootDomain"]
                 sub_domain_uid = getSubdomain(root_domain)
 
-                # Catch deleted subdomain scenario
-                if sub_domain_uid == -1:
-                    LOGGER.warning(f"alert found for {root_domain}, but domain is not in PE DB")
-                    continue
-
-                if not sub_domain_uid:
+                # If subdomain isn't in PE DB yet, attempt to add it
+                if (sub_domain_uid == -1) or (not sub_domain_uid):
                     LOGGER.info(
                         "Domain %s isn't in the subdomain table, attempting to add it",
                         root_domain,
@@ -128,9 +124,10 @@ class DNSMonitor:
                         failed.append(
                             f"{org_code} - {root_domain} - Failed inserting into subdomain table"
                         )
+                    # Once the new subdomain has been created, retrieve its uid
                     sub_domain_uid = getSubdomain(root_domain)
 
-                # Add subdomain_uid to associated alert
+                # Add subdomain_uid to the alert record
                 alerts_df.at[alert_index, "sub_domain_uid"] = sub_domain_uid
 
                 # Get DNS records for each domain permutation
@@ -147,7 +144,7 @@ class DNSMonitor:
             alerts_df["data_source_uid"] = get_data_source_uid("DNSMonitor")
             alerts_df["organizations_uid"] = org_uid
 
-            # Format dataframe and insert into domain_permutations table
+            # Format domain_permutations dataframe
             alerts_df = alerts_df.rename(
                 columns={
                     "domainPermutation": "domain_permutation",
@@ -173,6 +170,7 @@ class DNSMonitor:
             dom_perm_df = dom_perm_df.drop_duplicates(
                 subset=["domain_permutation"], keep="last"
             )
+            # Insert into domain_permutations table
             try:
                 LOGGER.info(f"Inserting DNSMonitor domain permutations for {org_code}")
                 execute_dnsmonitor_data(dom_perm_df) # api ver.
@@ -182,7 +180,7 @@ class DNSMonitor:
                 LOGGER.error(e)
                 failed.append(f"{org_code} - Failed inserting into domain_permutations")
 
-            # Format dataframe and insert into domain_alerts table
+            # Format domain alerts dataframe
             alerts_df = alerts_df.rename(columns={"date_observed": "date"})
             domain_alerts = alerts_df[
                 [
@@ -196,6 +194,7 @@ class DNSMonitor:
                     "date",
                 ]
             ]
+            # Insert into domain_alerts table
             try:
                 LOGGER.info(f"Inserting DNSMonitor domain alerts for {org_code}")
                 execute_dnsmonitor_alert_data(domain_alerts) # api ver.

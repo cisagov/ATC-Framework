@@ -10,9 +10,7 @@ import requests
 
 def get_monitored_domains(token):
     """Get the domains being monitored."""
-    org_names_df = pd.read_csv(
-        "/var/www/pe-reports/src/pe_source/data/dnsmonitor/root_domains_dnsmonitor.csv"
-    )
+    # Retrieve domains being monitored by DNSMonitor
     url = "https://dns.argosecure.com/dhs/api/GetDomains"
     payload = {}
     headers = {}
@@ -20,13 +18,38 @@ def get_monitored_domains(token):
     response = requests.request("GET", url, headers=headers, data=payload).json()
     domain_df = pd.DataFrame(response)
 
-    # Sync domainid's with org names
-    domain_df["org"] = "NA"
-    for org_index, org_row in org_names_df.iterrows():
-        for domain_index, domain_row in domain_df.iterrows():
-            if org_row["domain_name"] == domain_row["domainName"]:
-                domain_df.at[domain_index, "org"] = org_row["org"]
-    return domain_df
+    # Map DNSMonitor domainId's to org names
+    # Note: 
+    # - Some monitored domains are attributed to multiple organizations
+    # - DNSMonitor may list the same domain more than once, but with different IDs
+    org_names_df = pd.read_csv(
+        "/var/www/ATC-Framework/src/pe_source/data/dnsmonitor/root_domains_dnsmonitor_2025-12-07.csv"
+    )
+
+    domain_df = domain_df.drop_duplicates(subset="domainName", keep="first").reset_index(drop=True)
+    domain_id_dict = dict(zip(domain_df["domainName"], domain_df["domainId"]))
+    org_names_df["domain_id"] = org_names_df["domain_name"].map(domain_id_dict)
+    org_names_df.dropna(subset=["domain_id"], inplace=True)
+    org_names_df["domain_id"] = org_names_df["domain_id"].astype(int)
+    org_names_df.rename(
+        columns={
+            "domain_name": "domainName",
+            "domain_id": "domainId",
+        },
+        inplace=True
+    )
+    org_names_df = org_names_df[
+        [
+            "org",
+            "domainName",
+            "domainId",
+        ]
+    ].sort_values(
+        by="org"
+    ).reset_index(
+        drop=True
+    )
+    return org_names_df
 
 
 def get_domain_alerts(token, domain_ids, from_date, to_date):
