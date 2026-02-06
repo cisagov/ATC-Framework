@@ -435,10 +435,14 @@ def dark_web_flare(
     mentions_df.drop("flare_events_uid", axis=1, inplace=True)
     mentions_df["content"] = mentions_df["content"].str[:2000]
     mentions_df["related_identifiers"] = mentions_df["related_identifiers"].apply(lambda x: [FlareObj.flare_all_asset_dict.get(item, item) for item in x])
+    mentions_df["related_identifiers"] = mentions_df["related_identifiers"].apply(lambda x: list(set(x)))
+    mentions_df.drop(columns=["related_identifiers_txt"], inplace=True)
     # Prep alerts raw data
     alerts_df = FlareObj.alerts
     alerts_df.drop("flare_events_uid", axis=1, inplace=True)
     alerts_df["related_identifiers"] = alerts_df["related_identifiers"].apply(lambda x: [FlareObj.flare_all_asset_dict.get(item, item) for item in x])
+    alerts_df["related_identifiers"] = alerts_df["related_identifiers"].apply(lambda x: list(set(x)))
+    alerts_df.drop(columns=["related_identifiers_txt"], inplace=True)
     # Prep top 10 cves raw data
     top_cves_df = FlareObj.top_cves
     top_cves_df.drop("summary_short", axis=1, inplace=True)
@@ -647,9 +651,7 @@ def init(
         scorecard_dict["dark_web_asset_alerts_count"] = None
 
     # Save report summary stats for the current period to the PE DB
-    if not flare:
-        # Only update RSS table if running original CSG version, for development reasons
-        execute_scorecard(scorecard_dict)
+    execute_scorecard(scorecard_dict) # Updating RSS table, may want to disable when developing
     # Retrieve report summary stats for the previous period 
     last_period_stats = query_previous_period(org_uid, previous_end_date)
     scorecard_dict.update(last_period_stats)

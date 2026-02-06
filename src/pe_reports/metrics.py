@@ -861,14 +861,6 @@ class Flare:
         all_org_details = get_orgs(conn)
         org_details = [item for item in all_org_details if item[0] == self.org_uid]
         self.org_abbrv = org_details[0][2]
-        # Get Flare identifier (asset) info for this org
-        [
-            self.flare_alias_dict,
-            self.flare_domain_dict,
-            self.flare_ip_dict,
-            self.flare_exec_dict,
-        ] = self.get_flare_identifier_dicts(self.org_abbrv)
-        self.flare_all_asset_dict = self.flare_alias_dict | self.flare_domain_dict | self.flare_ip_dict | self.flare_exec_dict
         # Retrieve all Flare events for this org and time period
         all_events = query_flare_all_events(org_uid, start_date, end_date)
         # Filter out social media platforms if specified
@@ -878,6 +870,15 @@ class Flare:
             ]
         all_events = all_events.reset_index(drop=True)
         self.all_events = all_events
+        # Get Flare identifier (asset) info for this org
+        [
+            self.flare_alias_dict,
+            self.flare_domain_dict,
+            self.flare_ip_dict,
+            self.flare_exec_dict,
+            self.flare_extra_ident_dict,
+        ] = self.get_flare_identifier_dicts(self.org_abbrv)
+        self.flare_all_asset_dict = self.flare_alias_dict | self.flare_domain_dict | self.flare_ip_dict | self.flare_exec_dict | self.flare_extra_ident_dict
         # Aggregate all Flare "mention" events (both social media and dark web)
         self.mention_event_types = [
             "chat_message",
@@ -1023,7 +1024,7 @@ class Flare:
         """Format Flare identifiers into dictionaries for the specified org."""
         # Retrieve Flare API credentials
         flare_creds = config(section="flare")
-        flare_key = flare_creds.get("api_key")
+        flare_key = flare_creds.get("api_key_1")
         flare_tenant_id = flare_creds.get("tenant_id")
         flare_api_auth = HTTPBasicAuth('', flare_key)
         # Get identifier group ID for this org
@@ -1043,14 +1044,30 @@ class Flare:
                 flare_domains[str(ident.get("id"))] = str(ident.get("value"))
             elif ident.get("type") == "ip":
                 flare_ips[str(ident.get("id"))] = str(ident.get("value"))
-            elif ident.get("type") == "name":
+            elif ident.get("type") == "identity":
                 flare_execs[str(ident.get("id"))] = str(ident.get("value"))
+
+        # Find any additional identifiers that are referenced in mentions/alerts data, but do not explicitly belong to this org
+        flare_extra_idents = {}
+        event_idents_df = self.all_events[["related_identifiers", "related_identifiers_txt"]]
+        if len(event_idents_df) > 0:
+            event_idents_df["related_identifiers_dict"] = event_idents_df.apply(lambda row: dict(zip(row["related_identifiers"], row["related_identifiers_txt"])), axis=1)
+            event_idents_dict = {}
+            for idx, row in event_idents_df.iterrows():
+                event_idents_dict.update(row["related_identifiers_dict"])
+            group_idents_dict = flare_aliases | flare_domains | flare_ips | flare_execs
+            group_ident_keys = group_idents_dict.keys()
+            event_ident_keys = event_idents_dict.keys()
+            extra_ident_keys = list(event_ident_keys - group_ident_keys)
+            flare_extra_idents = {key: event_idents_dict[key] for key in extra_ident_keys if key in event_idents_dict}
+
         # Return results
         return [
             flare_aliases,
             flare_domains,
             flare_ips,
             flare_execs,
+            flare_extra_idents,
         ]
 
     def dark_web_mentions_total(self):
@@ -1061,6 +1078,7 @@ class Flare:
         """Get the total number of dark web alerts."""
         all_alerts = pd.concat([self.alerts, self.exec_events, self.asset_events], axis=0)
         all_alerts['related_identifiers'] = all_alerts['related_identifiers'].astype(str)
+        all_alerts["related_identifiers_txt"] = all_alerts["related_identifiers_txt"].astype(str)
         all_alerts.drop_duplicates(inplace=True)
         return len(all_alerts)
 

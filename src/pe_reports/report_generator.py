@@ -94,7 +94,7 @@ def embed(
     # Get the summary page of the PDF on page 4
     page = doc[4]
     if flare:
-        output = f"{output_directory}/{org_code}/FLARE_Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+        output = f"{output_directory}/{org_code}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
     else:
         output = f"{output_directory}/{org_code}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
 
@@ -221,7 +221,7 @@ def generate_reports(orgs_list, datestring, output_directory, soc_med_included=F
                     os.mkdir(f"{output_directory}/{dir_name}")
             # If "flare" flag is true, generate P&E Report with Flare data instead of CyberSixGill data
             if flare:
-                LOGGER.warning(f"WARNING: GENERATING EXPERIMENTAL FLARE P&E REPORT FOR \"{org_code}\"")
+                LOGGER.warning(f"WARNING: GENERATING FLARE P&E REPORT FOR \"{org_code}\"")
                 # (WIP) retrieve PE score for this org
                 pe_scores_df = pd.DataFrame()
                 if not pe_scores_df.empty:
@@ -276,11 +276,11 @@ def generate_reports(orgs_list, datestring, output_directory, soc_med_included=F
                 )
                 LOGGER.info("Finished creating ASM summary")
                 # Convert from HTML template to PDF
-                output_filename = f"{output_directory}/FLARE_Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+                output_filename = f"{output_directory}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
                 chevron_dict["filename"] = output_filename
                 report_gen_flare(chevron_dict, soc_med_included)
                 # Grab the PDF that was generated
-                pdf = f"{output_directory}/FLARE_Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
+                pdf = f"{output_directory}/Posture_and_Exposure_Report-{org_code}-{datestring}.pdf"
                 # Embed raw data files
                 (filesize, tooLarge, output) = embed(
                     output_directory,
@@ -303,21 +303,21 @@ def generate_reports(orgs_list, datestring, output_directory, soc_med_included=F
                     LOGGER.error(
                         "%s is too large. File size: %s Limit: 20MB", org_code, filesize
                     )
-                # # Upload backup copies of files to S3 bucket
-                # bucket_name = "cisa-crossfeed-staging-reports"
-                # # Upload excel files
-                # upload_file_to_s3(cred_xlsx, datestring, bucket_name, org_code)
-                # upload_file_to_s3(da_xlsx, datestring, bucket_name, org_code)
-                # upload_file_to_s3(vuln_xlsx, datestring, bucket_name, org_code)
-                # if premium:
-                #     upload_file_to_s3(mi_xlsx, datestring, bucket_name, org_code)
-                # upload_file_to_s3(asm_xlsx, datestring, bucket_name, org_code)
-                # # Upload report
-                # upload_file_to_s3(output, datestring, bucket_name, None)
-                # # Upload ASM Summary
-                # upload_file_to_s3(final_summary_output, datestring, bucket_name, None)
-                # # Upload scorecard
-                # # upload_file_to_s3(scorecard_filename, datestring, bucket_name, None)
+                # Upload backup copies of files to S3 bucket
+                bucket_name = "cisa-crossfeed-staging-reports"
+                # Upload excel files
+                upload_file_to_s3(cred_xlsx, datestring, bucket_name, org_code)
+                upload_file_to_s3(da_xlsx, datestring, bucket_name, org_code)
+                upload_file_to_s3(vuln_xlsx, datestring, bucket_name, org_code)
+                if premium:
+                    upload_file_to_s3(mi_xlsx, datestring, bucket_name, org_code)
+                upload_file_to_s3(asm_xlsx, datestring, bucket_name, org_code)
+                # Upload report
+                upload_file_to_s3(output, datestring, bucket_name, None)
+                # Upload ASM Summary
+                upload_file_to_s3(final_summary_output, datestring, bucket_name, None)
+                # Upload scorecard
+                # upload_file_to_s3(scorecard_filename, datestring, bucket_name, None)
             else:
                 # If "flare" flag is false, generate the P&E report with CyberSixGill data
                 # WIP retrieve PE score for this org
