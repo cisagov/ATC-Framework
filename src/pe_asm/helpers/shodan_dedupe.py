@@ -147,15 +147,22 @@ def cidr_dedupe(cidrs, api, org_type, conn):
     """Dedupe CIDR."""
     ip_obj = []
     results = []
+    # Iterate over each CIDR in list
     for cidr_index, cidr in cidrs.iterrows():
+        # Search Shodan for the current CIDR
         query = f"net:{cidr['network']}"
         result = search(api, query, ip_obj, cidr["cidr_uid"], org_type)
+        # Append results
         results.append(result)
+    # Log how many CIDRs contained IPs with Shodan results
     found = len([i for i in results if i != 0])
-    LOGGER.info(f"CIDRs with IPs found: {found}")
+    LOGGER.info(f"CIDRs that contain IPs with Shodan results: {found}")
     new_ips = pd.DataFrame(ip_obj)
+    # If there are any CIDR IPs with Shodan results
     if len(new_ips) > 0:
+        # Deduplicate the list of IPs
         new_ips = new_ips.drop_duplicates(subset="ip", keep="first")
+        # Update those IP records in the PE DB
         LOGGER.info(f"Updating {len(new_ips)} IPs after Shodan CIDR dedupe")
         update_shodan_ips(conn, new_ips)
 
@@ -165,7 +172,9 @@ def ip_dedupe(api, ips, agency_type, conn):
     matched = 0
     ips = list(ips)
     float_ips = []
+    # Iterate over subdomain IPs in chunks of 100
     for i in range(int(len(ips) / 100) + 1):
+        # Retrieve Shodan results for this chunk of IPs
         if (i + 1) * 100 > len(ips):
             try:
                 hosts = api.host(ips[i * 100 : len(ips)])
@@ -188,14 +197,21 @@ def ip_dedupe(api, ips, agency_type, conn):
                 except shodan.APIError as err:
                     LOGGER.error(f"Error: {err}")
                     continue
+        # Parse results for this chunk depending on if multiple or single result
         if isinstance(hosts, list):
+            # Go through and parse relevant info for each one
             for h in hosts:
+                # Check if the state for this result is in USA
                 state = state_check(h["org"])
+                # Get IP hash for this result
                 hash_object = hashlib.sha256(str(h["ip_str"]).encode("utf-8"))
                 ip_hash = hash_object.hexdigest()
+                # Check if this result is in USA + for a federal organization
                 if state and agency_type == "FEDERAL":
+                    # If it is, skip
                     continue
                 else:
+                    # Otherwise append the IP result to the list
                     float_ips.append(
                         {
                             "ip_hash": ip_hash,
@@ -206,12 +222,17 @@ def ip_dedupe(api, ips, agency_type, conn):
                         }
                     )
         else:
+            # Check if the state for this result is in USA
             state = state_check(hosts["org"])
+            # Get IP hash for this result
             hash_object = hashlib.sha256(str(hosts["ip_str"]).encode("utf-8"))
             ip_hash = hash_object.hexdigest()
+            # Check if this result is in USA + for a federal organization
             if state and agency_type == "FEDERAL":
+                # If it is, skip
                 continue
             else:
+                # Otherwise append the IP result to list
                 float_ips.append(
                     {
                         "ip_hash": ip_hash,
@@ -222,9 +243,13 @@ def ip_dedupe(api, ips, agency_type, conn):
                     }
                 )
         matched = matched + len(hosts)
+    # Consolidated list of subdomain IPs that have Shodan results
     new_ips = pd.DataFrame(float_ips)
+    # If there are any subdomain IPs with Shodan results
     if len(new_ips) > 0:
+        # Deduplicate the list of IPs
         new_ips = new_ips.drop_duplicates(subset="ip", keep="first")
+        # Update those IP records in the PE DB
         LOGGER.info(f"Updating {len(new_ips)} IPs after Shodan IP dedupe")
         update_shodan_ips(conn, new_ips)
 
@@ -233,26 +258,32 @@ def search(api, query, ip_obj, cidr_uid, org_type):
     """Search Shodan API using query and add IPs to set."""
     # Wrap the request in a try/ except block to catch errors
     try:
-        # LOGGER.info(query)
-        # Search Shodan
+        # Attempt to search Shodan
         try:
             results = api.search(query)
         except shodan.exception.APIError:
             time.sleep(2)
             results = api.search(query)
-        # Show the results
+
+        # Iterate over first page of Shodan search results
         for result in results["matches"]:
             # if ":" in result["ip_str"]:
             #     print("ipv6 found ", result["ip_str"])
             #     ip_type = "ipv6"
             # else:
             #     ip_type = "ipv4"
+
+            # Check if the state for this result is in USA
             state = state_check(result["org"])
+            # Get the IP hash for this result
             hash_object = hashlib.sha256(str(result["ip_str"]).encode("utf-8"))
             ip_hash = hash_object.hexdigest()
+            # Check if this result is in USA + for a federal organization
             if state and org_type == "FEDERAL":
+                # If it is, skip
                 continue
             else:
+                # Otherwise append the IP result to the list
                 ip_obj.append(
                     {
                         "ip_hash": ip_hash,
@@ -262,28 +293,36 @@ def search(api, query, ip_obj, cidr_uid, org_type):
                         "current": True,
                     }
                 )
+        
+        # Continue retrieving results from the next page if there's more
         i = 1
         while i < results["total"] / 100:
             try:
-                # Search Shodan
+                # Search Shodan for page i
                 try:
                     results = api.search(query=query, page=i)
                 except shodan.exception.APIError:
                     time.sleep(2)
                     results = api.search(query, page=i)
-                # Show the results
+                # Iterate over this page of Shodan search results
                 for result in results["matches"]:
                     # if ":" in result["ip_str"]:
                     #     print("ipv6 found ", result["ip_str"])
                     #     ip_type = "ipv6"
                     # else:
                     #     ip_type = "ipv4"
+
+                    # Check if the state for this result is in USA
                     state = state_check(result["org"])
+                    # Get the IP hash for this result
                     hash_object = hashlib.sha256(str(result["ip_str"]).encode("utf-8"))
                     ip_hash = hash_object.hexdigest()
+                    # Check if this result is in USA + for a federal organization
                     if state and org_type == "FEDERAL":
+                        # If it is, skip
                         continue
                     else:
+                        # Otherwise append the IP result to the list
                         ip_obj.append(
                             {
                                 "ip_hash": ip_hash,
@@ -303,10 +342,12 @@ def search(api, query, ip_obj, cidr_uid, org_type):
         # IF it breaks to here it fails
         LOGGER.error(f"Failed on {query}")
         return 0
+    
+    # Return full list of results
     return results["total"]
 
 
-def dedupe(staging, orgs_df=None):
+def dedupe(staging, shodan_key_num, orgs_df=None):
     """Check list of IPs, CIDRs, ASNS, and FQDNs in Shodan and output set of IPs."""
     # Connect to database
     if staging:
@@ -322,8 +363,9 @@ def dedupe(staging, orgs_df=None):
     # Close database connection
     conn.close()
 
+    print(f"Using Shodan key #{shodan_key_num} for dedupe process")
     # Get Shodan key from config file
-    api = shodan_api_init()[0]
+    api = shodan_api_init()[int(shodan_key_num)]
 
     # Loop through orgs
     org_count = 1
@@ -339,24 +381,25 @@ def dedupe(staging, orgs_df=None):
             org_count,
             num_orgs,
         )
+
         # Query CIDRS
         cidrs = query_cidrs_by_org(conn, org["organizations_uid"])
         LOGGER.info(f"{len(cidrs)} CIDRs found")
-
         # Run CIDR dedupe if there are any CIDRs
         if len(cidrs) > 0:
+            LOGGER.info("Running dedupe on CIDR IPs")
             cidr_dedupe(cidrs, api, org["agency_type"], conn)
+        LOGGER.info("Finished deduping CIDR IPs")
 
-        # Get IPs related to current sub-domains
+        # Get IPs related to current subdomains
         LOGGER.info("Retrieving floating IPs")
         ips = query_floating_ips(conn, org["organizations_uid"])
         LOGGER.info("Floating IPs retrieved")
-
-        # Run IP dedupe if there are any IPs
+        # Run IP dedupe if there are any IPs from subdomains
         if len(ips) > 0:
-            LOGGER.info("Running dedupe on IPs")
+            LOGGER.info("Running dedupe on floating IPs")
             ip_dedupe(api, ips, org["agency_type"], conn)
-        LOGGER.info("Finished dedupe")
+        LOGGER.info("Finished deduping floating IPs")
 
         org_count += 1
         conn.close()

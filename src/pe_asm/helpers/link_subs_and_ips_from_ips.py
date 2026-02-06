@@ -48,8 +48,8 @@ def reverseLookup(ip_obj, failed_ips, conn, thread):
         bad_ip = ip_obj["ip"]
         LOGGER.error(f"Max retries reached for {bad_ip}, labeling as failed")
         failed_ips.append(ip_obj["ip"])
-    response = response.json()
 
+    response = response.json()
     found_domains = []
     try:
         # If there is a response, save domain

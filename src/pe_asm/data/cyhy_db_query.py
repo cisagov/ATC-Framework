@@ -629,7 +629,7 @@ def update_shodan_ips(conn, df):
     try:
         extras.execute_values(cursor, sql.format(table, cols), tpls)
         conn.commit()
-        print("Shodan data inserted using execute_values() successfully..")
+        print("Shodan IP data updated using execute_values() successfully..")
     except (Exception, psycopg2.DatabaseError) as err:
         show_psycopg2_exception(err)
         cursor.close()

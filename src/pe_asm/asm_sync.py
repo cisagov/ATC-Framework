@@ -1,7 +1,7 @@
 """A tool for gathering pe asm data.
 
 Usage:
-    pe-asm-sync METHOD [--log-level=LEVEL] [--staging] [--orgs=ORGS]
+    pe-asm-sync METHOD [--log-level=LEVEL] [--staging] [--shodan_key=SHODAN_KEY] [--orgs=ORGS] 
 
 Options:
   -h --help                         Show this message.
@@ -9,12 +9,15 @@ Options:
   -v --version                      Show version information.
   -l --log-level=LEVEL              If specified, then the log level will be set to
                                     the specified value.  Valid values are "debug", "info",
-                                    "warning", "error", and "critical". [default: info]
+                                    "warning", "error", and "critical". 
+                                    [default: info]
+  -s --staging                      Run on the staging database. Otherwise will run on a local copy.
+  -k --shodan_key=SHODAN_KEY        The number of the Shodan API key to use, index starting at 0
+                                    [default: 0]
   -o --orgs=ORGS                    The cyhy_db_name(s) of the organizations to collect data for.
                                     This option is only used for the SQS version of the ASM Sync.
                                     Org names must match the ID in the cyhy-db. E.g. DHS,DHS_ICE,DOC.
                                     [default: all]
-  -s --staging                      Run on the staging database. Otherwise will run on a local copy.
 """
 
 # Standard Python Libraries
@@ -75,7 +78,7 @@ from .port_scans.run_port_scans import get_cyhy_port_scans
 LOGGER = logging.getLogger(__name__)
 
 
-def run_asm_sync(staging, method, orgs):
+def run_asm_sync(staging, method, orgs, shodan_key_num):
     """Collect and sync ASM data."""
     if method == "asm":
         # Non-SQS version of ASM Sync
@@ -245,6 +248,133 @@ def run_asm_sync(staging, method, orgs):
             orgs_logging = orgs[0]
 
         LOGGER.info(f"--- SQS ASM Sync Process Starting for {orgs_logging} ---")
+        LOGGER.info(f"Using Shodan API key at index: {shodan_key_num}")
+        sqs_asm_start = time.time()
+
+        # Retrieve additional info for the specified orgs
+        orgs_df = sqs_query_orgs(staging, orgs)
+        # Create exe time logging file
+        current_date = datetime.date.today().strftime("%Y-%m-%d")
+        first_org = orgs_df.iloc[0]["cyhy_db_name"]
+        last_org = orgs_df.iloc[-1]["cyhy_db_name"]
+        asm_sync_file_path = os.path.dirname(os.path.abspath(__file__)) 
+        asm_sync_file_path = asm_sync_file_path.split("/")
+        perf_log_file = "/".join(asm_sync_file_path[:-1]) + f"/pe_source/exe_time_logs/asm_sync_logs/asm_sync_{current_date}_{first_org}-{last_org}_exe_times.xlsx"
+ 
+        if not os.path.exists(perf_log_file):
+            workbook = openpyxl.Workbook()
+            sheet = workbook["Sheet"]
+            sheet.append(
+                [
+                    "timestamp",
+                    "org_abbrv",
+                    "exe_time",
+                ]
+            )
+            workbook.save(perf_log_file)
+        # Begin iterating over each org
+        for idx, org in orgs_df.iterrows():
+            # Run ASM Sync process for this org
+            org_start_time = time.time()
+            curr_org_name = org.get("cyhy_db_name")
+            curr_org_df = org.to_frame().T
+            curr_org_uid = list(curr_org_df["organizations_uid"])
+
+            LOGGER.info(f"Running ASM Sync process on {curr_org_name}, {idx+1} of {len(orgs_df)}")
+            print(f"Running ASM Sync on {curr_org_name}, {idx+1} of {len(orgs_df)}")
+
+            # Fill the cidrs table with new data from the cyhy_db_assets
+            LOGGER.info("Filling the CIDRs table using the retrieved CyHy assets...")
+            fill_cidrs(staging, curr_org_df) 
+            LOGGER.info("Finished filling the CIDRs table using the retrieved CyHy assets")
+
+            # Identify which CIDRs are current
+            LOGGER.info("Identifying CIDR changes...")
+            sqs_identify_cidr_changes(staging, curr_org_uid) 
+            LOGGER.info("Finished identifying CIDR changes")
+
+            # Enumerate subdomains from roots
+            LOGGER.info("Enumerating sub-domains from root domains...")
+            get_subdomains(staging, curr_org_df) 
+            LOGGER.info("Finished enumerating sub-domains from root domains")
+
+            # Enumerate subdomains from IPs, this takes the longest
+            LOGGER.info("Linking sub-domains and ips using ips...")
+            connect_subs_from_ips(staging, curr_org_df) 
+            LOGGER.info("Finished linking sub-domains and ips using ips")
+
+            # Enumerate IPs from subdomains
+            LOGGER.info("Linking sub-domains and ips using sub-domains...")
+            connect_ips_from_subs(staging, curr_org_df) 
+            LOGGER.info("Finished linking sub-domains and ips using sub-domains")
+
+            # Identify which IPs, sub-domains, and connections are current
+            LOGGER.info("Identify IP changes...")
+            sqs_identify_ip_changes(staging, curr_org_uid) 
+            LOGGER.info("Finished identifying IP changes")
+            LOGGER.info("Identifying sub-domain changes...")
+            sqs_identify_sub_changes(staging, curr_org_uid) 
+            LOGGER.info("Finished identifying sub-domain changes")
+            LOGGER.info("Identifying IP sub-domain link changes...")
+            sqs_identify_ip_sub_changes(staging, curr_org_uid) 
+            LOGGER.info("Finished identifying IP sub-domain link changes")
+            LOGGER.info("Updating identified sub-domains...")
+            sqs_identified_sub_domains(staging, curr_org_uid) 
+            LOGGER.info("Finished updating identified sub-domains")
+
+            # Run shodan dedupe using the specified API key
+            LOGGER.info("Running Shodan dedupe...")
+            dedupe(staging, shodan_key_num, curr_org_df) 
+            LOGGER.info("Finished running Shodan dedupe")
+
+            org_end_time = time.time()
+            # Log exe time data for org
+            org_exe_time = '{:.5f}'.format(datetime.timedelta(seconds=(org_end_time - org_start_time)).total_seconds())
+            org_exe_stats = [
+                str(datetime.datetime.now()),
+                curr_org_name,
+                org_exe_time,
+            ]
+            workbook = load_workbook(perf_log_file)
+            sheet = workbook["Sheet"]
+            sheet.append(org_exe_stats)
+            workbook.save(perf_log_file)
+
+            print(f"Finished running ASM Sync on {curr_org_name}, {idx+1} of {len(orgs_df)}")
+        
+        sqs_asm_end = time.time()
+        LOGGER.info(f"SQS ASM Sync execution time for {orgs_logging}: {str(timedelta(seconds=(sqs_asm_end - sqs_asm_start)))} (H:M:S)")
+        LOGGER.info(f"--- SQS ASM Sync Process Complete for {orgs_logging} ---")
+
+    elif method == "asm-seq-limited":
+        # New, experimental version of ASM Sync process
+        # - Runs organizations sequentially to allow picking up where you left off
+        # - Limits asset enumeration to the following:
+        #   - Stakeholder attested root domains
+        #   - Stakeholder attested CIDRs
+        #   - Subdomains enumerated from root domains using WhoisXML
+        #   - IPs enumerated from CIDRs
+        # - Does NOT include assets fromt he following:
+        #   - IPs found by plugging domains into Python Socket library
+        #   - Domains found by plugging CIDR IPs into WhoisXML
+
+        # --- Local Portion of ASM Sync ---
+        # *** Warning: The local portion of the ASM Sync process needs 
+        # to be run locally on a Macbook before the following code can
+        # run. A dedicated python script is available for this 
+        # "local step" of the ASM Sync
+        
+        # --- Non-Local Portion of ASM Sync ---
+        # *** This portion of the ASM Sync process can run remotely on the
+        # Accessor because it does not require connecting to the CyHy environment
+        orgs = orgs.split(",")
+        if len(orgs) > 1:
+            orgs.sort()
+            orgs_logging = f"{orgs[0]} - {orgs[-1]}"
+        else:
+            orgs_logging = orgs[0]
+
+        LOGGER.info(f"--- SQS ASM Sync Process Starting for {orgs_logging} ---")
         sqs_asm_start = time.time()
 
         # Retrieve additional info for the specified orgs
@@ -283,15 +413,15 @@ def run_asm_sync(staging, method, orgs):
             get_subdomains(staging, curr_org_df) 
             LOGGER.info("Finished enumerating sub-domains from root domains")
 
-            # Enumerate subdomains from IPs, this takes the longest
-            LOGGER.info("Linking sub-domains and ips using ips...")
-            connect_subs_from_ips(staging, curr_org_df) 
-            LOGGER.info("Finished linking sub-domains and ips using ips")
+            # # Enumerate subdomains from IPs, this takes the longest
+            # LOGGER.info("Linking sub-domains and ips using ips...")
+            # connect_subs_from_ips(staging, curr_org_df) 
+            # LOGGER.info("Finished linking sub-domains and ips using ips")
 
-            # Enumerate IPs from subdomains
-            LOGGER.info("Linking sub-domains and ips using sub-domains...")
-            connect_ips_from_subs(staging, curr_org_df) 
-            LOGGER.info("Finished linking sub-domains and ips using sub-domains")
+            # # Enumerate IPs from subdomains
+            # LOGGER.info("Linking sub-domains and ips using sub-domains...")
+            # connect_ips_from_subs(staging, curr_org_df) 
+            # LOGGER.info("Finished linking sub-domains and ips using sub-domains")
 
             # Identify which IPs, sub-domains, and connections are current
             LOGGER.info("Identify IP changes...")
@@ -393,7 +523,7 @@ def main():
         staging = False
 
     # Run ASM Sync
-    run_asm_sync(staging, validated_args["METHOD"], validated_args["--orgs"])
+    run_asm_sync(staging, validated_args["METHOD"], validated_args["--orgs"], validated_args["--shodan_key"])
 
     # Stop logging and clean up
     logging.shutdown()
