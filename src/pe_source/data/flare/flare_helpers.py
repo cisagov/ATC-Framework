@@ -13,7 +13,7 @@ from ..pe_db.config import get_params
 # Setup logging
 LOGGER = logging.getLogger(__name__)
 
-# Retrieve Flare API credentials
+# Retrieve available Flare API credentials
 param_dict = dict(get_params("flare"))
 TENANT_ID = param_dict.get("tenant_id")
 # Convert keys to HTTPBasicAuth objects
@@ -25,7 +25,7 @@ PARAM_DICT = param_dict
 
 def get_flare_token():
     """Get Flare API authentication token."""
-    # Select the specified API key
+    # Use the API key specified by env variable
     key_num = os.getenv("FLARE_KEY_NUM")
     api_auth = PARAM_DICT.get(f"api_key_{key_num}")
     # Get API token
@@ -222,13 +222,6 @@ def get_all_ident_by_group_id(ident_group_id):
             # If no next value, there's no more data to retrieve
             more_data = False
         retrieve_ct +=1
-
-        # testing
-        if len(results_list) > 1000:
-            print("BREAKING")
-            break
-
-
     # Once all data has been retrieved, format and return results
     print(f"Total number of identifiers retrieved for this group: {len(results_list)}")
     if len(results_list) == 0:

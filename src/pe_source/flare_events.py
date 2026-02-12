@@ -34,17 +34,10 @@ DAYS_BACK = datetime.timedelta(days=20) # 20 days back default
 START_DATE = (TODAY - DAYS_BACK).strftime("%Y-%m-%d")
 END_DATE = TODAY.strftime("%Y-%m-%d")
 # Or manually set data collection window
-# START_DATE = "2025-10-16"
-# END_DATE = "2025-12-01"
+# START_DATE = "2026-01-16"
+# END_DATE = "2026-01-31"
 
-# Retrieve Flare API credentials
-params_section = "flare"
-params = get_params(params_section)
-tenant_id = params[0][1]
-api_key = params[1][1]
-api_auth = HTTPBasicAuth('', api_key)
 
-    
 def get_ident_group_events_chunk(token, ident_group_id, payload):
     """Call the Flare identifier group event feed endpoint."""
     headers = {
@@ -156,7 +149,7 @@ def get_ident_group_events(identifier_group, event_severities, event_types, star
     print(f"Total number of items retrieved for all identifiers: {len(results_list)}")
     return results_list
 
-def get_all_event_details(event_list, org_uid):
+def get_all_event_details(event_list, org_uid, org_idents_df):
     """Retrieve the full set of details for each of the specified events."""
     flare_token = get_flare_token()
     # Iterate over each event
@@ -191,11 +184,11 @@ def get_all_event_details(event_list, org_uid):
         event.update({"event_date": event.get("event_date")[:10]})
         # Parse out releveant data based on event type
         if event_type == "stealer_log":
-            # Parse stealer_log events with custom title + content_preview
-            stealer_log_title = f"A stealer log has been offered for sale."
-            event_dict = parse_default_event_fields(event, event_details, org_uid, True, stealer_log_title)
+            # Special parsing for stealer_log type events
+            event_dict = parse_stealer_log_event_fields(event, event_details, org_uid, org_idents_df)
             # Append record
-            total_event_list.append(event_dict)
+            if event_dict != -1:
+                total_event_list.append(event_dict)
         elif event_type == "bot":
             # Parse bot events with custom title + content_preview
             bot_title = f"A device has potentially been infected by botnet malware and the data stolen from it has been offered for sale."
@@ -236,57 +229,38 @@ def parse_related_identifiers(event, text=False):
     identifier_list_str = identifier_list_str[:-2] + "]"
     return identifier_list_str
 
-def parse_event_fields(event, event_details, org_uid):
-    """Parse and format the relevant data fields from the provided Flare event."""
+def parse_stealer_log_event_fields(event, event_details, org_uid, org_idents_df):
+    """Parse and format relevant data fields for stealer_log type events."""
     event_details = event_details.get("activity")
-    event_type = event.get("event_type")
-    rel_ident_txt = parse_related_identifiers(event, True)[6:]
-    # Data fields that vary between event types
-    title = ""
-    content = ""
-    content_hash = ""
-    actor =  ""
-    url =  ""
-    if event_type == "bot":
-        title = event_details.get("header").get("title")
-        content = f"A device has potentially been infected by botnet malware and the data stolen from it has been offered for sale. The data listed for sale mentions the following assets: {rel_ident_txt}"
-        content_hash = event_details.get("header").get("content_hash")
-        actor = event_details.get("header").get("actor")
-        url = event_details.get("header").get("")
-    
+    content = event_details.get("header").get("content_preview")
+    # If content field is like "N credentials", add extra details
+    if content[-12:] == " credentials":
+        total_creds = int(content[:-12])
+        # Identify relevent credentials
+        rel_ident = list(org_idents_df.loc[org_idents_df["type"] == "domain"]["value"])
+        rel_creds = []
+        creds_list = event_details.get("data").get("credentials")
+        for cred in creds_list:
+            # Record any creds that contain any of the relevant identifiers
+            user = cred.get("username")
+            passwd = cred.get("password")
+            url = cred.get("url")
+            if (any(item in user for item in rel_ident) or any(item in url for item in rel_ident)) and ("@" in user):
+                cred_str = f"username: {user} - password: {passwd} - login_url: {url}"
+                rel_creds.append(cred_str)
+        # Discard this finding if none of the credentials are relevant
+        if len(rel_creds) == 0:
+            return -1
+        # Get compromised device info
+        user_ip = event_details.get("data").get("user_information").get("ip_address")
+        user_os = event_details.get("data").get("user_information").get("os")
+        user_username = event_details.get("data").get("user_information").get("username")
+        # Build custom content field
+        content = f"A stealer log was offered for sale containing {total_creds} leaked credentials.\n{len(rel_creds)} of those {total_creds} credentials are related to your organization:"
+        for cred in rel_creds:
+            content += f"\n- {cred}"
+        content += f"\n\nInformation about the device this data was supposedly stolen off of:\nip:{user_ip}\nOS:{user_os}\nusername:{user_username}"
 
-    # if event_type == "stealer_log":
-    #     # Parse stealer_log events with custom title + content_preview
-    #     title = f"A stealer log has been offered for sale."
-    #     event_dict = parse_default_event_fields(event, event_details, org_uid, True, stealer_log_title)
-    # elif event_type == "bot":
-    #     # Parse bot events with custom title + content_preview
-    #     title = f"A device has potentially been infected by botnet malware and the data stolen from it has been offered for sale."
-    #     event_dict = parse_default_event_fields(event, event_details, org_uid, True, bot_title)
-    #     # Append record
-    # elif event_type in ("leak", "ransomleak", "listing", "seller"):
-    #     title = event_details.get("header").get("title")
-    #     # Parse event types that: use content_preview field, no custom title
-    #     event_dict = parse_default_event_fields(event, event_details, org_uid, True)
-    #     # Append record
-    # elif event_type == "chat_message":
-    #     title = event_details.get("header").get("title")
-    #     # Parse event types that: use content field, no custom title
-    #     event_dict = parse_default_event_fields(event, event_details, org_uid)
-    #     # Append record, only if chat_message has content field
-    #     if (event_dict.get("content")) and (event_dict.get("content") != "None"):
-    #         total_event_list.append(event_dict)
-    #     else:
-    #         print("\tERROR: No content field for this chat_message event")
-    # else:
-    #     title = event_details.get("header").get("title")
-    #     # Parse event types that: use content field, no custom title
-    #     event_dict = parse_default_event_fields(event, event_details, org_uid)
-
-    # Special formatting to get rid of emojis and null chars
-    if isinstance(content, str):
-        content = remove_emoji(content)
-        content = content.replace('\x00', '')
     # Return parsed info
     return {
         "organizations_uid": org_uid,
@@ -294,7 +268,7 @@ def parse_event_fields(event, event_details, org_uid):
         "event_type": event.get("event_type"),
         "event_date": event.get("event_date"),
         "collection_date": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "title": title,
+        "title": "A Stealer Log Was Offered for Sale",
         "content": content,
         "content_hash": event_details.get("header").get("content_hash"),
         "actor": event_details.get("header").get("actor"),
@@ -456,13 +430,15 @@ def run_flare_events(orgs_list):
             )
             # Retrieve identifier group info for this org
             ident_group_info = get_ident_group_info(org_abbrv)
+            # Retrieve list of all identifiers for this org
+            org_idents_df = pd.DataFrame(get_all_ident_by_group_id(ident_group_info.get("id")))
             # Retrieve all Flare events for this org
             LOGGER.info(f"Retrieving all Flare events for {org_abbrv}")
             event_list = get_ident_group_events(ident_group_info, event_severities, event_types, start_date, end_date)
             LOGGER.info(f"Found {len(event_list)} events for {org_abbrv}")
             # Retrieve further details for the events and format
             LOGGER.info(f"Retrieving additional details for {org_abbrv}'s events")
-            final_event_list = get_all_event_details(event_list, org_uid)
+            final_event_list = get_all_event_details(event_list, org_uid, org_idents_df)
             if len(final_event_list) > 0:
                 # Convert risk_score field to string type
                 for event in final_event_list:

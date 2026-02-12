@@ -3804,7 +3804,22 @@ def query_flare_creds_view(org_uid, start_date, end_date):
     conn = connect()
     try:
         # Build query
-        sql = """SELECT * 
+        sql = """SELECT
+            credential_exposures_uid,
+            organizations_uid,
+            added_date,
+            modified_date,
+            email,
+            password,
+            hash_type,
+            login_url,
+            root_domain,
+            sub_domain,
+            breach_date,
+            breach_name,
+            description,
+            password_included,
+            data_source_uid
         FROM vw_flare_breachcomp
         WHERE organizations_uid = %(org_uid)s
         AND modified_date BETWEEN %(start_date)s AND %(end_date)s"""

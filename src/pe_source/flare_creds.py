@@ -35,19 +35,12 @@ DAYS_BACK = datetime.timedelta(days=20) # 20 days back default
 START_DATE = (TODAY - DAYS_BACK).strftime("%Y-%m-%d")
 END_DATE = TODAY.strftime("%Y-%m-%d")
 # Or manually set data collection window
-# START_DATE = "2025-11-01"
-# END_DATE = "2025-11-15"
-
-# Retrieve Flare API credentials
-params_section = "flare"
-params = get_params(params_section)
-tenant_id = params[0][1]
-api_key = params[1][1]
-api_auth = HTTPBasicAuth('', api_key)
+# START_DATE = "2026-01-16"
+# END_DATE = "2026-01-31"
 
 
 def get_ident_creds_chunk(token, ident_id, payload):
-    """Get leaked creds for the speicifed identifier ID."""
+    """Retrieve chunk of leaked creds for the speicifed identifier ID."""
     size = payload.get("size")
     frm = payload.get("from")
     headers = {
@@ -165,6 +158,7 @@ def get_ident_creds(ident_id, start_date, end_date):
             "breach_date": item.get("source").get("breached_at"),
             "related_identifier": ident_id,
             "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
+            "url": None,
         } for item in results_list
     ]
     # Filter for results only within the specified time period
@@ -176,73 +170,8 @@ def get_ident_creds(ident_id, start_date, end_date):
     print(f"Total number of leaked credentials retrieved for identifier: {len(results_list)}")
     return results_list
 
-def format_ident_creds(cred_list, org_uid, end_date):
-    """Format list of Flare identifier leaked creds to be inserted into the database."""
-    # Convert list of creds to dataframe
-    all_df = pd.DataFrame.from_dict(cred_list)
-    # Remove duplicates and drop records w/o breach names
-    all_df = all_df.drop_duplicates(subset=["email", "breach_name"], keep="first")
-    all_df = all_df.loc[all_df["breach_name"] != ""]
-    # Add additional columns
-    all_df["password_included"] = np.where(
-        (pd.isna(all_df["password"])) | (all_df["password"] == ""), 0, 1
-    )
-    all_df["sub_domain"] = all_df["email"].str.split("@").str[1]
-    all_df["sub_domain"] = all_df["sub_domain"].fillna("None")
-    all_df["organizations_uid"] = org_uid
-    all_df["intelx_system_id"] = "None"
-    # Assemble credential exposures dataframe
-    creds_df = all_df[
-        [
-            "email",
-            "organizations_uid",
-            "root_domain",
-            "sub_domain",
-            "breach_name",
-            "modified_date",
-            "credential_breaches_uid",
-            "data_source_uid",
-            "password",
-            "hash_type",
-            "intelx_system_id",
-        ]
-    ].reset_index(drop=True)
-    # Assemble credential breaches dataframe
-    breaches_df = all_df.groupby(
-        [
-            "breach_name",
-            "breach_description", 
-            "modified_date",
-            "data_source_uid",
-        ]
-    ).aggregate({"email": "count", "password_included": "sum"}).reset_index()
-    breaches_df["password_included"] = breaches_df["password_included"] > 0
-    breaches_df.rename(
-        columns={
-            "email": "exposed_cred_count",
-            "breach_description": "description",
-        }, 
-        inplace=True
-    )
-    breaches_df["breach_date"] = breaches_df["modified_date"]
-    breaches_df["added_date"] = end_date
-    breaches_df = breaches_df[
-        [
-            "breach_name",
-            "description",
-            "breach_date",
-            "added_date",
-            "modified_date",
-            "password_included",
-            "data_source_uid",
-        ]
-    ]
-    # Return results
-    return creds_df, breaches_df
-
-
 def get_ident_group_stealer_logs_chunk(token, ident_group_id, payload):
-    """Call the Flare identifier group event feed endpoint specifically for stealer_logs."""
+    """Call the Flare identifier group event feed endpoint, specifically for stealer_logs."""
     headers = {
         "Content-Type": "application/json",
         'Authorization': f'Bearer {token}',
@@ -276,7 +205,7 @@ def get_ident_group_stealer_logs(identifier_group, event_severities, start_date,
     """Retrieve all stealer_log events for the specified identifier group (organization)."""
     ident_group_name = identifier_group.get("name")
     ident_group_id = identifier_group.get("id")
-    print(f"\n\nRetrieving all stealer_log events for the identifier group: {ident_group_name}")
+    print(f"Retrieving all stealer_log events for the identifier group: {ident_group_name}")
     flare_token = get_flare_token()
     results_list = []
     more_data = False
@@ -347,8 +276,8 @@ def get_ident_group_stealer_logs(identifier_group, event_severities, start_date,
     print(f"Total number of stealer_log records retrieved for identifier group: {len(results_list)}")
     return results_list
 
-def get_stealer_log_details(event_list, org_idents):
-    """Retrieve the full set of details for each of the stealer_log events."""
+def get_stealer_log_creds(event_list, org_idents):
+    """Retrieve any relevant leaked credentials from the list of stealer_log events."""
     flare_token = get_flare_token()
     # Iterate over each event
     total_cred_list = []
@@ -366,19 +295,20 @@ def get_stealer_log_details(event_list, org_idents):
         # Skip event if no details available
         if event_details is None:
             continue
+        # Otherwise, proceed to parse all creds from event details response
         event.update({"event_date": event.get("event_date")[:10]})
         print(f"Retrieved details for event {idx+1} of {len(event_list)} - Type: {event_type}")
         # Parse any leaked credentials in this stealer_logs event
-        cred_list = extract_stealer_log_creds(event_details, org_domain_idents)
+        cred_list = extract_stealer_log_creds(event, event_details, org_domain_idents)
         # Append any creds found to overall list
-        if cred_list is not None:
+        if len(cred_list) > 0:
             total_cred_list.extend(cred_list)
-        
+
     # Return full list of stealer_log creds
     return total_cred_list
 
-def extract_stealer_log_creds(event_details, domain_idents):
-    """Extract leaked username password pairs from stealer_log events if available."""
+def extract_stealer_log_creds(event, event_details, domain_idents):
+    """Extract leaked username password pairs from a stealer_log event if available."""
     # Check if this stealer_log event has any credentials
     try:
         raw_creds_list = event_details.get("activity").get("data").get("credentials")
@@ -393,61 +323,80 @@ def extract_stealer_log_creds(event_details, domain_idents):
     for dict in raw_creds_list:
         curr_url = dict.get("url")
         curr_username = dict.get("username")
-        # Extract only leaked creds whose URL involves the organization's domains
+        curr_mod_date = event_details.get("activity").get("header").get("timestamp")
+        curr_str_date = curr_mod_date[:19]
+        vic_ip = event_details.get("activity").get("data").get("user_information").get("ip_address")
+        vic_os = event_details.get("activity").get("data").get("user_information").get("os")
+        vic_user = event_details.get("activity").get("data").get("user_information").get("username")
+        # Iterate over all of this org's domain assets
         for domain in domain_idents:
-            if (domain in curr_url) and (curr_username != ""):
+            # Only record leaked creds whose username or login URL contains an organization's domain
+            if ((domain in curr_url) or (domain in curr_username)) and (curr_username != ""): 
+                # Determine breach name
+                if vic_user is None and vic_ip is None:
+                    breach_name = f"Stealer Log from {vic_user}@{vic_ip} {curr_str_date}"
+                else:
+                    breach_name = f"Stealer Log from {vic_user}@{vic_ip}"
+                # Determine if password present
+                pass_incl = False
+                if dict.get("password") is not None:
+                    pass_incl = True
+                # Build breach description
+                breach_desc = (
+                    "A stealer log was identified on "
+                    + curr_mod_date
+                    + " that "
+                    + (
+                        "contained passwords."
+                        if pass_incl is True
+                        else 
+                        "did not contain passwords."
+                    )
+                    + "\nOne or more leaked credentials in this stealer log are relevant to your organization "
+                    + "\nbecause either the username or login URL contained one of your organization's domains."
+                    + "\nThis data was supposedly stolen off of a device with the following information:"
+                    + f"\nIP: {vic_ip}"
+                    + f"\nOS: {vic_os}"
+                    + f"\nUsername: {vic_user}"
+                )
+                # Assemble data dict for this credential
                 append_dict = {
-                    # uid,
-                    "username": dict.get("username"),
-                    # org_uid, 
-                    "root_domain": domain,
-                    "sub_domain": domain,
-                    "breach_name": dict.get("application"),
-                    # "modified_date": datetime.datetime.now().strftime("%Y-%m-%d"),
-                    "modified_date": event_details.get("activity").get("data").get("metadata").get("estimated_created_at"),
-                    "credential_breaches_uid": None, 
-                    "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
-                    # name,
-                    # login_id,
-                    # phone,
+                    "modified_date": curr_mod_date,
+                    "email": dict.get("username"),
                     "password": dict.get("password"),
                     "hash_type": "plain-text",
-                    # intelx_system_id,
+                    "root_domain": domain,
+                    "sub_domain": domain,
+                    "credential_breaches_uid": None,
+                    "breach_name": breach_name,
+                    "breach_description": breach_desc,
+                    "breach_date": curr_mod_date,
+                    "related_identifier": event.get("identifiers"),
+                    "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
                     "url": dict.get("url")
                 }
-                # Append results to the overall list for this stealer_log event
+                # Append result to the overall list for this stealer_log event
                 creds_list.append(append_dict)
 
     # Format and return results
-    creds_df = pd.DataFrame(creds_list)
-    creds_list = creds_df.to_dict(orient="records")
     return creds_list
 
-def format_stealer_log_creds(cred_list, org_uid):
-    """Format list of Flare stealer_log leaked creds to be inserted into the database."""
-    # Convert list of creds to dataframe
-    all_df = pd.DataFrame.from_dict(cred_list)
-    all_df["username"] = all_df["username"].str.lower()
-    # Only include credentials that feature a @ in the username
-    all_df = all_df[all_df["username"].str.contains("@", na=False)].reset_index(drop=True)
-    all_df = all_df.drop_duplicates(subset=["username", "breach_name"], keep="first")
+def format_creds_for_db(all_creds_df, org_uid):
+    """Take overall list of creds and format it for insertion into P&E database."""
+    # Filter out ineligible records
+    all_creds_df = all_creds_df[all_creds_df["email"].str.contains("@", na=False)].reset_index(drop=True)
+    all_creds_df = all_creds_df.drop_duplicates(subset=["email", "breach_name"], keep="first")
+    all_creds_df = all_creds_df.loc[all_creds_df["breach_name"] != ""]
     # Add additional columns
-    all_df["password_included"] = np.where(
-        (pd.isna(all_df["password"])) | (all_df["password"] == ""), 0, 1
+    all_creds_df["password_included"] = np.where(
+        (pd.isna(all_creds_df["password"])) | (all_creds_df["password"] == ""), 0, 1
     )
-    all_df["sub_domain"] = all_df["username"].str.split("@").str[1]
-    all_df["sub_domain"].fillna("None", inplace=True)
-    all_df["organizations_uid"] = org_uid
-    all_df["intelx_system_id"] = "None"
-    all_df = all_df.loc[all_df["breach_name"] != ""]
-    all_df.rename(
-        columns={
-            "username": "email",
-        },
-        inplace=True,
-    )
+    all_creds_df["sub_domain"] = all_creds_df["email"].str.split("@").str[1]
+    all_creds_df["sub_domain"].fillna("None", inplace=True)
+    all_creds_df["organizations_uid"] = org_uid
+    all_creds_df["intelx_system_id"] = "None"
     # Assemble credential exposures dataframe
-    creds_df = all_df[
+    creds_df = all_creds_df[
         [
             "email",
             "organizations_uid",
@@ -460,33 +409,26 @@ def format_stealer_log_creds(cred_list, org_uid):
             "password",
             "hash_type",
             "intelx_system_id",
+            "url",
         ]
     ].reset_index(drop=True)
     # Assemble credential breaches dataframe
-    breaches_df = all_df.groupby(
+    breaches_df = all_creds_df.groupby(
         [
             "breach_name", 
+            "breach_description",
             "modified_date", 
-            # "bucket", 
-            "url",
+            # "bucket",
             "data_source_uid",
         ]
     ).aggregate({"email": "count", "password_included": "sum"})
     breaches_df = breaches_df.reset_index()
     breaches_df["password_included"] = breaches_df["password_included"] > 0
-    breaches_df.rename(columns={"email": "exposed_cred_count"}, inplace=True)
-    breaches_df["description"] = (
-        breaches_df["breach_name"]
-        + " was identified on "
-        + breaches_df["modified_date"]
-        + ". The post "
-        + (
-            "does not contain"
-            if breaches_df["password_included"] is True
-            else "contains"
-        )
-        + " passwords. This data came from a stealer log where credentials were recorded while being used at this URL: "
-        + breaches_df["url"]
+    breaches_df.rename(
+        columns={
+            "breach_description": "description",
+            "email": "exposed_cred_count",
+        }, inplace=True
     )
     breaches_df["breach_date"] = breaches_df["modified_date"]
     breaches_df["added_date"] = END_DATE
@@ -505,7 +447,7 @@ def format_stealer_log_creds(cred_list, org_uid):
     return creds_df, breaches_df
 
 def run_flare_creds(orgs_list):
-    """Retrieve Flare data for the specified list of organizations and insert into the PE DB."""
+    """Retrieve Flare leaked credential data for the specified list of organizations and insert into the P&E DB."""
     # Retrieve full org info from PE database
     pe_orgs = get_orgs()
     pe_orgs_final = []
@@ -555,8 +497,8 @@ def run_flare_creds(orgs_list):
     for org_idx, org in enumerate(pe_orgs_final):
         # Start exe time for this org
         time_start = time.time()
-        # Run Flare on this organization
         try:
+            # Run Flare on this organization
             org_abbrv = org["cyhy_db_name"]
             org_uid = org["organizations_uid"]
             LOGGER.info(
@@ -566,10 +508,10 @@ def run_flare_creds(orgs_list):
             ident_group_info = get_ident_group_info(org_abbrv)
             # Retrieve identifiers for this org
             org_idents = get_all_ident_by_group_id(ident_group_info.get("id"))
+            print()
+
             # Retrieve leaked credentials from each of the org's identifiers
-            ident_cred_df = pd.DataFrame()
-            ident_breach_df = pd.DataFrame()
-            ident_creds_results = []
+            ident_creds_list = []
             for ident_idx, ident in enumerate(org_idents):
                 ident_val = ident.get("value")
                 ident_id = ident.get("id")
@@ -577,19 +519,12 @@ def run_flare_creds(orgs_list):
                 # Look up credentials for this identifier
                 ident_creds = get_ident_creds(ident_id, start_date, end_date)
                 # Add it to the overall list for this org
-                ident_creds_results.extend(ident_creds)
-            # If any identifier creds found
-            if len(ident_creds_results) > 0:
-                # Format identifier creds to be inserted into db
-                print(f"{len(ident_creds_results)} Flare leaked creds found from org identifiers")
-                ident_cred_df, ident_breach_df = format_ident_creds(ident_creds_results, org_uid, end_date)
-            else:
-                print("0 Flare leaked creds found from org identifiers")
-            LOGGER.info(f"Found {len(ident_cred_df)} Flare creds from {org_abbrv}'s identifiers")
+                ident_creds_list.extend(ident_creds)
+            print(f"Found {len(ident_creds_list)} Flare creds from {org_abbrv}'s identifiers\n")
+            LOGGER.info(f"Found {len(ident_creds_list)} Flare creds from {org_abbrv}'s identifiers")
 
             # Retrieve leaked credentials from this org's stealer_log events
-            stealer_log_cred_df = pd.DataFrame()
-            stealer_log_breach_df = pd.DataFrame()
+            stealer_log_creds_list = []
             event_severities = [
                 # "info",
                 "low",
@@ -602,52 +537,76 @@ def run_flare_creds(orgs_list):
             stealer_log_event_list = [d for d in stealer_log_event_list if d["event_type"] == "stealer_log"]
             # Check if any stealer_log events found
             if len(stealer_log_event_list) > 0:
-                # If so, retrieve further details for the stealer_log events
-                stealer_log_creds_list = get_stealer_log_details(stealer_log_event_list, org_idents)
-                # Check if any stealer_log creds found
-                if len(stealer_log_creds_list) > 0:
-                    # Format stealer_log creds to be inserted into db
-                    stealer_log_cred_df, stealer_log_breach_df = format_stealer_log_creds(stealer_log_creds_list, org_uid)
-                else:
-                    print("0 Flare leaked creds found from stealer_log events")
-            else:
-                print("0 Flare leaked creds found from stealer_log events")
-            LOGGER.info(f"Found {len(stealer_log_cred_df)} Flare creds from {org_abbrv}'s stealer_log events")
+                # If so, retrieve any relevant credentials from the stealer_log events
+                stealer_log_creds_list = get_stealer_log_creds(stealer_log_event_list, org_idents)
+            print(f"Found {len(stealer_log_creds_list)} Flare creds from {org_abbrv}'s stealer_log events\n")
+            LOGGER.info(f"Found {len(stealer_log_creds_list)} Flare creds from {org_abbrv}'s stealer_log events")
 
             # Combine lists of identifier creds and stealer_log creds
-            total_cred_df = pd.concat(
-                [ident_cred_df, stealer_log_cred_df],
-                axis=0,
-                ignore_index=True
-            )
-            total_breach_df = pd.concat(
-                [ident_breach_df, stealer_log_breach_df],
-                axis=0,
-                ignore_index=True
-            )
-            total_cred_df = total_cred_df.drop_duplicates(subset=["email", "password"], keep="first").reset_index(drop=True)
-            total_breach_df = total_breach_df.drop_duplicates(subset=["breach_name", "description"], keep="first").reset_index(drop=True)
-            LOGGER.info(f"Found {len(total_cred_df)} unique Flare creds overall for {org_abbrv}")
-            if len(total_cred_df) == 0:
-                # If no Flare credentials found for this org, skip
-                LOGGER.warning(f"No Flare credentials found for {org_abbrv}, skipping")
-                success += 1
+            expected_cols = [
+                "modified_date",
+                "email",
+                "password",
+                "hash_type",
+                "root_domain",
+                "sub_domain",
+                "credential_breaches_uid",
+                "breach_name",
+                "breach_description",
+                "breach_date",
+                "related_identifier",
+                "data_source_uid",
+                "url",
+            ]
+            if len(stealer_log_creds_list) > 0:
+                stealer_log_creds_df = pd.DataFrame(stealer_log_creds_list)
             else:
-                # Otherwise, insert Flare breach data into PE DB
-                insert_flare_breaches(total_breach_df)
+                stealer_log_creds_df = pd.DataFrame(columns=expected_cols)
+            if len(ident_creds_list) > 0:
+                ident_creds_df = pd.DataFrame(ident_creds_list)
+            else:
+                ident_creds_df = pd.DataFrame(columns=expected_cols)
+            ident_creds_df["email"] = ident_creds_df["email"].str.lower()
+            stealer_log_creds_df["email"] = stealer_log_creds_df["email"].str.lower()
+            # Use full password (instead of censored version) if available
+            if (len(ident_creds_df) > 0) and (len(stealer_log_creds_df) > 0):
+                full_pass_dict = dict(zip(ident_creds_df["email"], ident_creds_df["password"]))
+                stealer_log_creds_df["full_password"] = stealer_log_creds_df["email"].map(full_pass_dict).fillna(stealer_log_creds_df["password"])
+                stealer_log_creds_df.drop(columns=["password"], inplace=True)
+                stealer_log_creds_df.rename(columns={"full_password": "password"}, inplace=True)
+                stealer_log_creds_df = stealer_log_creds_df[expected_cols]
+            # Drop duplicates, prioritize the stealer_log version of creds
+            all_creds_df = pd.concat([stealer_log_creds_df, ident_creds_df], ignore_index=True)
+            all_creds_df = all_creds_df.drop_duplicates(subset=["email"], keep="first").reset_index(drop=True)
+
+            # Format total list of creds and insert into the P&E database
+            if len(all_creds_df) > 0:
+                LOGGER.info(f"Found {len(all_creds_df)} unique Flare creds overall for {org_abbrv}")
+                print(f"Found {len(all_creds_df)} unique Flare creds overall for {org_abbrv}")
+                # Format creds list to align with database tables
+                print("Formatting credentials for insertion into P&E database")
+                exposures_df, breaches_df = format_creds_for_db(all_creds_df, org_uid)
+                # Insert Flare breach data into PE DB
+                insert_flare_breaches(breaches_df)
                 LOGGER.info(f"Flare breaches for {org_abbrv} successfully inserted into PE database")
-                # Retrieve breach UIDs for the credential records
-                breach_uid_df = get_cred_breach_uids(list(total_cred_df["breach_name"]))
+                print(f"Flare breaches for {org_abbrv} successfully inserted into PE database")
+                # Retrieve UIDs for the breaches that were just inserted
+                breach_uid_df = get_cred_breach_uids(list(exposures_df["breach_name"]))
                 breach_dict = dict(zip(breach_uid_df["breach_name"], breach_uid_df["credential_breaches_uid"]))
                 # Add breach UIDs to credential records
-                for idx, row in total_cred_df.iterrows():
+                for idx, row in exposures_df.iterrows():
                     breach_uid = breach_dict.get(row["breach_name"])
-                    total_cred_df.at[idx, "credential_breaches_uid"] = breach_uid
+                    exposures_df.at[idx, "credential_breaches_uid"] = breach_uid
                 # Insert Flare credential data into PE DB
-                insert_flare_credentials(total_cred_df)
+                insert_flare_credentials(exposures_df)
                 LOGGER.info(f"Flare credentials for {org_abbrv} successfully inserted into PE database")
+                print(f"Flare credentials for {org_abbrv} successfully inserted into PE database")
                 # Log successful data collection for this org
                 success += 1
+            else:
+                LOGGER.info(f"No Flare creds found for {org_abbrv}, moving on...")
+                print(f"No Flare creds found for {org_abbrv}, moving on...")
+
         except Exception as e:
             LOGGER.error(f"Error encountered during Flare scan for {org_abbrv} - {e}")
             traceback.print_exc()

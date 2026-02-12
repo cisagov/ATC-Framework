@@ -2605,6 +2605,7 @@ def insert_flare_events(event_list):
     DO UPDATE SET
     event_date = EXCLUDED.event_date,
     collection_date = EXCLUDED.collection_date,
+    title = EXCLUDED.title,
     content = EXCLUDED.content,
     related_identifiers = EXCLUDED.related_identifiers,
     related_identifiers_txt = EXCLUDED.related_identifiers_txt
@@ -2690,16 +2691,17 @@ def insert_flare_credentials(cred_df):
         breach_uid = row.get("credential_breaches_uid")
         source_uid = row.get("data_source_uid")
         password = row.get("password")
-        hash_type = row.get("has_type")
+        hash_type = row.get("hash_type")
         intelx_id = row.get("intelx_system_id")
+        login_url = row.get("url")
         # Escape special characters
         email = email.replace("'", "''")
         breach_name = breach_name.replace("'", "''")
         password = password.replace("'", "''")
-        insert_vals += f"('{email}', '{org_uid}', '{root}', '{sub}', '{breach_name}', '{mod_date}', '{breach_uid}', '{source_uid}', '{password}', '{hash_type}', '{intelx_id}'),\n"
+        insert_vals += f"('{email}', '{org_uid}', '{root}', '{sub}', '{breach_name}', '{mod_date}', '{breach_uid}', '{source_uid}', '{password}', '{hash_type}', '{intelx_id}', '{login_url}'),\n"
     insert_vals = insert_vals[:-2]
     sql = f"""
-    INSERT INTO credential_exposures(email, organizations_uid, root_domain, sub_domain, breach_name, modified_date, credential_breaches_uid, data_source_uid, password, hash_type, intelx_system_id) VALUES 
+    INSERT INTO credential_exposures(email, organizations_uid, root_domain, sub_domain, breach_name, modified_date, credential_breaches_uid, data_source_uid, password, hash_type, intelx_system_id, login_url) VALUES 
     {insert_vals}
     ON CONFLICT (breach_name, email) 
     DO UPDATE SET
