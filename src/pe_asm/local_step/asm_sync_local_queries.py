@@ -1,4 +1,5 @@
 """All SQL database queries needed for the ASM Sync local process."""
+
 # Standard Python Libraries
 import datetime
 import sys

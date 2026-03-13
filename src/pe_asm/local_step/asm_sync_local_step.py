@@ -94,20 +94,10 @@ def asm_sync_local_step(staging=False):
     main_log.info(f"=== *** ASM Sync Local Process Complete *** ===")
 
 
-# --- TEST RUN ---
-# asm_sync_local_step(True)
+def main():
+    """Run local (macbook, not EC2) step of the ASM Sync process."""
+    asm_sync_local_step(True)
 
-# DB connection testing:
-# conn = local_db_connect()
-# conn = pe_db_connect()
-# sql = """
-#     SELECT
-#         *
-#     FROM
-#         top_cves
-#     ORDER BY
-#         date DESC
-#     LIMIT 10
-#     """
-# df = pd.read_sql(sql, conn)
-# print(df)
+
+if __name__ == "__main__":
+    main()

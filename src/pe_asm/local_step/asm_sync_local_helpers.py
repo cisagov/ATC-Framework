@@ -1,4 +1,5 @@
 """All helper functions needed for the ASM Sync local process."""
+
 # Standard Python Libraries
 import datetime
 import os
@@ -73,7 +74,7 @@ def check_accessor_running():
         checkAWS = checkAWS[2]
         if checkAWS == "running":
             # If Accessor is running, connect a screen
-            os.popen("screenConnectAccessor") # This needs to be setup in ~/.bin
+            os.popen("startEC2Connect") # This needs to be setup in ~/.bin
             main_log.info(
                 "The Accessor is running and a screen has been connected"
             )
@@ -169,7 +170,7 @@ def cyhy_db_connect():
         )
 
 def local_db_connect():
-    """Connect to PE database."""
+    """Connect to local copy of PE database."""
     # Parse local DB info from .ini
     conn_dict = parse_ini(ini_file, "local_db")
     # Make connection to PE DB
@@ -210,8 +211,8 @@ def dotgov_domains():
         columns={
             "Domain name": "domain_name",
             "Domain type": "domain_type",
-            "Agency": "agency",
-            "Organization name": "organization",
+            "Organization name": "agency",
+            "Suborganization name": "organization",
             "City": "city",
             "State": "state",
             "Security contact email": "security_contact_email",
