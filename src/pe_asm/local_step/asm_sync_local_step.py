@@ -24,6 +24,7 @@ from asm_sync_local_queries import (
 )
 
 # Setup Logging
+os.makedirs("./asm_sync_local_logs", exist_ok=True)
 logging.basicConfig(
     filename="./asm_sync_local_logs/asm_sync_logfile.log",
     filemode="a",

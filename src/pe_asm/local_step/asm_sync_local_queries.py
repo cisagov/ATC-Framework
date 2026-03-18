@@ -21,12 +21,14 @@ def show_psycopg2_exception(err):
         "Database connection error: %s on line number: %s", err, traceback.tb_lineno
     )
 
-
 def insert_sectors(conn, db_pass, sectors_list):
     """Insert sectors into PE DB."""
     # Build upsert SQL query
     sector_input_values = ""
     for sector in sectors_list:
+        clean_pass = sector["password"]
+        if clean_pass is not None:
+            clean_pass = clean_pass.replace("'", "''")
         sector_input_values += "('%s', '%s', '%s', '%s', '%s', %s, '%s', '%s', PGP_SYM_ENCRYPT('%s', '%s')), " % (
             sector["id"],
             sector["acronym"],
@@ -36,7 +38,7 @@ def insert_sectors(conn, db_pass, sectors_list):
             sector["retired"],
             datetime.datetime.today().date(),
             datetime.datetime.today().date(),
-            sector["password"],
+            clean_pass,
             db_pass,
         )
     # remove final comma
@@ -65,7 +67,6 @@ def insert_sectors(conn, db_pass, sectors_list):
         show_psycopg2_exception(err)
         cur.close()
 
-
 def query_pe_sectors(conn):
     """Query sectors from PE DB."""
     sql = """
@@ -75,7 +76,6 @@ def query_pe_sectors(conn):
     df = pd.read_sql(sql, conn)
     main_log.info("PE sectors retrieved successfully using query_pe_sectors()")
     return df
-
 
 def insert_assets(conn, assets_df):
     """Insert CyHy assets into the P&E DB."""
@@ -100,7 +100,6 @@ def insert_assets(conn, assets_df):
         main_log.error("Error: Failed inserting asset data into PE DB")
         show_psycopg2_exception(err)
         cursor.close()
-
 
 def insert_contacts(conn, contacts_df):
     """Insert CyHy contacts into the P&E databse."""
@@ -156,9 +155,6 @@ def insert_contacts(conn, contacts_df):
         show_psycopg2_exception(err)
         cur.close()
 
-
-
-
 def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
     """Insert CyHy agencies into the P&E database."""
     # Build upsert SQL query
@@ -166,6 +162,9 @@ def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
     for idx, agency in cyhy_agency_df.iterrows():
         # handle single quotes in fields
         agency = agency.replace('\'', '\'\'', regex=True)
+        clean_pass = agency["password"]
+        if clean_pass is not None:
+            clean_pass = clean_pass.replace("'", "''")
         agency_input_values += "('%s', '%s', '%s', %s, %s, %s, %s, %s, %s, '%s', %s, '%s', '%s', %s, '%s', %s, '%s', '%s', '%s', PGP_SYM_ENCRYPT('%s', '%s')), " % (
             agency["name"],
             agency["cyhy_db_name"],
@@ -178,7 +177,6 @@ def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
             agency["fceb"],
             agency["cyhy_period_start"],
             agency["scorecard"],
-
             agency["location_name"],
             agency["county"],
             agency["county_fips"] or "NULL",
@@ -187,8 +185,7 @@ def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
             agency["state_name"],
             agency["country"],
             agency["country_name"],
-
-            agency["password"],
+            clean_pass,
             db_pass,
         )
     # remove final comma
@@ -211,7 +208,6 @@ def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
         fceb = EXCLUDED.fceb,
         cyhy_period_start = EXCLUDED.cyhy_period_start,
         scorecard = EXCLUDED.scorecard,
-
         location_name = EXCLUDED.location_name,
         county = EXCLUDED.county,
         county_fips = EXCLUDED.county_fips,
@@ -233,7 +229,6 @@ def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
         show_psycopg2_exception(err)
         cur.close()
 
-
 def query_pe_orgs(conn):
     """Query P&E organizations."""
     sql = """
@@ -243,7 +238,6 @@ def query_pe_orgs(conn):
     df = pd.read_sql(sql, conn)
     main_log.info("PE organizations retrieved successfully using query_pe_orgs()")
     return df
-
 
 def insert_sector_org_relationship(conn, sector_org_list):
     """Insert sector org relationship into many to many table."""
@@ -278,7 +272,6 @@ def insert_sector_org_relationship(conn, sector_org_list):
         show_psycopg2_exception(err)
         cur.close()
 
-
 def add_sector_hierachy(conn, child_uid, parent_uid):
     """Update parent_sector_uid field."""
     cursor = conn.cursor()
@@ -293,7 +286,6 @@ def add_sector_hierachy(conn, child_uid, parent_uid):
     conn.commit()
     cursor.close()
     # main_log.info("Parent_sector_uid field updated successfully using add_sector_hierarchy()")
-
 
 def update_child_parent_orgs(conn, parent_uid, child_name):
     """Update child parent relationships between organizations."""
@@ -310,7 +302,6 @@ def update_child_parent_orgs(conn, parent_uid, child_name):
     cursor.close()
     # main_log.info("Child-Parent relationships updated successfully using update_child_parent_orgs()")
 
-
 def update_scan_status(conn, child_name):
     """Update child parent relationships between organizations."""
     cursor = conn.cursor()
@@ -326,7 +317,6 @@ def update_scan_status(conn, child_name):
     cursor.close()
     # main_log.info("Scan statuses updated successfully using update_scan_status()")
 
-
 def update_fceb_child_status(conn, child_name):
     """Update child parent relationships between organizations."""
     cursor = conn.cursor()
@@ -341,7 +331,6 @@ def update_fceb_child_status(conn, child_name):
     conn.commit()
     cursor.close()
     # main_log.info("FCEB child status updated successfully using update_fceb_child_status()")
-
 
 def insert_dotgov_domains(conn, dotgov_df):
     """Insert dot gov domains."""
@@ -365,7 +354,6 @@ def insert_dotgov_domains(conn, dotgov_df):
         main_log.error("Error: Failed inserting Dotgov data into PE DB")
         show_psycopg2_exception(err)
         cursor.close()
-
 
 def identify_org_asset_changes(conn):
     """Identify Org Asset changes."""
