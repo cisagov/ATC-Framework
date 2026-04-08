@@ -2470,26 +2470,26 @@ class CpeProduct(models.Model):
 """
 -- WARNING: It may differ from actual native database DDL
 CREATE TABLE information_schema.was_findings (
-    finding_uid uuid NOT NULL,
-    finding_type varchar(10485760) NULL,
-    webapp_id int4 NULL,
-    was_org_id text NULL,
-    owasp_category varchar(10485760) NULL,
-    severity varchar(10485760) NULL,
-    times_detected int4 NULL,
-    base_score float8 NULL,
-    temporal_score float8 NULL,
-    fstatus varchar(10485760) NULL,
-    last_detected date NULL,
-    first_detected date NULL,
-    is_remidiated bool NULL,
-    potential bool NULL,
-    webapp_url text NULL,
-    webapp_name text NULL,
-    "name" text NULL,
-    cvss_v3_attack_vector text NULL,
-    cwe_list _int4 NULL,
-    wasc_list jsonb NULL
+	finding_uid uuid NOT NULL,
+	finding_type varchar(10485760) NULL,
+	webapp_id int4 NULL,
+	was_org_id text NULL,
+	owasp_category varchar(10485760) NULL,
+	severity varchar(10485760) NULL,
+	times_detected int4 NULL,
+	base_score float8 NULL,
+	temporal_score float8 NULL,
+	fstatus varchar(10485760) NULL,
+	last_detected date NULL,
+	first_detected date NULL,
+	is_remediated bool NULL,
+	potential bool NULL,
+	webapp_url text NULL,
+	webapp_name text NULL,
+	"name" text NULL,
+	cvss_v3_attack_vector text NULL,
+	cwe_list _int4 NULL,
+	wasc_list jsonb NULL
 );
 """
 
