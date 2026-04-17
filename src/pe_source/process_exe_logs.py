@@ -26,7 +26,7 @@ def consolidate_exe_logs(source_list, date_list):
         full_list = []
         for target_file in target_log_files:
             file_path = exe_log_folder + target_file
-            current_df = pd.read_excel(file_path, engine='openpyxl', header=None)
+            current_df = pd.read_excel(file_path, engine='openpyxl')
             current_df.columns = ["timestamp", "org_abbrv", "exe_time"]
             current_list = current_df.to_dict(orient="records")
             full_list.extend(current_list)
@@ -50,7 +50,7 @@ def consolidate_exe_logs(source_list, date_list):
         full_df.to_excel(save_file, engine="openpyxl", index=False)
         print(f"Saved consolidated exe time results to: {save_file}\n")
         
-def group_orgs_by_exe_times(source, exe_time_file, num_groups, sort_method, num_shodan_keys):
+def group_orgs_by_exe_times(source, exe_time_file, num_groups, sort_method, num_api_keys):
     """Generate optimally distributed groups of organizations based on exe time logs."""
     # Load in exe time file
     exe_df = pd.read_excel(exe_time_file, engine="openpyxl", index_col=False)
@@ -96,15 +96,19 @@ def group_orgs_by_exe_times(source, exe_time_file, num_groups, sort_method, num_
             group_org_list += f"{curr_org_name},"
         group_org_list = group_org_list[:-1]
         group_total = round(group_total, 2)
-        # Calculate which shodan key to use
-        target_shodan_key = group_idx % num_shodan_keys
         # Print results w/ full CLI command depending on source
         if source == "asm_sync":
+            target_api_key = group_idx % num_api_keys
             print(f"> Group #{group_idx+1} ({len(group)} orgs, total est. exe. time: {group_total}s) - Use the following CLI command:")
-            print(f"pe-asm-sync asm-seq --shodan_key={target_shodan_key} --orgs={group_org_list}\n")
-        elif source == "flare":
+            print(f"pe-asm-sync asm-seq --shodan_key={target_api_key} --orgs={group_org_list}\n")
+        elif source == "flare_creds":
+            target_api_key = group_idx % num_api_keys + 1
             print(f"> Group #{group_idx+1} ({len(group)} orgs, total est. exe. time: {group_total}s) - Use the following CLI command:")
-            print(f"pe-source flare --orgs={group_org_list}\n")
+            print(f"pe-source flare_creds --flare_key={target_api_key} --orgs={group_org_list}\n")
+        elif source == "flare_events":
+            target_api_key = group_idx % num_api_keys + 1
+            print(f"> Group #{group_idx+1} ({len(group)} orgs, total est. exe. time: {group_total}s) - Use the following CLI command:")
+            print(f"pe-source flare_events --flare_key={target_api_key} --orgs={group_org_list}\n")
         elif source == "intelx":
             print(f"> Group #{group_idx+1} ({len(group)} orgs, total est. exe. time: {group_total}s) - Use the following CLI command:")
             print(f"pe-source intelx --orgs={group_org_list}\n")
@@ -113,17 +117,14 @@ def group_orgs_by_exe_times(source, exe_time_file, num_groups, sort_method, num_
 
 # # -- Consolidating Exe. Time Logs into a Single File --
 # # Specify which data source you'd like to consolidate exe logs for
+# # Options: asm_sync, flare_creds, flare_events, intelx
 # sources = [
-#     "asm_sync",
-#     # "flare",
-#     # "intelx",
+#     "asm_sync"
 # ]
 # # Specify the dates of the exe logs you'd like to consolidate
 # dates = [
-#     # "2025-12-16",
-#     # "2025-12-17",
-#     "2025-12-05",
-#     "2025-12-08",
+#     "2026-01-01",
+#     "2026-01-02",
 # ]
 # # Begin consolidation script
 # consolidate_exe_logs(sources, dates)
@@ -131,16 +132,16 @@ def group_orgs_by_exe_times(source, exe_time_file, num_groups, sort_method, num_
 
 # # -- Use Consolidated Exe. Time Log File to Generate Org Groups --
 # # Specify what script these exe times are for
-# # Options are: asm_sync, flare, intelx
+# # Options: asm_sync, flare_creds, flare_events, intelx
 # source = "asm_sync"
 # # Specify consolidated exe time log file
-# exe_log_file = "./exe_time_logs/asm_sync_logs/asm_sync_exe_times_2025-12-15.xlsx"
+# exe_log_file = f"./exe_time_logs/{source}_logs/{source}_exe_times_2026-01-01.xlsx"
 # # Specify desired number of groups
 # num_org_groups = 6
 # # Specify how orgs should be sorted within groups
-# # options: alphabetical, fastest_first
+# # Options: alphabetical, fastest_first
 # sort_method = "fastest_first"
-# # Specify number of available Shodan keys (we have 4 currently)
-# num_shodan_keys = 4
+# # Specify number of available API keys
+# num_api_keys = 4
 # # Begin org grouping script
-# group_orgs_by_exe_times(source, exe_log_file, num_org_groups, sort_method, num_shodan_keys)
+# group_orgs_by_exe_times(source, exe_log_file, num_org_groups, sort_method, num_api_keys)
