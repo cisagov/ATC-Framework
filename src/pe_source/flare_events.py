@@ -104,7 +104,7 @@ def get_ident_group_events(identifier_group, event_severities, event_types, star
         # Rate control delay
         time.sleep(1)
         # Refresh auth token every ~30 min (avg event retrieval api call ~= 1.5s)
-        if retrieve_ct % 1000 == 0: # default 1200
+        if retrieve_ct % 500 == 0: # default 1200
             LOGGER.warning("Refreshing Flare API auth token for intial event retrieval")
             print("REFRESHING FLARE AUTH TOKEN")
             flare_token = get_flare_token()
@@ -156,7 +156,7 @@ def get_all_event_details(event_list, org_uid, org_idents_df):
     total_event_list = []
     for idx, event in enumerate(event_list):
         # Refresh auth token every ~30 min (avg event detail api call ~= 0.5s)
-        if (idx % 3000 == 0) and (idx != 0): # default 3600
+        if (idx % 500 == 0) and (idx != 0): # default 3600
             LOGGER.warning("Refreshing Flare API auth token for event details retrieval")
             print("REFRESHING FLARE AUTH TOKEN")
             flare_token = get_flare_token()

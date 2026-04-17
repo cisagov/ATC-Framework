@@ -586,6 +586,11 @@ def run_flare_creds(orgs_list):
                 # Format creds list to align with database tables
                 print("Formatting credentials for insertion into P&E database")
                 exposures_df, breaches_df = format_creds_for_db(all_creds_df, org_uid)
+                LOGGER.info(f"Found {len(exposures_df)} viable Flare creds after formatting")
+                if len(exposures_df) == 0 or len(breaches_df) == 0:
+                    LOGGER.info("No viable Flare creds found for DB insertion, continuing...")
+                    success += 1
+                    continue
                 # Insert Flare breach data into PE DB
                 insert_flare_breaches(breaches_df)
                 LOGGER.info(f"Flare breaches for {org_abbrv} successfully inserted into PE database")
@@ -606,6 +611,7 @@ def run_flare_creds(orgs_list):
             else:
                 LOGGER.info(f"No Flare creds found for {org_abbrv}, moving on...")
                 print(f"No Flare creds found for {org_abbrv}, moving on...")
+                success += 1
 
         except Exception as e:
             LOGGER.error(f"Error encountered during Flare scan for {org_abbrv} - {e}")
