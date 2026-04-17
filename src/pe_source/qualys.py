@@ -79,7 +79,7 @@ def qualys_call(link,header,data):
 def iterateCustomers():
     """Iterate through all customers from the stakeholders csv file."""
     customerID = []
-    with open('cyhy_stakeholders_list.csv', 'r') as csvfile:
+    with open('qualys_cyhy_stakeholders_list.csv', 'r') as csvfile:
         datareader = csv.reader(csvfile)
         for row in datareader:
             if row[4] != '':
