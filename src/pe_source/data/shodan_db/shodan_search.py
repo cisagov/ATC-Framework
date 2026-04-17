@@ -6,7 +6,7 @@ import logging
 import time
 
 # Third-Party Libraries
-# import pandas as pd
+import pandas as pd
 import requests
 import shodan
 
@@ -248,6 +248,10 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
                 time.sleep(1)
                 break
             except shodan.APIError as e:
+                # Quickly skip IP chunk if no results available from Shodan
+                if str(e) == "No information available for that IP.":
+                    LOGGER.info(f"{thread_name} chunk {count}/{tot} - No information available for that IP chunk, moving on. - {org_name}")
+                    break
                 if try_count == 5:
                     LOGGER.error(
                         "{} Failed 5 times. Continuing to next chunk - {}".format(
@@ -280,11 +284,19 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
         LOGGER.info("{} chunk {}/{} complete - {}".format(thread_name, count, tot, org_name))
 
     all_vulns = vuln_data + risk_data
-    # Grab the data source uid and add to each dataframe
 
-    # Insert data into the PE database
-    failed = insert_shodan_assets(data, failed)
-    failed = insert_shodan_vulns(all_vulns, failed)
+    # Break shodan asset/vuln data into chunks of 500
+    chunk_size = 500
+    asset_chunk_list = [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
+    vuln_chunk_list = [all_vulns[i:i + chunk_size] for i in range(0, len(all_vulns), chunk_size)]
+    # Insert shodan asset data into the PE database
+    for idx, asset_chunk in enumerate(asset_chunk_list):
+        LOGGER.info(f"{thread_name} Inserting chunk {idx+1} of {len(asset_chunk_list)} of Shodan asset results for {org_name}")
+        failed = insert_shodan_assets(asset_chunk, failed)
+    # Insert shodan vuln data into the PE database
+    for idx, vuln_chunk in enumerate(vuln_chunk_list):
+        LOGGER.info(f"{thread_name} Inserting chunk {idx+1} of {len(vuln_chunk_list)} of Shodan vuln results for {org_name}")
+        failed = insert_shodan_vulns(vuln_chunk, failed)
 
     return failed
 

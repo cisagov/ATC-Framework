@@ -39,14 +39,17 @@ def shodan_api_init():
             "Database.ini file not found at this path: {}".format(REPORT_DB_CONFIG)
         )
 
+    # Validate API keys
     for key in params:
         try:
+            # Test API key
             api = shodan.Shodan(key[1])
-            # Test api key
             api.info()
-        except Exception:
-            LOGGER.error("Invalid Shodan API key: {}".format(key))
-            continue
+        except Exception as e:
+            if str(e) == "Invalid API key":
+                # Only ommit key if genuinely invalid
+                LOGGER.error("Invalid Shodan API key: {}".format(key))
+                continue
         api_list.append(api)
     LOGGER.info("Number of valid Shodan API keys: {}".format(len(api_list)))
     return api_list
