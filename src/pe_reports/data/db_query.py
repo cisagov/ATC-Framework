@@ -1150,7 +1150,7 @@ def get_org_assets_count_past(org_uid, date):
 
 
 # --- Issue 604 ---
-def get_org_assets_count(org_uid):
+def get_org_assets_count_api(org_uid):
     """
     Query API to retrieve attacksurface data for the specified org_uid.
 
@@ -1592,7 +1592,7 @@ def query_cidrs_by_org(org_uid):
 
 
 # --- Issue 619 ---
-def query_ports_protocols(org_uid):
+def query_ports_protocols_api(org_uid):
     """
     Query API to retrieve all distinct ports/protocols for an organization.
 
@@ -1631,7 +1631,7 @@ def query_ports_protocols(org_uid):
 
 
 # --- Issue 620 ---
-def query_software(org_uid):
+def query_software(org_uid, start_date, end_date):
     """
     Query API to retrieve all distinct software products for an organization.
 
@@ -1641,13 +1641,23 @@ def query_software(org_uid):
     Return:
         All the distinct software belonging to the specified org as a dataframe
     """
+    if isinstance(start_date, datetime.date):
+        start_date = start_date.strftime("%Y-%m-%d")
+    if isinstance(end_date, datetime.date):
+        end_date = end_date.strftime("%Y-%m-%d")
     # Endpoint info
     endpoint_url = pe_api_url + "software_by_org"
     headers = {
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
-    data = json.dumps({"org_uid": org_uid})
+    data = json.dumps(
+        {
+            "org_uid": org_uid,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
     try:
         # Call endpoint
         result = requests.post(endpoint_url, headers=headers, data=data).json()
@@ -2830,7 +2840,7 @@ def get_data_source_uid(source):
     return source
 
 
-# ???
+# ??? 
 def query_cidrs():
     """Query all cidrs ordered by length."""
     conn = connect()
@@ -2840,6 +2850,19 @@ def query_cidrs():
             """
     df = pd.read_sql(sql, conn)
     conn.close()
+    return df
+
+
+# ???
+def query_org_cidrs(org_uid):
+    """Query all cidrs ordered by length."""
+    conn = connect()
+    sql = """SELECT tc.cidr_uid, tc.network, tc.organizations_uid, tc.insert_alert
+            FROM cidrs tc
+            WHERE current
+            and organizations_uid = %(org_id)s
+            """
+    df = pd.read_sql(sql, conn, params={"org_id": org_uid})
     return df
 
 
@@ -2945,6 +2968,37 @@ def query_all_subs_tsql(conn):
         pe_orgs = cur.fetchall()
         cur.close()
         return pe_orgs
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    finally:
+        if conn is not None:
+            close(conn)
+
+
+# --- 561 OLD TSQL ---
+def query_cyberSix_creds(org_uid, start_date, end_date):
+    """Query cybersix_exposed_credentials table."""
+    conn = connect()
+    try:
+        sql = """SELECT * FROM public.cybersix_exposed_credentials as creds
+        WHERE organizations_uid = %(org_uid)s
+        AND breach_date BETWEEN %(start)s AND %(end)s"""
+        df = pd.read_sql(
+            sql,
+            conn,
+            params={"org_uid": org_uid, "start": start_date, "end": end_date},
+        )
+        df["breach_date_str"] = pd.to_datetime(df["breach_date"]).dt.strftime(
+            "%m/%d/%Y"
+        )
+        df.loc[df["breach_name"] == "", "breach_name"] = (
+            "Cyber_six_" + df["breach_date_str"]
+        )
+        df["description"] = (
+            df["description"].str.split("Query to find the related").str[0]
+        )
+        df["password_included"] = np.where(df["password"] != "", True, False)
+        return df
     except (Exception, psycopg2.DatabaseError) as error:
         LOGGER.error("There was a problem with your database query %s", error)
     finally:
@@ -3101,6 +3155,149 @@ def get_org_assets_count_tsql(uid):
             "num_foreign_ips": 0,
         }
     return assets_dict
+
+def get_org_assets_count(org_uid, start_date, end_date):
+    """Retrieve ASM summary stats for the specified org."""
+    if isinstance(start_date, datetime.date):
+        start_date = start_date.strftime("%Y-%m-%d")
+    if isinstance(end_date, datetime.date):
+        end_date = end_date.strftime("%Y-%m-%d")
+    conn = connect()
+    # Retrieve general org info
+    sql_gen_info = f"""
+    SELECT * FROM organizations WHERE organizations_uid = '{org_uid}'
+    """
+    try:
+        gen_info_df = pd.read_sql(sql_gen_info, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    # Retrieve root domain info
+    sql_roots = f"""
+    SELECT * FROM root_domains WHERE organizations_uid = '{org_uid}' AND enumerate_subs=TRUE
+    """
+    try:
+        roots_df = pd.read_sql(sql_roots, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    root_uids_str = str(list(roots_df["root_domain_uid"]))[1:-1]
+    # Retrieve sub domain info
+    if len(root_uids_str) > 0:
+        sql_subs = f"""
+        SELECT * FROM sub_domains WHERE root_domain_uid IN ({root_uids_str}) AND current=TRUE
+        """
+        try:
+            subs_df = pd.read_sql(sql_subs, conn)
+        except (Exception, psycopg2.DatabaseError) as error:
+            LOGGER.error("There was a problem with your database query %s", error)
+    else:
+        subs_df = pd.DataFrame()
+
+    # Retrieve IP info
+    sql_cidr_ips = f"""
+    SELECT
+        c.network,
+        CASE
+            WHEN family(c.network::inet) = 4 THEN
+            CASE
+                WHEN masklen(c.network::inet) < 31 THEN (2::double precision ^ (32 - (( SELECT masklen(c.network::inet) AS masklen)))::double precision) - 2::double precision
+                WHEN masklen(c.network::inet) = 31 THEN 2::double precision
+                WHEN masklen(c.network::inet) = 32 THEN 1::double precision
+                ELSE NULL::double precision
+            END
+            WHEN family(c.network::inet) = 6 THEN
+            CASE
+                WHEN masklen(c.network::inet) < 127 THEN (2::double precision ^ (128 - (( SELECT masklen(c.network::inet) AS masklen)))::double precision) - 2::double precision
+                WHEN masklen(c.network::inet) = 127 THEN 2::double precision
+                WHEN masklen(c.network::inet) = 128 THEN 1::double precision
+                ELSE NULL::double precision
+            END
+            ELSE NULL::double precision
+        END AS ip_count
+    FROM cidrs c
+    WHERE 
+        c.current AND 
+        c.organizations_uid = '{org_uid}'
+    """
+    try:
+        cidr_ips_df = pd.read_sql(sql_cidr_ips, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    sql_noncidr_ips = f"""
+    SELECT DISTINCT 
+        rd.organizations_uid,
+        i.ip
+    FROM ips i
+        JOIN ips_subs si ON si.ip_hash = i.ip_hash
+        JOIN sub_domains sd ON sd.sub_domain_uid = si.sub_domain_uid
+        JOIN root_domains rd ON rd.root_domain_uid = sd.root_domain_uid
+    WHERE 
+        sd.current AND 
+        i.current AND 
+        i.origin_cidr IS NULL AND
+        rd.organizations_uid = '{org_uid}'
+    """
+    try:
+        noncidr_ips_df = pd.read_sql(sql_noncidr_ips, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    total_ips = sum(cidr_ips_df["ip_count"]) + len(noncidr_ips_df)
+    # Retrieve ports info
+    sql_ports = f"""
+    SELECT DISTINCT ip, port::text FROM shodan_assets WHERE organizations_uid = '{org_uid}' AND timestamp BETWEEN '{start_date}' AND '{end_date}'
+    UNION
+    SELECT DISTINCT ip, port FROM shodan_vulns WHERE organizations_uid = '{org_uid}' AND timestamp BETWEEN '{start_date}' AND '{end_date}'
+    """
+    try:
+        ports_df = pd.read_sql(sql_ports, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+     # Retrieve CIDR info
+    sql_cidrs = f"""
+    SELECT * FROM cidrs WHERE organizations_uid = '{org_uid}' AND current=True
+    """
+    try:
+        cidrs_df = pd.read_sql(sql_cidrs, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    # Retrieve port/protocol info
+    sql_portprotos = f"""
+    SELECT DISTINCT port::text, protocol FROM shodan_assets WHERE organizations_uid = '{org_uid}' AND timestamp BETWEEN '{start_date}' AND '{end_date}'
+    """
+    try:
+        portprotos_df = pd.read_sql(sql_portprotos, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    # Retrieve software info
+    sql_software = f"""
+    SELECT DISTINCT product FROM shodan_assets WHERE organizations_uid = '{org_uid}' AND timestamp BETWEEN '{start_date}' AND '{end_date}' AND product IS NOT NULL
+    """
+    try:
+        software_df = pd.read_sql(sql_software, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+    # Retrieve foreign IP info
+    sql_forip = f"""
+    SELECT * FROM shodan_assets WHERE organizations_uid = '{org_uid}' AND timestamp BETWEEN '{start_date}' AND '{end_date}' AND country_code != 'US' AND country_code IS NOT NULL
+    """
+    try:
+        forip_df = pd.read_sql(sql_forip, conn)
+    except (Exception, psycopg2.DatabaseError) as error:
+        LOGGER.error("There was a problem with your database query %s", error)
+
+    # Format and return results
+    result_dict = {
+        "org_uid": org_uid,
+        "cyhy_db_name": gen_info_df["cyhy_db_name"][0],
+        "num_root_domain": len(roots_df),
+        "num_sub_domain": len(subs_df),
+        "num_ips": total_ips,
+        "num_ports": len(ports_df),
+        "num_cidrs": len(cidrs_df),
+        "num_ports_protocols": len(portprotos_df),
+        "num_software": len(software_df),
+        "num_foreign_ips": len(forip_df),
+    }
+    return result_dict
 
 
 # --- 605 OLD TSQL ---
@@ -3290,14 +3487,27 @@ def query_cidrs_by_org_tsql(org_uid):
 
 
 # --- 619 OLD TSQL ---
-def query_ports_protocols_tsql(org_uid):
+def query_ports_protocols(org_uid, start_date, end_date):
     """Query distinct ports and protocols by org."""
+    if isinstance(start_date, datetime.date):
+        start_date = start_date.strftime("%Y-%m-%d")
+    if isinstance(end_date, datetime.date):
+        end_date = end_date.strftime("%Y-%m-%d")
     conn = connect()
     sql = """select distinct sa.port,sa.protocol
             from shodan_assets sa
-            where sa.organizations_uid  = %(org_uid)s;
+            where sa.organizations_uid  = %(org_uid)s and
+            timestamp between %(start_date)s and %(end_date)s;
             """
-    df = pd.read_sql(sql, conn, params={"org_uid": org_uid})
+    df = pd.read_sql(
+        sql, 
+        conn, 
+        params={
+            "org_uid": org_uid,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
     conn.close()
     return df
 
@@ -3308,7 +3518,7 @@ def query_software_tsql(org_uid):
     conn = connect()
     sql = """select distinct sa.product
             from shodan_assets sa
-            where sa.organizations_uid  = %(org_uid)s
+            where sa.organizations_uid  = %(org_uid)s and
             and sa.product notnull;
             """
     df = pd.read_sql(sql, conn, params={"org_uid": org_uid})

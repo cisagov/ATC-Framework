@@ -507,7 +507,7 @@ def init(
         "base_dir": base_dir,
     }
     # Retrieve ASM Summary values for current and previous report periods
-    asset_dict = get_org_assets_count(org_uid)
+    asset_dict = get_org_assets_count(org_uid, start_date, end_date)
     asset_dict_past = get_org_assets_count_past(org_uid, start_date - timedelta(days=1))
     if asset_dict_past.empty:
         # If there's no ASM Summary values for last period

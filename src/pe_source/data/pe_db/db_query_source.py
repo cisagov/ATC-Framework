@@ -2663,6 +2663,7 @@ def get_cred_breach_uids(breach_name_list):
     # Build query
     breach_name_str = "("
     for name in breach_name_list:
+        name = name.replace("'","''")
         breach_name_str += f"'{name}',"
     breach_name_str = breach_name_str[:-1] + ")"
     sql = f"""

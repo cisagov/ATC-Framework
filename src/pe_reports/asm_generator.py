@@ -124,7 +124,7 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx, start_da
     ips_dict = ips_df["ip"].to_list()
 
     # Ports/protocols
-    ports_protocols_df = query_ports_protocols(org_uid)
+    ports_protocols_df = query_ports_protocols(org_uid, start_date, end_date)
     ports_protocols_df.to_excel(asmWriter, sheet_name="Ports Protocols", index=False)
     ports_protocols_dict = ports_protocols_df.to_dict(orient="records")
 
@@ -162,7 +162,7 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx, start_da
     sd_dict = sd_df.to_dict(orient="records")
 
     # Software
-    soft_df = query_software(org_uid)
+    soft_df = query_software(org_uid, start_date, end_date)
     soft_df.to_excel(asmWriter, sheet_name="Software", index=False)
     soft_dict = soft_df["product"].to_list()
 
@@ -271,7 +271,7 @@ def create_summary(org_uid, final_output, data_dict, file_name, json_filename, e
 
     # Add all the data points to the correct frame
     can = add_stat_frame(
-        data_dict["ip_address"],
+        int(data_dict["ip_address"]),
         data_dict["last_ip_address"],
         25,
         353,
