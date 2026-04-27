@@ -25,26 +25,15 @@ import logging
 import time
 
 # Third-Party Libraries
-# import docopt
 import pytz
 import requests
 
 # cisagov Libraries
-# import pe_reports
 from pe_reports.data.config import staging_config
-
-# from _version import __version__
-from .data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
+from pe_source.data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
     api_xpanse_alert_insert,
     get_linked_xpanse_business_units,
 )
-
-# import sys
-# from typing import Any, Dict
-
-
-# from schema import And, Or, Schema, SchemaError, Use
-
 
 API_DIC = staging_config(section="xpanse")
 xpanse_url = "https://api-cisa-xpanse.crtx.gv.paloaltonetworks.com/public_api/"
@@ -196,7 +185,8 @@ def format_alerts(alerts):
         try:
             service_ids += alert.get("service_ids", [])
             alert_services_dict[alert["alert_id"]] = alert.get("service_ids", [])
-        except Exception:
+        except Exception as e:
+            LOGGER.error(f"Xpanse error occurred: {e}")
             continue
 
     services = []
@@ -348,7 +338,8 @@ def format_alerts(alerts):
                 )
                 if service_identified:
                     current_services.append(service_identified)
-        except Exception:
+        except Exception as e:
+            LOGGER.error(f"Xpanse error occurred: {e}")
             pass
 
         alert_dict = {

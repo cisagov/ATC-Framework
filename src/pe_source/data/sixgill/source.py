@@ -1,18 +1,14 @@
 """Scripts for importing Sixgill data into PE Postgres database."""
 
 # Standard Python Libraries
-import json
 import logging
-import time
 
 # Third-Party Libraries
 import pandas as pd
-import requests
 
 # cisagov Libraries
 from pe_source.data.pe_db.config import cybersix_token
-
-from .api import (
+from pe_source.data.sixgill.api import (
     alerts_content,
     alerts_count,
     alerts_list,
@@ -37,14 +33,16 @@ def alerts(org_id, sixgill_org_id):
     # Begin Retrieving all alerts
     # - Recommended "fetch_size" is 25. The maximum is 400.
     token = cybersix_token()
-    token_refresh_counter = 1
-    fetch_size = 10 # 50
+    # token_refresh_counter = 1
+    fetch_size = 10  # 50
     all_alerts = []
     df_all_alerts = pd.DataFrame()
     # Retrieve alert data for each chunk
     for offset in range(0, count_total, fetch_size):
         try:
-            print(f"Working on {org_id} alert chunk at offset {offset} out of {count_total}")
+            print(
+                f"Working on {org_id} alert chunk at offset {offset} out of {count_total}"
+            )
             # Make API call
             [resp, token] = alerts_list(token, sixgill_org_id, fetch_size, offset)
             # Process data
@@ -61,7 +59,7 @@ def alerts(org_id, sixgill_org_id):
     # for i, r in df_all_alerts.iterrows():
     #     print(r["id"])
     #     content = alerts_content(org_id, r["id"])
-    #     df_all_alerts.at[i, "content"] 
+    #     df_all_alerts.at[i, "content"]
 
     return df_all_alerts
 
@@ -85,6 +83,7 @@ def get_alerts_content(organization_id, alert_id, org_assets_dict):
     asset_mentioned = ""
     snip = ""
     asset_type = ""
+    token = None
     content = alerts_content(token, organization_id, alert_id)
     if content:
         for asset, type in org_assets_dict.items():
@@ -110,7 +109,6 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
     else:
         query = f"date:{date} AND (content:({str(alias_str)}) OR title:({str(alias_str)})) AND NOT tags:(Code_script, Credit_card, Cryptocurrency) AND NOT site:(paste_pastebin, twitter, Twitter, reddit, Reddit, Parler, parler, linkedin, Linkedin, discord, forum_discord, raddle, telegram, jabber, ICQ, icq, mastodon)"
 
-    
     # Make initial API call and get the total number of mentions
     token = cybersix_token()
     all_mentions = []
@@ -137,8 +135,12 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
     while more_results:
         # Progress logging
         if len(all_mentions) % 1000 == 0:
-            LOGGER.info(f"Retrieved {len(all_mentions)} of {total_mentions} mentions for {org_abbrv}")
-        print(f"Retrieved {len(all_mentions)} of {total_mentions} mentions for {org_abbrv}")
+            LOGGER.info(
+                f"Retrieved {len(all_mentions)} of {total_mentions} mentions for {org_abbrv}"
+            )
+        print(
+            f"Retrieved {len(all_mentions)} of {total_mentions} mentions for {org_abbrv}"
+        )
         # Make API call
         [resp, token] = intel_post_next(token, scroll_id)
         intel_items = resp["intel_items"]
@@ -158,8 +160,12 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
     # Add keyword highlights in title and content columns
     aliases = sorted(aliases, key=len)
     for alias in aliases:
-        df_all_mentions[["title", "content"]] = df_all_mentions[["title", "content"]].replace(f"(?i){alias}", f"@@mention_start@@{alias}@@mention_end@@", regex=True)
-    
+        df_all_mentions[["title", "content"]] = df_all_mentions[
+            ["title", "content"]
+        ].replace(
+            f"(?i){alias}", f"@@mention_start@@{alias}@@mention_end@@", regex=True
+        )
+
     return df_all_mentions
 
 
@@ -315,11 +321,11 @@ def extract_bulk_cve_info(cve_list):
 #     try:
 #         LOGGER.info(f"Retrieving total number of mentions")
 #         [resp, token] = intel_post(token, query, frm=0, scroll=False, result_size=1)
-#         total_mentions = resp["total_intel_items"] 
+#         total_mentions = resp["total_intel_items"]
 #     except Exception as e:
 #         LOGGER.error("Total mentions count retrieval failed")
 #         LOGGER.error(e)
-    
+
 #     LOGGER.info(f"Total mentions for {org_id}: {total_mentions}")
 
 #     # Catch situation where org has 0 mentions

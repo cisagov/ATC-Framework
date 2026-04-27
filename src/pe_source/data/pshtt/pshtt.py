@@ -38,8 +38,9 @@ from sslyze.server_connectivity import check_connectivity_to_server
 from sslyze.server_setting import ServerNetworkConfiguration
 import urllib3
 
-from . import utils
-from .models import Domain, Endpoint
+# cisagov Libraries
+from pe_source.data.pshtt import utils
+from pe_source.data.pshtt.models import Domain, Endpoint
 
 # We're going to be making requests with certificate validation
 # disabled.  Commented next line due to pylint warning that urllib3 is
@@ -1734,7 +1735,7 @@ def load_preload_pending():
     pending_url = "https://hstspreload.org/api/v2/pending"
 
     try:
-        request = requests.get(pending_url)
+        request = requests.get(pending_url, timeout=60)
     except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as err:
         logging.exception("Failed to fetch pending preload list: %s", pending_url)
         logging.debug(err)
@@ -1766,7 +1767,7 @@ def load_preload_list():
     file_url = "https://chromium.googlesource.com/chromium/src/+/main/net/http/transport_security_state_static.json?format=TEXT"
 
     try:
-        request = requests.get(file_url)
+        request = requests.get(file_url, timeout=60)
     except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as err:
         logging.exception("Failed to fetch preload list: %s", file_url)
         logging.debug(err)

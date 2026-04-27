@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 import re
+import textwrap
 
 # Third-Party Libraries
 import numpy as np
@@ -10,7 +11,6 @@ from presidio_analyzer import AnalyzerEngine
 from presidio_anonymizer import AnonymizerEngine
 import scrubadub
 import scrubadub.detectors.date_of_birth
-import textwrap
 
 # List of unique regexes to identify each state's Drivers License format in a larger string
 CA = [r"(?:(?<=\s)|(?<=^))[a-zA-Z]\d{7}(?=$|\s)"]
@@ -490,7 +490,7 @@ def redact_pii(df, column_list=[]):
         for column in column_list:
             # Remove sensitive data from this column
             df = scrub(df, column)
-            
+
             # df[column] = df[column].replace(
             #     regex={
             #         # all_cards: "{{CREDIT_CARD}}",
@@ -523,7 +523,7 @@ def scrub(df, column):
     scrubber.remove_detector("url")
     scrubber.remove_detector("twitter")
     scrubber.remove_detector("email")
-    scrubber.remove_detector("phone") # Testing
+    scrubber.remove_detector("phone")  # Testing
     # Add detectors:
     # SSN Detector
     # scrubber.add_detector(SSNDetector) # scrubber already has an ssn detector by default
@@ -559,7 +559,7 @@ def scrub(df, column):
     # scrubber.add_detector(KY_DLDetector)
     # scrubber.add_detector(MI_DLDetector)
     # Convert any NaNs to empty string
-    df[column] = df[column].replace(np.nan, '')
+    df[column] = df[column].replace(np.nan, "")
     # Scrub column to remove all PII
     df[column] = df[column].apply(lambda x: scrubber.clean(x))
     # Setup analyzer and anonymizer
@@ -581,6 +581,7 @@ def scrub(df, column):
         ).text
     )
     return df
+
 
 # v --- New PII Redaction Solution --- v
 def redact_pii_new(scrubber, batch_analyzer, batch_anonymizer, df, cols=None):
@@ -607,29 +608,41 @@ def redact_pii_new(scrubber, batch_analyzer, batch_anonymizer, df, cols=None):
     # Iterate over each column that needs to be PII filtered
     for col in cols:
         # Add group numbers column for reassembling chunked rows
-        df.insert(0, 'group_number', range(1, len(df)+1))
+        df.insert(0, "group_number", range(1, len(df) + 1))
         # Isolate column for PII filtering
         filter_df = df.loc[:, ["group_number", col]]
         other_df = df.drop(col, axis=1)
         # Break up any large text fields into smaller chunks
-        n = 1000 # specify chunk size
-        rows_to_chunk = (filter_df[col].str.len() > n) # mask
+        n = 1000  # specify chunk size
+        rows_to_chunk = filter_df[col].str.len() > n  # mask
         # w = textwrap.TextWrapper(width=90,break_long_words=False,replace_whitespace=False)
-        filter_df.loc[rows_to_chunk, col] = filter_df.loc[rows_to_chunk, col].apply(lambda x: textwrap.wrap(text=x, width=n, replace_whitespace=False))
+        filter_df.loc[rows_to_chunk, col] = filter_df.loc[rows_to_chunk, col].apply(
+            lambda x: textwrap.wrap(text=x, width=n, replace_whitespace=False)
+        )
         # Explode rows w/ large text field into multiple rows
-        filter_df =  filter_df.explode(col)
+        filter_df = filter_df.explode(col)
         # Apply presidio PII filter
         filter_df_dict = filter_df.to_dict(orient="list")
-        analyzer_results = list(batch_analyzer.analyze_dict(filter_df_dict, entities=redact_entities, language="en"))
-        anonymizer_results = batch_anonymizer.anonymize_dict(analyzer_results=analyzer_results)
+        analyzer_results = list(
+            batch_analyzer.analyze_dict(
+                filter_df_dict, entities=redact_entities, language="en"
+            )
+        )
+        anonymizer_results = batch_anonymizer.anonymize_dict(
+            analyzer_results=analyzer_results
+        )
         # Convert back to dataframe and reassemble rows by group
         clean_df = pd.DataFrame(anonymizer_results)
-        clean_df = clean_df.groupby(['group_number'], as_index=False).agg({col: lambda x: x.tolist()})
-        clean_df[col] = clean_df[col].apply(lambda l: " ".join(l))
-        clean_df["group_number"] = pd.to_numeric(clean_df["group_number"], errors='coerce')
+        clean_df = clean_df.groupby(["group_number"], as_index=False).agg(
+            {col: lambda x: x.tolist()}
+        )
+        clean_df[col] = clean_df[col].apply(lambda x: " ".join(x))
+        clean_df["group_number"] = pd.to_numeric(
+            clean_df["group_number"], errors="coerce"
+        )
         clean_df.sort_values(by="group_number", inplace=True)
         # clean_df.to_csv("./post_test_output.csv")
-        df = pd.merge(clean_df, other_df, on='group_number', how='inner')
+        df = pd.merge(clean_df, other_df, on="group_number", how="inner")
         df.drop("group_number", axis=1, inplace=True)
     print("Finished applying Presidio Analyzer/Anonymizer")
 
@@ -642,4 +655,6 @@ def redact_pii_new(scrubber, batch_analyzer, batch_anonymizer, df, cols=None):
     # Return redacted dataframe
     print(">>> Finished redacting PII")
     return df
+
+
 # ^ --- New PII Redaction Solution --- ^

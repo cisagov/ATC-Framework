@@ -1,15 +1,18 @@
 """HIBP reverse scan."""
+
 # Standard Python Libraries
 import logging
 import time
 
 # Third-Party Libraries
-from data.hibp.config import config, config2, get_hibp_token
-from data.hibp.run import query_orgs
 import pandas as pd
 import psycopg2
 import psycopg2.extras as extras
 import requests
+
+# cisagov Libraries
+from pe_source.data.hibp.config import config, config2, get_hibp_token
+from pe_source.data.hibp.run import query_orgs
 
 # DB connection functions
 CF_CONN_PARAMS = config2()
@@ -122,7 +125,7 @@ def flatten_data(response, subdomain, breaches_dict):
 
 def get_breaches():
     """Get breaches."""
-    breaches = requests.get(Breaches_URL, headers=params)
+    breaches = requests.get(Breaches_URL, headers=params, timeout=60)
     breach_list = []
     breach_dict = {}
     if breaches.status_code == 200:
@@ -159,7 +162,7 @@ def get_emails(domain):
     counter = 0
     while run_failed:
         URL = Emails_URL + domain
-        r = requests.get(URL, headers=params)
+        r = requests.get(URL, headers=params, timeout=60)
         status = r.status_code
         counter += 1
         if status == 200:

@@ -1,25 +1,27 @@
 """Scripts to collect credential leak data from Flare."""
 
+# Standard Python Libraries
 import datetime
 import logging
-import numpy as np
-import openpyxl
-from openpyxl import load_workbook
 import os
-import pandas as pd
-import requests
-from requests.auth import HTTPBasicAuth
 import time
 import traceback
 
-from .data.flare.flare_helpers import (
+# Third-Party Libraries
+import numpy as np
+import openpyxl
+from openpyxl import load_workbook
+import pandas as pd
+import requests
+
+# cisagov Libraries
+from pe_source.data.flare.flare_helpers import (
     get_all_ident_by_group_id,
     get_event_details,
     get_flare_token,
     get_ident_group_info,
 )
-from .data.pe_db.config import get_params
-from .data.pe_db.db_query_source import (
+from pe_source.data.pe_db.db_query_source import (
     get_cred_breach_uids,
     get_orgs,
     insert_flare_breaches,
@@ -31,7 +33,7 @@ LOGGER = logging.getLogger(__name__)
 
 # Calculate start and end dates for data collection period
 TODAY = datetime.date.today()
-DAYS_BACK = datetime.timedelta(days=20) # 20 days back default
+DAYS_BACK = datetime.timedelta(days=20)  # 20 days back default
 START_DATE = (TODAY - DAYS_BACK).strftime("%Y-%m-%d")
 END_DATE = TODAY.strftime("%Y-%m-%d")
 # Or manually set data collection window
@@ -45,19 +47,21 @@ def get_ident_creds_chunk(token, ident_id, payload):
     frm = payload.get("from")
     headers = {
         "Content-Type": "application/json",
-        'Authorization': f'Bearer {token}',
+        "Authorization": f"Bearer {token}",
     }
     if frm is not None:
         url = f"https://api.flare.io/firework/v3/identifiers/{ident_id}/feed/credentials?size={size}&from={frm}"
     else:
         url = f"https://api.flare.io/firework/v3/identifiers/{ident_id}/feed/credentials?size={size}"
-    resp = requests.get(url, headers=headers)
+    resp = requests.get(url, headers=headers, timeout=60)
     # Retry clause in case API falters
     retry_count, max_retries, time_delay = 1, 5, 3
     while resp.status_code != 200 and retry_count <= max_retries:
-        print(f"\tRetrying Flare leaked cred retrieval API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        print(
+            f"\tRetrying Flare leaked cred retrieval API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(url, headers=headers)
+        resp = requests.get(url, headers=headers, timeout=60)
         retry_count += 1
     # Return results
     if retry_count == max_retries + 1:
@@ -74,19 +78,20 @@ def get_ident_creds_chunk(token, ident_id, payload):
         print(f"\tIs there another chunk to retrieve? {more_data}")
         # Return results
         return resp
-    
+
+
 def get_ident_creds(ident_id, start_date, end_date):
     """Retrieve all leaked creds for the specified identifier ID."""
     print(f"Retrieving all leaked creds for the identifier ID: {ident_id}")
-    start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
-    end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+    start_date = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+    end_date = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
     flare_token = get_flare_token()
     results_list = []
     more_data = False
     curr_next = ""
-    chunk_size = 100 # default 20
+    chunk_size = 100  # default 20
     # Make initial data feed call
-    print(f"Working on data feed chunk 1")
+    print("Working on data feed chunk 1")
     ini_payload = {
         "size": chunk_size,
         # "filters": {
@@ -127,7 +132,9 @@ def get_ident_creds(ident_id, start_date, end_date):
             # Append results
             results_list += curr_resp.get("items")
             curr_last_record = curr_resp.get("items")[-1]
-            last_rec_date = datetime.datetime.fromisoformat(curr_last_record.get("imported_at")).date()
+            last_rec_date = datetime.datetime.fromisoformat(
+                curr_last_record.get("imported_at")
+            ).date()
         else:
             last_rec_date = end_date
         # Check if data retrieval should continue
@@ -141,7 +148,7 @@ def get_ident_creds(ident_id, start_date, end_date):
         else:
             # If no next value, there's no more data to retrieve - stop
             more_data = False
-        retrieve_ct +=1
+        retrieve_ct += 1
 
     # Once all data has been retrieved, format and return results
     results_list = [
@@ -159,35 +166,46 @@ def get_ident_creds(ident_id, start_date, end_date):
             "related_identifier": ident_id,
             "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
             "url": None,
-        } for item in results_list
+        }
+        for item in results_list
     ]
     # Filter for results only within the specified time period
     results_list = [
-        record for record in results_list
-        if start_date <= datetime.datetime.fromisoformat(record["modified_date"]).date() <= end_date
+        record
+        for record in results_list
+        if start_date
+        <= datetime.datetime.fromisoformat(record["modified_date"]).date()
+        <= end_date
     ]
     # Return results
-    print(f"Total number of leaked credentials retrieved for identifier: {len(results_list)}")
+    print(
+        f"Total number of leaked credentials retrieved for identifier: {len(results_list)}"
+    )
     return results_list
+
 
 def get_ident_group_stealer_logs_chunk(token, ident_group_id, payload):
     """Call the Flare identifier group event feed endpoint, specifically for stealer_logs."""
     headers = {
         "Content-Type": "application/json",
-        'Authorization': f'Bearer {token}',
+        "Authorization": f"Bearer {token}",
     }
     url = f"https://api.flare.io/firework/v4/events/identifier_groups/{ident_group_id}/_search"
-    resp = requests.post(url, headers=headers, json=payload)
+    resp = requests.post(url, headers=headers, json=payload, timeout=60)
     # Retry clause in case API falters
     retry_count, max_retries, time_delay = 1, 5, 3
     while resp.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"\tRetrying Flare stealer_log event retrieval API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        LOGGER.warning(
+            f"\tRetrying Flare stealer_log event retrieval API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.post(url, headers=headers, json=payload)
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
         retry_count += 1
     # Return results
     if retry_count == max_retries + 1:
-        LOGGER.error(f"Error: Failed to retrieve Flare stealer_log events for {ident_group_id}")
+        LOGGER.error(
+            f"Error: Failed to retrieve Flare stealer_log events for {ident_group_id}"
+        )
         return None
     else:
         # Print stats
@@ -201,18 +219,23 @@ def get_ident_group_stealer_logs_chunk(token, ident_group_id, payload):
         # Return results
         return resp
 
-def get_ident_group_stealer_logs(identifier_group, event_severities, start_date, end_date):
+
+def get_ident_group_stealer_logs(
+    identifier_group, event_severities, start_date, end_date
+):
     """Retrieve all stealer_log events for the specified identifier group (organization)."""
     ident_group_name = identifier_group.get("name")
     ident_group_id = identifier_group.get("id")
-    print(f"Retrieving all stealer_log events for the identifier group: {ident_group_name}")
+    print(
+        f"Retrieving all stealer_log events for the identifier group: {ident_group_name}"
+    )
     flare_token = get_flare_token()
     results_list = []
     more_data = False
     curr_next = ""
-    chunk_size = 10 # max size is 10
+    chunk_size = 10  # max size is 10
     # Make initial data feed call
-    print(f"Working on data feed chunk 1")
+    print("Working on data feed chunk 1")
     ini_payload = {
         "size": chunk_size,
         "filters": {
@@ -221,10 +244,12 @@ def get_ident_group_stealer_logs(identifier_group, event_severities, start_date,
             "estimated_created_at": {
                 "gte": start_date,
                 "lte": end_date,
-            }
-        }
+            },
+        },
     }
-    ini_resp = get_ident_group_stealer_logs_chunk(flare_token, ident_group_id, ini_payload)
+    ini_resp = get_ident_group_stealer_logs_chunk(
+        flare_token, ident_group_id, ini_payload
+    )
     results_list += ini_resp.get("items")
     # Check if there's any more data to retrieve
     if ini_resp.get("next"):
@@ -246,10 +271,12 @@ def get_ident_group_stealer_logs(identifier_group, event_severities, start_date,
                 "estimated_created_at": {
                     "gte": start_date,
                     "lte": end_date,
-                }
-            }
+                },
+            },
         }
-        curr_resp = get_ident_group_stealer_logs_chunk(flare_token, ident_group_id, curr_payload)
+        curr_resp = get_ident_group_stealer_logs_chunk(
+            flare_token, ident_group_id, curr_payload
+        )
         # Handle edge case where no results found for this chunk
         if len(curr_resp.get("items")) != 0:
             # Append results
@@ -261,7 +288,7 @@ def get_ident_group_stealer_logs(identifier_group, event_severities, start_date,
         else:
             # If no next value, there's no more data to retrieve
             more_data = False
-        retrieve_ct +=1
+        retrieve_ct += 1
 
     # Once all data has been retrieved, format and return results
     results_list = [
@@ -271,10 +298,14 @@ def get_ident_group_stealer_logs(identifier_group, event_severities, start_date,
             "severity": item.get("metadata").get("severity"),
             "identifiers": item.get("identifiers"),
             "event_date": item.get("metadata").get("estimated_created_at"),
-        } for item in results_list
+        }
+        for item in results_list
     ]
-    print(f"Total number of stealer_log records retrieved for identifier group: {len(results_list)}")
+    print(
+        f"Total number of stealer_log records retrieved for identifier group: {len(results_list)}"
+    )
     return results_list
+
 
 def get_stealer_log_creds(event_list, org_idents):
     """Retrieve any relevant leaked credentials from the list of stealer_log events."""
@@ -285,7 +316,7 @@ def get_stealer_log_creds(event_list, org_idents):
         # General event info
         event_uid = event.get("event_uid")
         event_type = event.get("event_type")
-        org_domain_idents = [d["value"] for d in org_idents if d["type"] == "domain"] 
+        org_domain_idents = [d["value"] for d in org_idents if d["type"] == "domain"]
         # If event doesn't have related identifiers, skip
         if len(event.get("identifiers")) == 0:
             print("\tERROR: no related identifiers for this event")
@@ -297,7 +328,9 @@ def get_stealer_log_creds(event_list, org_idents):
             continue
         # Otherwise, proceed to parse all creds from event details response
         event.update({"event_date": event.get("event_date")[:10]})
-        print(f"Retrieved details for event {idx+1} of {len(event_list)} - Type: {event_type}")
+        print(
+            f"Retrieved details for event {idx+1} of {len(event_list)} - Type: {event_type}"
+        )
         # Parse any leaked credentials in this stealer_logs event
         cred_list = extract_stealer_log_creds(event, event_details, org_domain_idents)
         # Append any creds found to overall list
@@ -307,13 +340,14 @@ def get_stealer_log_creds(event_list, org_idents):
     # Return full list of stealer_log creds
     return total_cred_list
 
+
 def extract_stealer_log_creds(event, event_details, domain_idents):
     """Extract leaked username password pairs from a stealer_log event if available."""
     # Check if this stealer_log event has any credentials
     try:
         raw_creds_list = event_details.get("activity").get("data").get("credentials")
     except Exception as e:
-        print("\tError: No credentials found for this stealer_log event")
+        print(f"\tError: No credentials found for this stealer_log event - {e}")
         return None
     if raw_creds_list is None:
         print("\tError: No credentials found for this stealer_log event")
@@ -325,16 +359,32 @@ def extract_stealer_log_creds(event, event_details, domain_idents):
         curr_username = dict.get("username")
         curr_mod_date = event_details.get("activity").get("header").get("timestamp")
         curr_str_date = curr_mod_date[:19]
-        vic_ip = event_details.get("activity").get("data").get("user_information").get("ip_address")
-        vic_os = event_details.get("activity").get("data").get("user_information").get("os")
-        vic_user = event_details.get("activity").get("data").get("user_information").get("username")
+        vic_ip = (
+            event_details.get("activity")
+            .get("data")
+            .get("user_information")
+            .get("ip_address")
+        )
+        vic_os = (
+            event_details.get("activity").get("data").get("user_information").get("os")
+        )
+        vic_user = (
+            event_details.get("activity")
+            .get("data")
+            .get("user_information")
+            .get("username")
+        )
         # Iterate over all of this org's domain assets
         for domain in domain_idents:
             # Only record leaked creds whose username or login URL contains an organization's domain
-            if ((domain in curr_url) or (domain in curr_username)) and (curr_username != ""): 
+            if ((domain in curr_url) or (domain in curr_username)) and (
+                curr_username != ""
+            ):
                 # Determine breach name
                 if vic_user is None and vic_ip is None:
-                    breach_name = f"Stealer Log from {vic_user}@{vic_ip} {curr_str_date}"
+                    breach_name = (
+                        f"Stealer Log from {vic_user}@{vic_ip} {curr_str_date}"
+                    )
                 else:
                     breach_name = f"Stealer Log from {vic_user}@{vic_ip}"
                 # Determine if password present
@@ -349,8 +399,7 @@ def extract_stealer_log_creds(event, event_details, domain_idents):
                     + (
                         "contained passwords."
                         if pass_incl is True
-                        else 
-                        "did not contain passwords."
+                        else "did not contain passwords."
                     )
                     + "\nOne or more leaked credentials in this stealer log are relevant to your organization "
                     + "\nbecause either the username or login URL contained one of your organization's domains."
@@ -373,7 +422,7 @@ def extract_stealer_log_creds(event, event_details, domain_idents):
                     "breach_date": curr_mod_date,
                     "related_identifier": event.get("identifiers"),
                     "data_source_uid": "751a4ff4-ac0c-11ef-8c7d-02527bfc647f",
-                    "url": dict.get("url")
+                    "url": dict.get("url"),
                 }
                 # Append result to the overall list for this stealer_log event
                 creds_list.append(append_dict)
@@ -381,11 +430,16 @@ def extract_stealer_log_creds(event, event_details, domain_idents):
     # Format and return results
     return creds_list
 
+
 def format_creds_for_db(all_creds_df, org_uid):
     """Take overall list of creds and format it for insertion into P&E database."""
     # Filter out ineligible records
-    all_creds_df = all_creds_df[all_creds_df["email"].str.contains("@", na=False)].reset_index(drop=True)
-    all_creds_df = all_creds_df.drop_duplicates(subset=["email", "breach_name"], keep="first")
+    all_creds_df = all_creds_df[
+        all_creds_df["email"].str.contains("@", na=False)
+    ].reset_index(drop=True)
+    all_creds_df = all_creds_df.drop_duplicates(
+        subset=["email", "breach_name"], keep="first"
+    )
     all_creds_df = all_creds_df.loc[all_creds_df["breach_name"] != ""]
     # Add additional columns
     all_creds_df["password_included"] = np.where(
@@ -415,9 +469,9 @@ def format_creds_for_db(all_creds_df, org_uid):
     # Assemble credential breaches dataframe
     breaches_df = all_creds_df.groupby(
         [
-            "breach_name", 
+            "breach_name",
             "breach_description",
-            "modified_date", 
+            "modified_date",
             # "bucket",
             "data_source_uid",
         ]
@@ -428,7 +482,8 @@ def format_creds_for_db(all_creds_df, org_uid):
         columns={
             "breach_description": "description",
             "email": "exposed_cred_count",
-        }, inplace=True
+        },
+        inplace=True,
     )
     breaches_df["breach_date"] = breaches_df["modified_date"]
     breaches_df["added_date"] = END_DATE
@@ -445,6 +500,7 @@ def format_creds_for_db(all_creds_df, org_uid):
     ]
     # Return results
     return creds_df, breaches_df
+
 
 def run_flare_creds(orgs_list):
     """Retrieve Flare leaked credential data for the specified list of organizations and insert into the P&E DB."""
@@ -475,7 +531,10 @@ def run_flare_creds(orgs_list):
     current_date = datetime.date.today().strftime("%Y-%m-%d")
     first_org = pe_orgs_final_df.iloc[0]["cyhy_db_name"]
     last_org = pe_orgs_final_df.iloc[-1]["cyhy_db_name"]
-    exe_time_file = os.path.dirname(os.path.abspath(__file__)) + f"/exe_time_logs/flare_creds_logs/flare_creds_{current_date}_{first_org}-{last_org}_exe_times.xlsx"
+    exe_time_file = (
+        os.path.dirname(os.path.abspath(__file__))
+        + f"/exe_time_logs/flare_creds_logs/flare_creds_{current_date}_{first_org}-{last_org}_exe_times.xlsx"
+    )
     if not os.path.exists(exe_time_file):
         workbook = openpyxl.Workbook()
         sheet = workbook["Sheet"]
@@ -502,7 +561,7 @@ def run_flare_creds(orgs_list):
             org_abbrv = org["cyhy_db_name"]
             org_uid = org["organizations_uid"]
             LOGGER.info(
-                f"Running Flare leaked credentials collection on \"{org_abbrv}\" ({org_idx + 1} of {len(pe_orgs_final)})"
+                f'Running Flare leaked credentials collection on "{org_abbrv}" ({org_idx + 1} of {len(pe_orgs_final)})'
             )
             # Retrieve identifier group info for this org
             ident_group_info = get_ident_group_info(org_abbrv)
@@ -515,13 +574,19 @@ def run_flare_creds(orgs_list):
             for ident_idx, ident in enumerate(org_idents):
                 ident_val = ident.get("value")
                 ident_id = ident.get("id")
-                print(f"Retrieving creds for identifier: {ident_val} ({ident_idx+1} of {len(org_idents)})")
+                print(
+                    f"Retrieving creds for identifier: {ident_val} ({ident_idx+1} of {len(org_idents)})"
+                )
                 # Look up credentials for this identifier
                 ident_creds = get_ident_creds(ident_id, start_date, end_date)
                 # Add it to the overall list for this org
                 ident_creds_list.extend(ident_creds)
-            print(f"Found {len(ident_creds_list)} Flare creds from {org_abbrv}'s identifiers\n")
-            LOGGER.info(f"Found {len(ident_creds_list)} Flare creds from {org_abbrv}'s identifiers")
+            print(
+                f"Found {len(ident_creds_list)} Flare creds from {org_abbrv}'s identifiers\n"
+            )
+            LOGGER.info(
+                f"Found {len(ident_creds_list)} Flare creds from {org_abbrv}'s identifiers"
+            )
 
             # Retrieve leaked credentials from this org's stealer_log events
             stealer_log_creds_list = []
@@ -533,14 +598,24 @@ def run_flare_creds(orgs_list):
                 "critical",
             ]
             # Get all stealer_log type events for this org
-            stealer_log_event_list = get_ident_group_stealer_logs(ident_group_info, event_severities, start_date, end_date)
-            stealer_log_event_list = [d for d in stealer_log_event_list if d["event_type"] == "stealer_log"]
+            stealer_log_event_list = get_ident_group_stealer_logs(
+                ident_group_info, event_severities, start_date, end_date
+            )
+            stealer_log_event_list = [
+                d for d in stealer_log_event_list if d["event_type"] == "stealer_log"
+            ]
             # Check if any stealer_log events found
             if len(stealer_log_event_list) > 0:
                 # If so, retrieve any relevant credentials from the stealer_log events
-                stealer_log_creds_list = get_stealer_log_creds(stealer_log_event_list, org_idents)
-            print(f"Found {len(stealer_log_creds_list)} Flare creds from {org_abbrv}'s stealer_log events\n")
-            LOGGER.info(f"Found {len(stealer_log_creds_list)} Flare creds from {org_abbrv}'s stealer_log events")
+                stealer_log_creds_list = get_stealer_log_creds(
+                    stealer_log_event_list, org_idents
+                )
+            print(
+                f"Found {len(stealer_log_creds_list)} Flare creds from {org_abbrv}'s stealer_log events\n"
+            )
+            LOGGER.info(
+                f"Found {len(stealer_log_creds_list)} Flare creds from {org_abbrv}'s stealer_log events"
+            )
 
             # Combine lists of identifier creds and stealer_log creds
             expected_cols = [
@@ -570,42 +645,75 @@ def run_flare_creds(orgs_list):
             stealer_log_creds_df["email"] = stealer_log_creds_df["email"].str.lower()
             # Use full password (instead of censored version) if available
             if (len(ident_creds_df) > 0) and (len(stealer_log_creds_df) > 0):
-                full_pass_dict = dict(zip(ident_creds_df["email"], ident_creds_df["password"]))
-                stealer_log_creds_df["full_password"] = stealer_log_creds_df["email"].map(full_pass_dict).fillna(stealer_log_creds_df["password"])
+                full_pass_dict = dict(
+                    zip(ident_creds_df["email"], ident_creds_df["password"])
+                )
+                stealer_log_creds_df["full_password"] = (
+                    stealer_log_creds_df["email"]
+                    .map(full_pass_dict)
+                    .fillna(stealer_log_creds_df["password"])
+                )
                 stealer_log_creds_df.drop(columns=["password"], inplace=True)
-                stealer_log_creds_df.rename(columns={"full_password": "password"}, inplace=True)
+                stealer_log_creds_df.rename(
+                    columns={"full_password": "password"}, inplace=True
+                )
                 stealer_log_creds_df = stealer_log_creds_df[expected_cols]
             # Drop duplicates, prioritize the stealer_log version of creds
-            all_creds_df = pd.concat([stealer_log_creds_df, ident_creds_df], ignore_index=True)
-            all_creds_df = all_creds_df.drop_duplicates(subset=["email"], keep="first").reset_index(drop=True)
+            all_creds_df = pd.concat(
+                [stealer_log_creds_df, ident_creds_df], ignore_index=True
+            )
+            all_creds_df = all_creds_df.drop_duplicates(
+                subset=["email"], keep="first"
+            ).reset_index(drop=True)
 
             # Format total list of creds and insert into the P&E database
             if len(all_creds_df) > 0:
-                LOGGER.info(f"Found {len(all_creds_df)} unique Flare creds overall for {org_abbrv}")
-                print(f"Found {len(all_creds_df)} unique Flare creds overall for {org_abbrv}")
+                LOGGER.info(
+                    f"Found {len(all_creds_df)} unique Flare creds overall for {org_abbrv}"
+                )
+                print(
+                    f"Found {len(all_creds_df)} unique Flare creds overall for {org_abbrv}"
+                )
                 # Format creds list to align with database tables
                 print("Formatting credentials for insertion into P&E database")
                 exposures_df, breaches_df = format_creds_for_db(all_creds_df, org_uid)
-                LOGGER.info(f"Found {len(exposures_df)} viable Flare creds after formatting")
+                LOGGER.info(
+                    f"Found {len(exposures_df)} viable Flare creds after formatting"
+                )
                 if len(exposures_df) == 0 or len(breaches_df) == 0:
-                    LOGGER.info("No viable Flare creds found for DB insertion, continuing...")
+                    LOGGER.info(
+                        "No viable Flare creds found for DB insertion, continuing..."
+                    )
                     success += 1
                     continue
                 # Insert Flare breach data into PE DB
                 insert_flare_breaches(breaches_df)
-                LOGGER.info(f"Flare breaches for {org_abbrv} successfully inserted into PE database")
-                print(f"Flare breaches for {org_abbrv} successfully inserted into PE database")
+                LOGGER.info(
+                    f"Flare breaches for {org_abbrv} successfully inserted into PE database"
+                )
+                print(
+                    f"Flare breaches for {org_abbrv} successfully inserted into PE database"
+                )
                 # Retrieve UIDs for the breaches that were just inserted
                 breach_uid_df = get_cred_breach_uids(list(exposures_df["breach_name"]))
-                breach_dict = dict(zip(breach_uid_df["breach_name"], breach_uid_df["credential_breaches_uid"]))
+                breach_dict = dict(
+                    zip(
+                        breach_uid_df["breach_name"],
+                        breach_uid_df["credential_breaches_uid"],
+                    )
+                )
                 # Add breach UIDs to credential records
                 for idx, row in exposures_df.iterrows():
                     breach_uid = breach_dict.get(row["breach_name"])
                     exposures_df.at[idx, "credential_breaches_uid"] = breach_uid
                 # Insert Flare credential data into PE DB
                 insert_flare_credentials(exposures_df)
-                LOGGER.info(f"Flare credentials for {org_abbrv} successfully inserted into PE database")
-                print(f"Flare credentials for {org_abbrv} successfully inserted into PE database")
+                LOGGER.info(
+                    f"Flare credentials for {org_abbrv} successfully inserted into PE database"
+                )
+                print(
+                    f"Flare credentials for {org_abbrv} successfully inserted into PE database"
+                )
                 # Log successful data collection for this org
                 success += 1
             else:
@@ -623,7 +731,9 @@ def run_flare_creds(orgs_list):
         # End exe time for this org
         time_end = time.time()
         # Write exe time to file
-        org_exe_time = '{:.5f}'.format(datetime.timedelta(seconds=(time_end - time_start)).total_seconds())
+        org_exe_time = "{:.5f}".format(
+            datetime.timedelta(seconds=(time_end - time_start)).total_seconds()
+        )
         org_exe_stats = [
             str(datetime.datetime.now()),
             org_abbrv,

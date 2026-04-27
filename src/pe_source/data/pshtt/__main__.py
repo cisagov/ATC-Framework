@@ -1,5 +1,6 @@
 """Code to run if this package is used as a Python module."""
 
-from .cli import main
+# cisagov Libraries
+from pe_source.data.pshtt.cli import main
 
 main()

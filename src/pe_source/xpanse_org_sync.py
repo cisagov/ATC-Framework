@@ -10,39 +10,38 @@ Options:
                                     the specified value.  Valid values are "debug", "info",
                                     "warning", "error", and "critical". [default: info]
 """
+
 # Standard Python Libraries
 import csv
-import datetime
-import json
 import logging
+import re
 import sys
 from typing import Any, Dict
-import re
 
 # Third-Party Libraries
-from _version import __version__
-from data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
-    insert_or_update_business_unit,
-)
 import docopt
-import pytz
-import requests
 from schema import And, Or, Schema, SchemaError, Use
 
 # cisagov Libraries
 import pe_reports
-from pe_reports.data.config import staging_config
+from pe_source._version import __version__
+from pe_source.data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
+    insert_or_update_business_unit,
+)
 
 LOGGER = logging.getLogger(__name__)
 
+
 def extract_last_substring_in_square_brackets(input_string):
+    """Extract last substring in square brackets."""
     # Define the regular expression pattern
-    pattern = r'\[([^\]]+)\]'  # Matches [ followed by any characters that are not ], followed by ]
+    pattern = r"\[([^\]]+)\]"  # Matches [ followed by any characters that are not ], followed by ]
 
     # Find all matches of the pattern in the input_string
     matches = re.findall(pattern, input_string)
     # Return the last match or None if no matches are found
     return matches[-1] if matches else None
+
 
 def sync_orgs(orgs_csv):
     """Sync orgs to the database."""
@@ -59,7 +58,7 @@ def sync_orgs(orgs_csv):
     #     file_path = 'xpanse_org_map.csv'
     #     with open(file_path, 'r', encoding='utf-8-sig') as csvfile:
     #         map_reader = csv.DictReader(csvfile)
-            
+
     #         for d in map_reader:
     #             print(d)
     #             # Add key-value pair to the result dictionary
@@ -72,12 +71,14 @@ def sync_orgs(orgs_csv):
     #     print(f"Error reading '{file_path}': {e}")
     # # Initialize an empty dictionary to store the result
     # print(map_dict)
-    
+
     for org in orgs_reader:
         try:
             # if map_dict.get(org["Entity Name"].strip(), None) is not None:
             #     print(map_dict.get(org["Entity Name"].strip()))
-            cyhy_db_name = extract_last_substring_in_square_brackets(org["Entity Name"].strip())
+            cyhy_db_name = extract_last_substring_in_square_brackets(
+                org["Entity Name"].strip()
+            )
             if cyhy_db_name:
                 print(cyhy_db_name)
             business_unit_dict = {
@@ -89,12 +90,13 @@ def sync_orgs(orgs_csv):
                 "entity_type": org["Entity Type"].strip(),
                 "region": org["Region"].strip(),
                 "rating": int(org["Rating"].strip()),
-                "cyhy_db_name": cyhy_db_name
+                "cyhy_db_name": cyhy_db_name,
             }
 
             response = insert_or_update_business_unit(business_unit_dict)
+            print(response)
         except Exception as e:
-            LOGGER.error('Failure saving %s', org["Entity Name"])
+            LOGGER.error("Failure saving %s", org["Entity Name"])
             LOGGER.error("Unknown error saving: %s", e)
             continue
 
@@ -102,8 +104,7 @@ def sync_orgs(orgs_csv):
 def main():
     """Launch Xpanse scans."""
     args: Dict[str, str] = docopt.docopt(__doc__, version=__version__)
-    
-   
+
     schema: Schema = Schema(
         {
             "--log-level": And(
@@ -116,20 +117,17 @@ def main():
             "XPANSE_ORG_CSV_PATH": Or(
                 None,
                 Use(open, error="XPANSE_ORG_CSV_PATH should point to a readable CSV"),
-            )
+            ),
         }
     )
-    
 
     try:
-        
         validated_args: Dict[str, Any] = schema.validate(args)
-        
+
     except SchemaError as err:
         # Exit because one or more of the arguments were invalid
         print(err, file=sys.stderr)
         sys.exit(1)
-
 
     log_level: str = validated_args["--log-level"]
 
@@ -142,6 +140,7 @@ def main():
     )
 
     sync_orgs(validated_args["XPANSE_ORG_CSV_PATH"])
+
 
 if __name__ == "__main__":
     main()

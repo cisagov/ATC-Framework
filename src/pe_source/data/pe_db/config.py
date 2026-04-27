@@ -63,8 +63,8 @@ def cybersix_token():
         parser.read(REPORT_DB_CONFIG, encoding="utf-8")
         if parser.has_section(section):
             params = dict(parser.items(section))
-            client_id = params.get(f"client_id")
-            client_secret = params.get(f"client_secret")
+            client_id = params.get("client_id")
+            client_secret = params.get("client_secret")
         else:
             raise Exception(
                 "Section {} not found in the {} file".format(section, REPORT_DB_CONFIG)
@@ -86,7 +86,7 @@ def cybersix_token():
     count = 1
     while count < 15:
         try:
-            resp = requests.post(url, headers=headers, data=payload).json()
+            resp = requests.post(url, headers=headers, data=payload, timeout=60).json()
             break
         except Exception:
             logging.info("Error. Trying token post again...")
@@ -131,6 +131,6 @@ def dnsmonitor_token():
     headers = {}
     files = []
     response = requests.request(
-        "POST", url, headers=headers, data=payload, files=files
+        "POST", url, headers=headers, data=payload, files=files, timeout=60
     ).json()
     return response["access_token"]

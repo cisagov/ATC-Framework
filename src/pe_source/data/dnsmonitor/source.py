@@ -1,4 +1,5 @@
 """DNSMonitor API calls and DNS lookups."""
+
 # Standard Python Libraries
 import socket
 
@@ -19,14 +20,16 @@ def get_monitored_domains(token):
     domain_df = pd.DataFrame(response)
 
     # Map DNSMonitor domainId's to org names
-    # Note: 
+    # Note:
     # - Some monitored domains are attributed to multiple organizations
     # - DNSMonitor may list the same domain more than once, but with different IDs
     org_names_df = pd.read_csv(
         "/var/www/ATC-Framework/src/pe_source/data/dnsmonitor/root_domains_dnsmonitor_2025-12-07.csv"
     )
 
-    domain_df = domain_df.drop_duplicates(subset="domainName", keep="first").reset_index(drop=True)
+    domain_df = domain_df.drop_duplicates(
+        subset="domainName", keep="first"
+    ).reset_index(drop=True)
     domain_id_dict = dict(zip(domain_df["domainName"], domain_df["domainId"]))
     org_names_df["domain_id"] = org_names_df["domain_name"].map(domain_id_dict)
     org_names_df.dropna(subset=["domain_id"], inplace=True)
@@ -36,18 +39,18 @@ def get_monitored_domains(token):
             "domain_name": "domainName",
             "domain_id": "domainId",
         },
-        inplace=True
+        inplace=True,
     )
-    org_names_df = org_names_df[
-        [
-            "org",
-            "domainName",
-            "domainId",
+    org_names_df = (
+        org_names_df[
+            [
+                "org",
+                "domainName",
+                "domainId",
+            ]
         ]
-    ].sort_values(
-        by="org"
-    ).reset_index(
-        drop=True
+        .sort_values(by="org")
+        .reset_index(drop=True)
     )
     return org_names_df
 

@@ -1,4 +1,5 @@
 """Configure database connection."""
+
 # Standard Python Libraries
 from configparser import ConfigParser
 import os

@@ -1,12 +1,16 @@
 """Scripts to refresh the stakeholder assets registered with CyberSixGill."""
 
+# Standard Python Libraries
 import logging
-import pandas as pd
-import pprint
-import requests
 import time
 
-from .data.pe_db.db_query_source import (
+# Third-Party Libraries
+import pandas as pd
+import requests
+
+# cisagov Libraries
+from pe_source.data.pe_db.config import cybersix_token
+from pe_source.data.pe_db.db_query_source import (
     get_orgs,
     get_pe_aliases,
     get_pe_cidrs,
@@ -14,11 +18,9 @@ from .data.pe_db.db_query_source import (
     get_pe_roots,
 )
 
-# Cybersixgill API auth
-from pe_source.data.pe_db.config import cybersix_token
-
 # Set up logging
 LOGGER = logging.getLogger(__name__)
+
 
 def get_sixgill_id(org_abbrv):
     """Get the cybersixgill ID for the specified organization."""
@@ -30,14 +32,16 @@ def get_sixgill_id(org_abbrv):
         "Cache-Control": "no-cache",
         "Authorization": "Bearer " + auth,
     }
-    orgs = requests.get(url, headers=headers)
+    orgs = requests.get(url, headers=headers, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 3
     while orgs.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        print(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {orgs.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        print(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {orgs.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        orgs = requests.get(url, headers=headers)
+        orgs = requests.get(url, headers=headers, timeout=60)
         retry_count += 1
     if orgs.status_code != 200 and retry_count >= max_retries:
         print(f"ERROR: failed calling {endpoint_name}, max retries reached")
@@ -49,6 +53,7 @@ def get_sixgill_id(org_abbrv):
         # Return results
         return df_orgs["organization_id"].iloc[0]
 
+
 def get_sixgill_assets(org_sixgill_id):
     """Get all cybersixgill assets for the specified organization."""
     # Call Cybersixgill's /organization assets endpoint to get all registered assets for an org
@@ -59,14 +64,16 @@ def get_sixgill_assets(org_sixgill_id):
         "Cache-Control": "no-cache",
         "Authorization": "Bearer " + auth,
     }
-    assets = requests.get(url, headers=headers)
+    assets = requests.get(url, headers=headers, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 3
     while assets.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        print(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {assets.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        print(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {assets.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        assets = requests.get(url, headers=headers)
+        assets = requests.get(url, headers=headers, timeout=60)
         retry_count += 1
     if assets.status_code != 200 and retry_count >= max_retries:
         print(f"ERROR: failed calling {endpoint_name}, max retries reached")
@@ -112,10 +119,10 @@ def get_sixgill_assets(org_sixgill_id):
                 )
         # Convert to dataframe and return
         return pd.DataFrame(asset_list)
-    
+
 
 def update_sixgill_assets(org_sixgill_id, asset_dict):
-    """Modify the cybersixgill assets for the specified organization"""
+    """Modify the cybersixgill assets for the specified organization."""
     # Call Cybersixgill's /organization assets endpoint to modify assets for an org
     url = f"https://api.cybersixgill.com/multi-tenant/organization/{org_sixgill_id}/assets"
     auth = cybersix_token()
@@ -124,14 +131,16 @@ def update_sixgill_assets(org_sixgill_id, asset_dict):
         "Cache-Control": "no-cache",
         "Authorization": "Bearer " + auth,
     }
-    assets = requests.put(url, headers=headers, json=asset_dict)
+    assets = requests.put(url, headers=headers, json=asset_dict, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 3
     while assets.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        print(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {assets.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        print(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {assets.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        requests.put(url, headers=headers, json=asset_dict)
+        requests.put(url, headers=headers, json=asset_dict, timeout=60)
         retry_count += 1
     if assets.status_code != 200 and retry_count >= max_retries:
         print(f"ERROR: failed calling {endpoint_name}, max retries reached")
@@ -175,24 +184,44 @@ def run_cybersixgill_asset_refresh(orgs_list):
             org_abbrv = org["cyhy_db_name"]
             org_uid = org["organizations_uid"]
             LOGGER.info(
-                f"Updating CyberSixGill identifiers for \"{org_abbrv}\" ({org_idx + 1} of {len(pe_orgs_final)})"
+                f'Updating CyberSixGill identifiers for "{org_abbrv}" ({org_idx + 1} of {len(pe_orgs_final)})'
             )
 
             # Get current sixgill assets for this org
             LOGGER.info(f"Retrieving current CyberSixGill assets for {org_abbrv}")
             org_csg_id = get_sixgill_id(org_abbrv)
             org_csg_assets = get_sixgill_assets(org_csg_id)
-            csg_aliases = set(list(org_csg_assets.loc[org_csg_assets["asset_type"] == "alias"]["value"].str.lower()))
-            csg_roots = set(list(org_csg_assets.loc[org_csg_assets["asset_type"] == "domain"]["value"].str.lower()))
-            csg_ips = set(list(org_csg_assets.loc[org_csg_assets["asset_type"] == "ip"]["value"]))
-            csg_execs = set(list(org_csg_assets.loc[org_csg_assets["asset_type"] == "executive"]["value"].str.lower()))
+            csg_aliases = set(
+                list(
+                    org_csg_assets.loc[org_csg_assets["asset_type"] == "alias"][
+                        "value"
+                    ].str.lower()
+                )
+            )
+            csg_roots = set(
+                list(
+                    org_csg_assets.loc[org_csg_assets["asset_type"] == "domain"][
+                        "value"
+                    ].str.lower()
+                )
+            )
+            csg_ips = set(
+                list(org_csg_assets.loc[org_csg_assets["asset_type"] == "ip"]["value"])
+            )
+            csg_execs = set(
+                list(
+                    org_csg_assets.loc[org_csg_assets["asset_type"] == "executive"][
+                        "value"
+                    ].str.lower()
+                )
+            )
 
             # Get current up-to-date P&E assets for this org
             LOGGER.info(f"Retrieving current P&E database assets for {org_abbrv}")
             # Get current org cyhy_db_name/full name
             pe_aliases = get_pe_aliases(org_uid)
-            pe_aliases = [pe_aliases.iat[0,0], pe_aliases.iat[0,1]]
-            pe_aliases = set([item.lower() for item in pe_aliases])
+            pe_aliases = [pe_aliases.iat[0, 0], pe_aliases.iat[0, 1]]
+            pe_aliases = {item.lower() for item in pe_aliases}
             # Get current org root domains
             pe_roots = get_pe_roots(org_uid)
             pe_roots = set(list(pe_roots["root_domain"].str.lower()))
@@ -233,7 +262,9 @@ def run_cybersixgill_asset_refresh(orgs_list):
             print(f"Execs to Delete: {execs_delete}\n")
 
             # Update assets in Cybersixgill
-            LOGGER.info(f"Updating assets in CyberSixGill to align with P&E database for {org_abbrv}")
+            LOGGER.info(
+                f"Updating assets in CyberSixGill to align with P&E database for {org_abbrv}"
+            )
             asset_update_dict = {
                 "organization_aliases": {
                     "explicit": list(pe_aliases),
@@ -253,7 +284,9 @@ def run_cybersixgill_asset_refresh(orgs_list):
             LOGGER.info(f"Sucessfully updated CyberSixGill assets for {org_abbrv}")
             success += 1
         except Exception as e:
-            LOGGER.error(f"Error encountered while updating CyberSixGill assets for {org_abbrv} - {e}")
+            LOGGER.error(
+                f"Error encountered while updating CyberSixGill assets for {org_abbrv} - {e}"
+            )
             failed += 1
 
     # Log summary success/fail statistics
@@ -263,4 +296,3 @@ def run_cybersixgill_asset_refresh(orgs_list):
     LOGGER.info(
         f"{failed}/{len(pe_orgs_final)} organizations encountered an error while updating CyberSixGill assets"
     )
-

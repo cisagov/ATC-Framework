@@ -41,20 +41,19 @@ from schema import And, Schema, SchemaError, Use
 
 # cisagov Libraries
 import pe_reports
-
-from ._version import __version__
-from .cybersixgill import Cybersixgill
-from .cybersixgill_refresh import run_cybersixgill_asset_refresh
-from .dnsmonitor import DNSMonitor
-from .dnstwistscript import run_dnstwist
-from .flare_events import run_flare_events
-from .flare_creds import run_flare_creds
-from .flare_refresh import run_flare_ident_refresh
-from .intelx_identity import IntelX
-from .pshtt_wrapper import launch_pe_pshtt
-from .shodan_top_cves import run_top_cves_shodan
-from .shodan_wrapper import Get_shodan
-from .xpanse_alert_pull import run_xpanse_scans
+from pe_source._version import __version__
+from pe_source.cybersixgill import Cybersixgill
+from pe_source.cybersixgill_refresh import run_cybersixgill_asset_refresh
+from pe_source.dnsmonitor import DNSMonitor
+from pe_source.dnstwistscript import run_dnstwist
+from pe_source.flare_creds import run_flare_creds
+from pe_source.flare_events import run_flare_events
+from pe_source.flare_refresh import run_flare_ident_refresh
+from pe_source.intelx_identity import IntelX
+from pe_source.pshtt_wrapper import launch_pe_pshtt
+from pe_source.shodan_top_cves import run_top_cves_shodan
+from pe_source.shodan_wrapper import Get_shodan
+from pe_source.xpanse_alert_pull import run_xpanse_scans
 
 LOGGER = logging.getLogger(__name__)
 
@@ -74,7 +73,7 @@ def run_pe_script(source, orgs_list, cybersix_methods, flare_key_num, soc_med_in
         orgs_list_short = "All P&E Report orgs"
 
     # Determine which cybersixgill scans to run
-    sixgill_scan_name = cybersix_methods.title()
+    # sixgill_scan_name = cybersix_methods.title()
     if cybersix_methods == "all":
         # If "all" run all cybersixgill scans
         cybersix_methods = ["alerts", "mentions", "credentials", "topCVEs"]
@@ -111,7 +110,7 @@ def run_pe_script(source, orgs_list, cybersix_methods, flare_key_num, soc_med_in
     LOGGER.info(f"--- {scan_name} Scan Starting ---")
     LOGGER.info(f"Running {scan_name} script on these orgs: {orgs_list}")
     scan_start_time = time.time()
-    
+
     # Run the specified scans
     if source == "cybersixgill":
         cybersix = Cybersixgill(orgs_list, cybersix_methods, soc_med_included)
@@ -146,14 +145,14 @@ def run_pe_script(source, orgs_list, cybersix_methods, flare_key_num, soc_med_in
     elif source == "xpanse":
         run_xpanse_scans("", orgs_list)
     else:
-        LOGGER.error(
-            "Not a valid script name."
-        )
+        LOGGER.error("Not a valid script name.")
         sys.exit(1)
-    
+
     # Log scan completion details
     scan_end_time = time.time()
-    LOGGER.info(f"Execution time for {scan_name} scan ({orgs_list_short}): {str(timedelta(seconds=(scan_end_time - scan_start_time)))} (H:M:S)")
+    LOGGER.info(
+        f"Execution time for {scan_name} scan ({orgs_list_short}): {str(timedelta(seconds=(scan_end_time - scan_start_time)))} (H:M:S)"
+    )
     LOGGER.info(f"--- {scan_name} Scan Complete ---")
 
 

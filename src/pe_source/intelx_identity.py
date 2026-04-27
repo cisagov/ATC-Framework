@@ -1,8 +1,8 @@
 """Collect Intelx credential leak data."""
+
 # Standard Python Libraries
 import datetime
 import logging
-import sys
 import time
 
 # Third-Party Libraries
@@ -10,8 +10,9 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .data.pe_db.config import get_params
-from .data.pe_db.db_query_source import (
+# cisagov Libraries
+from pe_source.data.pe_db.config import get_params
+from pe_source.data.pe_db.db_query_source import (
     get_data_source_uid,
     get_orgs,
     get_root_domains,
@@ -82,7 +83,9 @@ class IntelX:
                 f"Running IntelX on {cyhy_org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
             )
             if self.get_credentials(cyhy_org_id, pe_org_uid) == 1:
-                LOGGER.error("Failed to retrieve IntelX credentials for %s", cyhy_org_id)
+                LOGGER.error(
+                    "Failed to retrieve IntelX credentials for %s", cyhy_org_id
+                )
                 failed += 1
             else:
                 success += 1
@@ -106,7 +109,9 @@ class IntelX:
 
         # Catch situation where org has no eligble root domains
         if roots_df.empty:
-            LOGGER.warning(f"{cyhy_org_id} does not have any eligible root domains for IntelX")
+            LOGGER.warning(
+                f"{cyhy_org_id} does not have any eligible root domains for IntelX"
+            )
             return 1
 
         # Retrieve credential leaks from IntelX
@@ -118,7 +123,9 @@ class IntelX:
         if len(leaks_json) < 1:
             LOGGER.info(f"No IntelX credentials found for {cyhy_org_id}")
             return 0
-        creds_df, breaches_df = self.process_leaks_results(leaks_json, pe_org_uid, cyhy_org_id)
+        creds_df, breaches_df = self.process_leaks_results(
+            leaks_json, pe_org_uid, cyhy_org_id
+        )
         # Insert breach data into the PE database
         LOGGER.info(f"Inserting IntelX breach data for {cyhy_org_id}")
         try:
@@ -152,7 +159,9 @@ class IntelX:
         # Retry clause in case API falters
         retry_count, max_retries, time_delay = 1, 10, 5
         while resp.status_code != 200 and retry_count <= max_retries:
-            LOGGER.warning(f"\tRetrying IntelX identity API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+            LOGGER.warning(
+                f"\tRetrying IntelX identity API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+            )
             time.sleep(time_delay)
             resp = requests.request("GET", url, headers=headers, data=payload)
             retry_count += 1
@@ -173,7 +182,9 @@ class IntelX:
         # Retry clause in case API falters
         retry_count, max_retries, time_delay = 1, 10, 5
         while resp.status_code != 200 and retry_count <= max_retries:
-            LOGGER.warning(f"\tRetrying IntelX email leak API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+            LOGGER.warning(
+                f"\tRetrying IntelX email leak API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+            )
             time.sleep(time_delay)
             resp = requests.request("GET", url, headers=headers, data=payload)
             retry_count += 1
@@ -189,7 +200,9 @@ class IntelX:
         # Retrieve results for each domain
         all_results_list = []
         for dom_idx, domain in enumerate(domain_list):
-            LOGGER.info(f"IntelX working on domain: {domain} {dom_idx+1}/{len(domain_list)}")
+            LOGGER.info(
+                f"IntelX working on domain: {domain} {dom_idx+1}/{len(domain_list)}"
+            )
             print(f"IntelX working on domain: {domain} {dom_idx+1}/{len(domain_list)}")
             if not domain:
                 continue
@@ -248,12 +261,14 @@ class IntelX:
         # format email to all lowercase and remove duplicates
         all_df["user"] = all_df["user"].str.lower()
         # Log stats
-        num_email = all_df['user'].nunique()
-        num_post = all_df['sourceshort'].nunique()
+        num_email = all_df["user"].nunique()
+        num_post = all_df["sourceshort"].nunique()
         all_df = all_df.drop_duplicates(subset=["user", "sourceshort"], keep="first")
         # num emails after removing duplicates in the same post
         num_email_dedupe = len(leaks_json)
-        LOGGER.info(f"IntelX results {cyhy_org_id}: {num_email} unique emails, {num_post} unique posts, {num_email_dedupe} emails after dedupe")
+        LOGGER.info(
+            f"IntelX results {cyhy_org_id}: {num_email} unique emails, {num_post} unique posts, {num_email_dedupe} emails after dedupe"
+        )
         # Format date
         all_df["datetime"] = pd.to_datetime(all_df["date"])
         all_df["date"] = all_df["datetime"].dt.strftime("%Y-%m-%d")

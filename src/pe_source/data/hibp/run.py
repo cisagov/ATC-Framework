@@ -1,13 +1,16 @@
 """Database queries."""
+
 # Standard Python Libraries
 import sys
 
 # Third-Party Libraries
-from data.hibp.config import config
 import pandas as pd
 import psycopg2
 from psycopg2 import OperationalError
 import psycopg2.extras as extras
+
+# cisagov Libraries
+from pe_source.data.hibp.config import config
 
 CONN_PARAMS_DIC = config()
 

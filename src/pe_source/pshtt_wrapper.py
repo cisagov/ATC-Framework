@@ -1,4 +1,5 @@
 """Pshtt wrapper."""
+
 # Standard Python Libraries
 import datetime
 import json
@@ -6,11 +7,15 @@ import logging
 import threading
 
 # Third-Party Libraries
-from .data.pshtt import utils
 import numpy as np
 
-from .data.pe_db.db_query_source import api_pshtt_domains_to_run, api_pshtt_insert
-from .data.pshtt.pshtt import inspect_domains
+# cisagov Libraries
+from pe_source.data.pe_db.db_query_source import (
+    api_pshtt_domains_to_run,
+    api_pshtt_insert,
+)
+from pe_source.data.pshtt import utils
+from pe_source.data.pshtt.pshtt import inspect_domains
 
 NOW = datetime.datetime.now()
 DAYS_BACK = datetime.timedelta(days=15)

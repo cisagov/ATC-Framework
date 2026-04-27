@@ -3,15 +3,13 @@
 # Standard Python Libraries
 from datetime import date, datetime, timedelta
 import logging
-
-# import sys
-# import time
 import traceback
 
 # Third-Party Libraries
 import pandas as pd
 
-from .data.pe_db.db_query_source import (
+# cisagov Libraries
+from pe_source.data.pe_db.db_query_source import (
     get_breaches,
     get_data_source_uid,
     get_orgs,
@@ -21,11 +19,10 @@ from .data.pe_db.db_query_source import (
     insert_sixgill_mentions,
     insert_sixgill_topCVEs,
 )
-from .data.sixgill.api import get_sixgill_organizations
-from .data.sixgill.source import (  # cve_summary,; get_alerts_content,
+from pe_source.data.sixgill.api import get_sixgill_organizations
+from pe_source.data.sixgill.source import (  # cve_summary, get_alerts_content, all_assets_list,
     alerts,
     alias_organization,
-    all_assets_list,
     creds,
     mentions,
     root_domains,
@@ -108,12 +105,16 @@ class Cybersixgill:
             try:
                 sixgill_org_id = sixgill_orgs[org_id][0]
             except KeyError as err:
-                LOGGER.warning(f"{org_id} is not registered in Cybersixgill, skipping")
+                LOGGER.warning(
+                    f"{org_id} is not registered in Cybersixgill, skipping - {err}"
+                )
                 continue
-        
+
             if "alerts" in method_list:
                 # Run alerts scan
-                LOGGER.info(f"Fetching alert data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                LOGGER.info(
+                    f"Fetching alert data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})"
+                )
                 if (
                     self.get_alerts(
                         org_id,
@@ -127,7 +128,9 @@ class Cybersixgill:
                     failed.append("%s alerts" % org_id)
             if "mentions" in method_list:
                 # Run mentions scan
-                LOGGER.info(f"Fetching mention data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                LOGGER.info(
+                    f"Fetching mention data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})"
+                )
                 if (
                     self.get_mentions(
                         org_id,
@@ -141,11 +144,11 @@ class Cybersixgill:
                     failed.append("%s mentions" % org_id)
             if "credentials" in method_list:
                 # Run credentials scan
-                LOGGER.info(f"Fetching credential data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})")
+                LOGGER.info(
+                    f"Fetching credential data for {org_id} ({org_idx+1} of {len(pe_orgs_final)})"
+                )
                 if (
-                    self.get_credentials(
-                        org_id, sixgill_org_id, pe_org_uid, source_uid
-                    )
+                    self.get_credentials(org_id, sixgill_org_id, pe_org_uid, source_uid)
                     == 1
                 ):
                     failed.append("%s credentials" % org_id)
@@ -197,13 +200,16 @@ class Cybersixgill:
         try:
             LOGGER.info("Fetching additional alert data for %s", org_id)
             # Fetch organization assets
-            org_assets_dict = all_assets_list(sixgill_org_id)
+            # org_assets_dict = all_assets_list(sixgill_org_id)
             for alert_index, alert_row in alerts_df.iterrows():
                 try:
-                    alert_id = alert_row["sixgill_id"]
+                    # alert_id = alert_row["sixgill_id"]
                     # content_snip, asset_mentioned, asset_type = get_alerts_content(
                     #     sixgill_org_id, alert_id, org_assets_dict
                     # )
+                    content_snip = None
+                    asset_mentioned = None
+                    asset_type = None
                     alerts_df.at[alert_index, "content_snip"] = content_snip
                     alerts_df.at[alert_index, "asset_mentioned"] = asset_mentioned
                     alerts_df.at[alert_index, "asset_type"] = asset_type
@@ -211,7 +217,7 @@ class Cybersixgill:
                     # LOGGER.error(
                     #     "Failed fetching a specific alert content for %s", org_id
                     # )
-                    # LOGGER.error(e)
+                    LOGGER.error(e)
                     # print(traceback.format_exc())
                     alerts_df.at[alert_index, "content_snip"] = ""
                     alerts_df.at[alert_index, "asset_mentioned"] = ""
@@ -365,22 +371,32 @@ class Cybersixgill:
         LOGGER.info("Fetching credential data for %s", org_id)
         if len(roots) > 100:
             # If >100 roots, break into chunks and fetch cred data
-            LOGGER.warning(f"{org_id} has more than 100 root assets in cybersixgill, breaking into chunks of 100...")
-            root_chunks = [roots[i:i + 100] for i in range(0, len(roots), 100)]
+            LOGGER.warning(
+                f"{org_id} has more than 100 root assets in cybersixgill, breaking into chunks of 100..."
+            )
+            root_chunks = [roots[i : i + 100] for i in range(0, len(roots), 100)]
             creds_df = pd.DataFrame()
             for idx, chunk in enumerate(root_chunks):
                 try:
-                    print(f"Working on {len(chunk)} {org_id} domains (chunk {idx+1} of {len(root_chunks)})")
-                    LOGGER.info(f"Working on {org_id} credentials, chunk {idx+1} of {len(root_chunks)}")
+                    print(
+                        f"Working on {len(chunk)} {org_id} domains (chunk {idx+1} of {len(root_chunks)})"
+                    )
+                    LOGGER.info(
+                        f"Working on {org_id} credentials, chunk {idx+1} of {len(root_chunks)}"
+                    )
                     # Fetch cred data
                     chunk_creds_df = creds(chunk, START_DATE_TIME, END_DATE_TIME)
                     # Add dataframe cols
                     chunk_creds_df["organizations_uid"] = pe_org_uid
                     chunk_creds_df["data_source_uid"] = source_uid
                     creds_df = creds_df.append(chunk_creds_df, ignore_index=True)
-                    LOGGER.info("Found %s credentials for this chunk", len(chunk_creds_df.index))
+                    LOGGER.info(
+                        "Found %s credentials for this chunk", len(chunk_creds_df.index)
+                    )
                 except Exception as e:
-                    LOGGER.error(f"Failed fetching credential data chunk {idx+1} for {org_id}")
+                    LOGGER.error(
+                        f"Failed fetching credential data chunk {idx+1} for {org_id}"
+                    )
                     LOGGER.error(e)
                     return 1
             LOGGER.info(f"Found {len(creds_df.index)} total credentials for {org_id}")
@@ -394,7 +410,9 @@ class Cybersixgill:
                 # Add dataframe cols
                 creds_df["organizations_uid"] = pe_org_uid
                 creds_df["data_source_uid"] = source_uid
-                LOGGER.info(f"Found {len(creds_df.index)} total credentials for {org_id}")
+                LOGGER.info(
+                    f"Found {len(creds_df.index)} total credentials for {org_id}"
+                )
             except Exception as e:
                 LOGGER.error("Failed fetching credential data for %s", org_id)
                 LOGGER.error(e)
@@ -496,15 +514,15 @@ class Cybersixgill:
     def get_topCVEs(self, source_uid):
         """Get top CVEs."""
         try:
-            LOGGER.info(f"Fetching the current top CVEs")
+            LOGGER.info("Fetching the current top CVEs")
             # Get top 10 cves
             top_cve_df = top_cves(10)
             # Add extra columns
             top_cve_df["date"] = END_DATE
             top_cve_df["nvd_base_score"] = top_cve_df["nvd_base_score"].astype("str")
             top_cve_df["data_source_uid"] = source_uid
-            # Note: circl.lu (cve_summary()) is no longer being 
-            # used b/c of API issues, CVE summaries are now 
+            # Note: circl.lu (cve_summary()) is no longer being
+            # used b/c of API issues, CVE summaries are now
             # coming from C6G
         except Exception as e:
             LOGGER.error("Failed fetching the current top CVEs")

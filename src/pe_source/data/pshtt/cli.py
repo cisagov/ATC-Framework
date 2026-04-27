@@ -31,9 +31,10 @@ import sys
 import docopt
 import pytablewriter
 
-from . import pshtt, utils
-from ._version import __version__
-from .utils import smart_open
+# cisagov Libraries
+from pe_source.data.pshtt import pshtt, utils
+from pe_source.data.pshtt._version import __version__
+from pe_source.data.pshtt.utils import smart_open
 
 
 def to_csv(results, out_filename):

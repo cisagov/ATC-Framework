@@ -28,11 +28,6 @@ import sys
 from typing import Any, Dict
 
 # Third-Party Libraries
-from _version import __version__
-from data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
-    api_xpanse_alert_insert,
-    insert_or_update_business_unit,
-)
 import docopt
 import pytz
 import requests
@@ -41,6 +36,11 @@ from schema import And, Or, Schema, SchemaError, Use
 # cisagov Libraries
 import pe_reports
 from pe_reports.data.config import staging_config
+from pe_source._version import __version__
+from pe_source.data.pe_db.db_query_source import (  # api_pull_xpanse_vulns,
+    api_xpanse_alert_insert,
+    insert_or_update_business_unit,
+)
 
 API_DIC = staging_config(section="xpanse")
 xpanse_url = "https://api-cisa.crtx.federal.paloaltonetworks.com/public_api/"

@@ -7,18 +7,16 @@ import sys
 import time
 
 # Third-Party Libraries
-from data.pe_db.db_query_source import (
-    query_all_cves,
-    api_cve_insert, 
-    get_cve_and_products
-)
-
 from nested_lookup import nested_lookup
 import pytz
 import requests
 
 # cisagov Libraries
 from pe_reports.data.config import staging_config
+from pe_source.data.pe_db.db_query_source import (  # query_all_cves,
+    api_cve_insert,
+    get_cve_and_products,
+)
 
 API_DIC = staging_config(section="nist")
 api_key = API_DIC.get("api_key")

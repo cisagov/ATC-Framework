@@ -1,4 +1,5 @@
 """Cybersixgill API calls."""
+
 # Standard Python Libraries
 import json
 import logging
@@ -29,24 +30,30 @@ def alerts_list(auth, organization_id, fetch_size, offset):
         "fetch_size": fetch_size,
         "offset": offset,
     }
-    resp = requests.get(url, headers=headers, params=payload)
+    resp = requests.get(url, headers=headers, params=payload, timeout=60)
 
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         if resp.status_code == 401:
-            # Catch 401 token expired code 
-            LOGGER.warning("Refreshing Cybersixgill API auth token due to 401 error code...")
+            # Catch 401 token expired code
+            LOGGER.warning(
+                "Refreshing Cybersixgill API auth token due to 401 error code..."
+            )
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
         if resp.status_code == 400:
             # Log additional output if 400 code encountered
-            LOGGER.error("Received error code 400 from Cybersixgill's /actionable-alert endpoint")
+            LOGGER.error(
+                "Received error code 400 from Cybersixgill's /actionable-alert endpoint"
+            )
             LOGGER.error(resp.content)
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}) for chunk at offset {offset} , attempt {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}) for chunk at offset {offset} , attempt {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(url, headers=headers, params=payload)
+        resp = requests.get(url, headers=headers, params=payload, timeout=60)
         retry_count += 1
     # Return result
     resp = resp.json()
@@ -64,14 +71,16 @@ def alerts_count(organization_id):
         "Authorization": "Bearer " + auth,
     }
     payload = {"organization_id": organization_id}
-    resp = requests.get(url, headers=headers, params=payload)
+    resp = requests.get(url, headers=headers, params=payload, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(url, headers=headers, params=payload)
+        resp = requests.get(url, headers=headers, params=payload, timeout=60)
         retry_count += 1
     resp = resp.json()
     # Return result
@@ -89,14 +98,16 @@ def alerts_content(organization_id, alert_id):
         "Authorization": "Bearer " + auth,
     }
     payload = {"organization_id": organization_id, "limit": 10000}
-    content = requests.get(url, headers=headers, params=payload)
+    content = requests.get(url, headers=headers, params=payload, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while content.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /actionable_alert_content endpoint (code {content.status_code}), attmept {retry_count+1} of {max_retries}")
+        # endpoint_name = url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /actionable_alert_content endpoint (code {content.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        content = requests.get(url, headers=headers, params=payload)
+        content = requests.get(url, headers=headers, params=payload, timeout=60)
         retry_count += 1
     content = content.json()
     try:
@@ -137,19 +148,23 @@ def intel_post(auth, query, frm, scroll, result_size):
         "recent_items": False,
         "safe_content_size": True,
     }
-    resp = requests.post(url, headers=headers, json=payload)
+    resp = requests.post(url, headers=headers, json=payload, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         if resp.status_code == 401:
-            # Catch 401 token expired code 
-            LOGGER.warning("Refreshing Cybersixgill API auth token due to 401 error code...")
+            # Catch 401 token expired code
+            LOGGER.warning(
+                "Refreshing Cybersixgill API auth token due to 401 error code..."
+            )
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.post(url, headers=headers, json=payload)
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
         retry_count += 1
     # Return result
     resp = resp.json()
@@ -158,7 +173,7 @@ def intel_post(auth, query, frm, scroll, result_size):
 
 def intel_post_next(auth, scroll_id):
     """Get intel_items based on specified scroll_id."""
-    url =  "https://api.cybersixgill.com/intel/intel_items/next"
+    url = "https://api.cybersixgill.com/intel/intel_items/next"
     headers = {
         "Content-Type": "application/json",
         "Cache-Control": "no-cache",
@@ -168,18 +183,22 @@ def intel_post_next(auth, scroll_id):
         "scroll_id": scroll_id,
         "recent_items": False,
     }
-    resp = requests.post(url, headers=headers, json=payload)
+    resp = requests.post(url, headers=headers, json=payload, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         if resp.status_code == 401:
-            # Catch 401 token expired code 
-            LOGGER.warning("Refreshing Cybersixgill API auth token due to 401 error code...")
+            # Catch 401 token expired code
+            LOGGER.warning(
+                "Refreshing Cybersixgill API auth token due to 401 error code..."
+            )
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
-        LOGGER.warning(f"Retrying Cybersixgill /intel_items/next endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        LOGGER.warning(
+            f"Retrying Cybersixgill /intel_items/next endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.post(url, headers=headers, json=payload)
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
         retry_count += 1
     # Return result
     resp = resp.json()
@@ -195,19 +214,23 @@ def credential_auth(auth, params):
         "Cache-Control": "no-cache",
         "Authorization": "Bearer " + auth,
     }
-    resp = requests.get(url, headers=headers, params=params)
+    resp = requests.get(url, headers=headers, params=params, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         if resp.status_code == 401:
-            # Catch 401 token expired code 
-            LOGGER.warning("Refreshing Cybersixgill API auth token due to 401 error code...")
+            # Catch 401 token expired code
+            LOGGER.warning(
+                "Refreshing Cybersixgill API auth token due to 401 error code..."
+            )
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(url, headers=headers, params=params)
+        resp = requests.get(url, headers=headers, params=params, timeout=60)
         retry_count += 1
     resp = resp.json()
     # Return result
@@ -234,14 +257,16 @@ def dve_top_cves():
             "from_index": 0,
         }
     )
-    resp = requests.post(url, headers=headers, data=data)
+    resp = requests.post(url, headers=headers, data=data, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.post(url, headers=headers, data=data)
+        resp = requests.post(url, headers=headers, data=data, timeout=60)
         retry_count += 1
     resp = resp.json()
     # Sort and clean top CVE data
@@ -253,7 +278,9 @@ def dve_top_cves():
         if result.get("x_sixgill_info").get("nvd").get("v3") is None:
             nvd_v3_score = None
         else:
-            nvd_v3_score = result.get("x_sixgill_info").get("nvd").get("v3").get("current")
+            nvd_v3_score = (
+                result.get("x_sixgill_info").get("nvd").get("v3").get("current")
+            )
         nvd_base_score = "{'v2': None, 'v3': " + str(nvd_v3_score) + "}"
         summary = result.get("description").strip()
         clean_cve = {
@@ -263,7 +290,9 @@ def dve_top_cves():
             "summary": summary,
         }
         clean_top_10_cves.append(clean_cve)
-    clean_top_10_cves = sorted(clean_top_10_cves, key=lambda d: d["dynamic_rating"], reverse=True)
+    clean_top_10_cves = sorted(
+        clean_top_10_cves, key=lambda d: d["dynamic_rating"], reverse=True
+    )
     # Return result
     return clean_top_10_cves
 
@@ -278,14 +307,16 @@ def get_sixgill_organizations():
         "Cache-Control": "no-cache",
         "Authorization": "Bearer " + auth,
     }
-    orgs = requests.get(url, headers=headers)
+    orgs = requests.get(url, headers=headers, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while orgs.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {orgs.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {orgs.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        orgs = requests.get(url, headers=headers)
+        orgs = requests.get(url, headers=headers, timeout=60)
         retry_count += 1
     orgs = orgs.json()
     df_orgs = pd.DataFrame(orgs)
@@ -306,14 +337,16 @@ def org_assets(org_id):
         "Authorization": "Bearer " + auth,
     }
     payload = {"organization_id": org_id}
-    resp = requests.get(url, headers=headers, params=payload)
+    resp = requests.get(url, headers=headers, params=payload, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(url, headers=headers, params=payload)
+        resp = requests.get(url, headers=headers, params=payload, timeout=60)
         retry_count += 1
     resp = resp.json()
     # Return result
@@ -336,7 +369,9 @@ def setNewCSGOrg(newOrgName, orgAliases, orgDomainNames, orgIP, orgExecs):
         "Cache-Control": "no-cache",
         "Authorization": f"Bearer {cybersix_token()}",
     }
-    response = requests.post(url, headers=headers, data=newOrganization).json()
+    response = requests.post(
+        url, headers=headers, data=newOrganization, timeout=60
+    ).json()
     newOrgID = response["id"]
     if newOrgID:
         LOGGER.info("A new org_id was created: %s", newOrgID)
@@ -370,7 +405,7 @@ def setOrganizationUsers(org_id):
                 "Cache-Control": "no-cache",
                 "Authorization": f"Bearer {cybersix_token()}",
             }
-            response = requests.post(url, headers=headers).json()
+            response = requests.post(url, headers=headers, timeout=60).json()
             LOGGER.info("The response is %s", response)
 
 
@@ -393,7 +428,9 @@ def setOrganizationDetails(org_id, orgAliases, orgDomain, orgIP, orgExecs):
         "Cache-Control": "no-cache",
         "Authorization": f"Bearer {cybersix_token()}",
     }
-    response = requests.put(url, headers=headers, data=newOrganizationDetails).json()
+    response = requests.put(
+        url, headers=headers, data=newOrganizationDetails, timeout=60
+    ).json()
     LOGGER.info("The response is %s", response)
 
 
@@ -405,7 +442,7 @@ def getUserInfo():
         "Cache-Control": "no-cache",
         "Authorization": f"Bearer {cybersix_token()}",
     }
-    response = requests.get(url, headers=headers).json()
+    response = requests.get(url, headers=headers, timeout=60).json()
     userInfo = response[1]["assigned_users"]
     return userInfo
 
@@ -435,14 +472,16 @@ def get_bulk_cve_resp(cve_list):
         "results_size": len(cve_list),
         "from_index": 0,
     }
-    resp = requests.post(c6g_url, headers=headers, json=body)
+    resp = requests.post(c6g_url, headers=headers, json=body, timeout=60)
     # Retry clause in case Cybersixgill's API falters
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
-        endpoint_name = url.split('/')[-1]
-        LOGGER.warning(f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}")
+        endpoint_name = c6g_url.split("/")[-1]
+        LOGGER.warning(
+            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count+1} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(url, headers=headers, params=params)
+        resp = requests.post(c6g_url, headers=headers, json=body, timeout=60)
         retry_count += 1
     resp = resp.json()
     # Return results

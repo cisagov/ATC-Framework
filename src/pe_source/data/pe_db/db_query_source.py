@@ -362,7 +362,9 @@ def execute_dnsmonitor_data(df):
     data = json.dumps({"insert_data": df_dict_list})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -399,7 +401,9 @@ def execute_dnsmonitor_alert_data(df):
     data = json.dumps({"insert_data": df_dict_list})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -441,7 +445,9 @@ def addRootdomain(root_domain, pe_org_uid, source_uid, org_name):
     )
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -481,7 +487,9 @@ def addSubdomain(domain, pe_org_uid, root):
     )
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -519,7 +527,9 @@ def insert_intelx_breaches(df):
     data = json.dumps({"breach_data": df_dict_list})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -555,7 +565,9 @@ def insert_intelx_credentials(df):
     data = json.dumps({"exp_data": df_dict_list})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -593,9 +605,11 @@ def insert_or_update_business_unit(business_unit_dict):
     try:
         # Call endpoint
         xpanse_business_unit_insert_result = requests.put(
-            endpoint_url, headers=headers, data=data
+            endpoint_url, headers=headers, data=data, timeout=60
         ).json()
-        LOGGER.info("Successfully inserted new record in xpanse_business_units table.") # possible log cluttering
+        LOGGER.info(
+            "Successfully inserted new record in xpanse_business_units table."
+        )  # possible log cluttering
         return xpanse_business_unit_insert_result
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
@@ -624,7 +638,7 @@ def get_linked_xpanse_business_units():
         "access_token": pe_api_key,
     }
     try:
-        result = requests.get(endpoint_url, headers=headers).json()
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
         return result
     except requests.exceptions.HTTPError as errh:
@@ -662,11 +676,11 @@ def api_xpanse_alert_insert(xpanse_alert_dict):
     try:
         # Call endpoint
         xpanse_alert_insert_result = requests.put(
-            endpoint_url, headers=headers, data=data
+            endpoint_url, headers=headers, data=data, timeout=60
         ).json()
         LOGGER.info(
             "Successfully inserted new record in xpanse_alerts table with associated assets and services"
-        ) # possible log cluttering
+        )  # possible log cluttering
         return xpanse_alert_insert_result
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
@@ -704,7 +718,7 @@ def api_pull_xpanse_vulns(business_unit, modified_date):
         print("in try")
         # Create task for query
         create_task_result = requests.post(
-            create_task_url, headers=headers, data=data
+            create_task_url, headers=headers, data=data, timeout=60
         ).json()
 
         print(create_task_result)
@@ -716,7 +730,9 @@ def api_pull_xpanse_vulns(business_unit, modified_date):
 
         while task_status != "Completed" and task_status != "Failed":
             # Ping task status endpoint and get status
-            check_task_resp = requests.get(check_task_url, headers=headers).json()
+            check_task_resp = requests.get(
+                check_task_url, headers=headers, timeout=60
+            ).json()
             print(check_task_resp)
 
             task_status = check_task_resp.get("status")
@@ -778,7 +794,7 @@ def api_cve_insert(cve_dict):
     try:
         # Call endpoint
         cve_insert_result = requests.put(
-            endpoint_url, headers=headers, data=data
+            endpoint_url, headers=headers, data=data, timeout=60
         ).json()
         # print(cve_insert_result)
         LOGGER.info(
@@ -817,7 +833,9 @@ def get_cve_and_products(cve_name):
     data = json.dumps({"cve_name": cve_name})
     try:
         # Call endpoint
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
 
         return result
@@ -889,6 +907,7 @@ def api_pshtt_domains_to_run():
             create_task_url,
             headers=headers,
             # data = data
+            timeout=60,
         ).json()
 
         print(create_task_result)
@@ -902,7 +921,9 @@ def api_pshtt_domains_to_run():
 
         while task_status != "Completed" and task_status != "Failed":
             # Ping task status endpoint and get status
-            check_task_resp = requests.get(check_task_url, headers=headers).json()
+            check_task_resp = requests.get(
+                check_task_url, headers=headers, timeout=60
+            ).json()
             print(check_task_resp)
 
             task_status = check_task_resp.get("status")
@@ -965,7 +986,7 @@ def api_pshtt_insert(pshtt_dict):
     try:
         # Call endpoint
         pshtt_insert_result = requests.put(
-            endpoint_url, headers=headers, data=data
+            endpoint_url, headers=headers, data=data, timeout=60
         ).json()
         print(pshtt_insert_result)
         return pshtt_insert_result
@@ -997,7 +1018,7 @@ def get_orgs():
         "access_token": pe_api_key,
     }
     try:
-        result = requests.get(endpoint_url, headers=headers).json()
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
         for row in result:
             if row.get("date_first_reported") is not None:
@@ -1044,7 +1065,9 @@ def get_data_source_uid(source):
     }
     data = json.dumps({"name": source})
     try:
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         tup_result = [tuple(row.values()) for row in result]
         return tup_result[0][0]
@@ -1075,7 +1098,7 @@ def get_breaches():
         "access_token": pe_api_key,
     }
     try:
-        result = requests.get(endpoint_url, headers=headers).json()
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
         tup_result = [tuple(row.values()) for row in result]
         return tup_result
@@ -1110,13 +1133,15 @@ def getSubdomain(domain):
     }
     data = json.dumps({"domain": domain})
     try:
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         tup_result = [tuple(row.values()) for row in result]
         # Catch deleted subdomain error
         try:
             return tup_result[0][0]
-        except Exception as e:
+        except Exception:
             return -1
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
@@ -1149,7 +1174,9 @@ def org_root_domains(org_uid):
     }
     data = json.dumps({"org_uid": org_uid})
     try:
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         result_df = pd.DataFrame.from_dict(result)
         result_df.rename(
@@ -1191,7 +1218,9 @@ def insert_dnstwist_domain_permu(df):
     data = json.dumps({"insert_data": df_dict_list})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -1226,7 +1255,9 @@ def get_root_domains(org_uid):
     }
     data = json.dumps({"org_uid": org_uid})
     try:
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         result_df = pd.DataFrame.from_dict(result)
         return result_df
@@ -1262,7 +1293,9 @@ def getDataSource_api(source):
     }
     data = json.dumps({"name": source})
     try:
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         tup_result = [tuple(row.values()) for row in result]
         return tup_result[0]
@@ -1297,7 +1330,9 @@ def execute_hibp_breach_values(jsonList, thread):
     data = json.dumps({"breach_data": jsonList})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info("Data inserted into credential_breaches successfully..")
         LOGGER.info("\t", result)
@@ -1332,7 +1367,9 @@ def execute_hibp_emails_values(jsonList, thread):
     data = json.dumps({"exp_data": jsonList})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -1363,7 +1400,7 @@ def get_breach_uids():
     }
     try:
         # Call endpoint
-        result = requests.get(endpoint_url, headers=headers).json()
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
         return result
     except requests.exceptions.HTTPError as errh:
@@ -1394,7 +1431,7 @@ def query_orgs(thread):
     }
     try:
         # Call endpoint
-        result = requests.get(endpoint_url, headers=headers).json()
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
         result_df = pd.DataFrame(result)
         return result_df
@@ -1430,7 +1467,9 @@ def query_PE_subs(org_uid):
     data = json.dumps({"org_uid": org_uid})
     try:
         # Call endpoint
-        result = requests.post(endpoint_url, headers=headers, data=data).json()
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         result_df = pd.DataFrame(result)
         return result_df
@@ -1463,7 +1502,9 @@ def insert_shodan_assets(asset_data, failed):
     data = json.dumps({"asset_data": asset_data})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result.get("message"))
     except requests.exceptions.HTTPError as errh:
@@ -1501,7 +1542,9 @@ def insert_shodan_vulns(vuln_data, failed):
     data = json.dumps({"vuln_data": vuln_data})
     try:
         # Call endpoint
-        result = requests.put(endpoint_url, headers=headers, data=data).json()
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
         # Process data and return
         LOGGER.info(result)
     except requests.exceptions.HTTPError as errh:
@@ -1575,7 +1618,7 @@ def get_ips(org_uid):
         "access_token": pe_api_key,
     }
     try:
-        result = requests.get(endpoint_url, headers=headers).json()
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
         return result
     except requests.exceptions.HTTPError as errh:
@@ -1708,7 +1751,7 @@ def insert_sixgill_mentions_tsql(df):
         logging.error(e)
 
     # Remove any "[\x00|NULL]" characters
-    df = df.replace("\x00","")
+    df = df.replace("\x00", "")
 
     table = "mentions"
     # Create a list of tuples from the dataframe values
@@ -1970,6 +2013,7 @@ def insert_intelx_credentials_tsql(df):
         conn.rollback()
     cursor.close()
 
+
 # --- WAS queries ---
 def getPotential(org_id):
     """Get findings for specific time period in months."""
@@ -2025,7 +2069,7 @@ def insertFindingData(findingList):
     conn = connect()
     sql = """INSERT INTO was_findings (finding_uid, finding_type, webapp_id, webapp_url, webapp_name, was_org_id, name, owasp_category, severity, times_detected, cvss_v3_attack_vector, base_score, temporal_score, fstatus, last_detected, first_detected, potential, cwe_list, wasc_list)
             VALUES ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}')
-            ON CONFLICT (finding_uid) DO UPDATE 
+            ON CONFLICT (finding_uid) DO UPDATE
             SET is_remediated = CASE
                 WHEN was_findings.fstatus != 'FIXED' AND excluded.fstatus = 'FIXED' THEN TRUE
                 ELSE was_findings.is_remediated
@@ -2400,35 +2444,6 @@ def insert_shodan_data(dataframe, table, thread, org_name, failed):
     return failed
 
 
-def get_linked_xpanse_business_units():
-    """
-    Query API to retrieve data for all business units that link to an org.
-
-    Return:
-        All linked xpanse business units
-    """
-    # Endpoint info
-    endpoint_url = pe_api_url + "linked_xpanse_business_units"
-    headers = {
-        "Content-Type": "application/json",
-        "access_token": pe_api_key,
-    }
-    try:
-        result = requests.get(endpoint_url, headers=headers).json()
-        # Process data and return
-        return result
-    except requests.exceptions.HTTPError as errh:
-        LOGGER.error(errh)
-    except requests.exceptions.ConnectionError as errc:
-        LOGGER.error(errc)
-    except requests.exceptions.Timeout as errt:
-        LOGGER.error(errt)
-    except requests.exceptions.RequestException as err:
-        LOGGER.error(err)
-    except json.decoder.JSONDecodeError as err:
-        LOGGER.error(err)
-
-
 def api_was_report_insert(was_report_dict):
     """
     Insert an was report record.
@@ -2449,14 +2464,16 @@ def api_was_report_insert(was_report_dict):
     }
     # print(was_report_dict)
     data = json.dumps(was_report_dict, default=str)
-    print(len(data.encode('utf-8')))
+    print(endpoint_url)
+    print(headers)
+    print(len(data.encode("utf-8")))
     print("converted_Success")
     # print(data)
 
     # LOGGER.info(data)
     try:
         # Call endpoint
-        print('1')
+        print("1")
         task_url = "was_report_insert_or_update"
         status_url = "was_report_insert_or_update/task/"
         # Make API call
@@ -2467,7 +2484,7 @@ def api_was_report_insert(was_report_dict):
         # )
         # print(was_report_insert_result)
         # was_report_insert_result = was_report_insert_result.json()
-        print('2')
+        print("2")
         LOGGER.info(was_report_insert_result)
         # LOGGER.info(
         #     "Successfully inserted new record in xpanse_alerts table with associated assets and services"
@@ -2509,12 +2526,10 @@ def api_was_finding_insert(finding_dict):
     try:
         # Call endpoint
         was_finding_insert_result = requests.put(
-            endpoint_url, headers=headers, data=data
+            endpoint_url, headers=headers, data=data, timeout=60
         ).json()
-        
-        LOGGER.info(
-            "Successfully inserted new record in was_findings table."
-        )
+
+        LOGGER.info("Successfully inserted new record in was_findings table.")
         return was_finding_insert_result
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
@@ -2541,6 +2556,7 @@ def getRootdomain(domain):
     cur.close()
     return root
 
+
 def get_execs_by_org_uid(org_uid):
     """Get executives for the specified organization_uid."""
     # Build query
@@ -2555,6 +2571,7 @@ def get_execs_by_org_uid(org_uid):
     conn.close()
     # Return results
     return df
+
 
 def insert_flare_events(event_list):
     """Insert list of flare event dictionaries into the PE DB."""
@@ -2578,23 +2595,23 @@ def insert_flare_events(event_list):
                 # Handle characters that need to be escaped
                 event.update({key: event.get(key).replace("'", "''")})
         org_uid = event.get("organizations_uid")
-        flare_uid = event.get("flare_uid") # escaped '
+        flare_uid = event.get("flare_uid")  # escaped '
         event_type = event.get("event_type")
         event_date = event.get("event_date")
         collect_date = event.get("collection_date")
-        title = event.get("title") # escaped '
-        content = event.get("content") # escaped '
+        title = event.get("title")  # escaped '
+        content = event.get("content")  # escaped '
         content_hash = event.get("content_hash")
-        actor = event.get("actor") # escaped '
-        category = event.get("category") # escaped '
-        source = event.get("source") # escaped '
-        url = event.get("url") # escaped '
+        actor = event.get("actor")  # escaped '
+        category = event.get("category")  # escaped '
+        source = event.get("source")  # escaped '
+        url = event.get("url")  # escaped '
         risk_scores = event.get("risk_scores")
         related_ident = event.get("related_identifiers")
         related_ident_txt = event.get("related_identifiers_txt")
         data_source_uid = event.get("data_source_uid")
         severity = event.get("severity")
-        insert_vals += f"(\'{org_uid}\', \'{flare_uid}\', \'{event_type}\', \'{event_date}\', \'{collect_date}\', \'{title}\', \'{content}\', \'{content_hash}\', \'{actor}\', \'{category}\', \'{source}\', \'{url}\', \'{risk_scores}\', {related_ident}, \'{data_source_uid}\', \'{severity}\', {related_ident_txt}),\n"
+        insert_vals += f"('{org_uid}', '{flare_uid}', '{event_type}', '{event_date}', '{collect_date}', '{title}', '{content}', '{content_hash}', '{actor}', '{category}', '{source}', '{url}', '{risk_scores}', {related_ident}, '{data_source_uid}', '{severity}', {related_ident_txt}),\n"
 
     insert_vals = insert_vals[:-2]
     sql = f"""
@@ -2618,6 +2635,7 @@ def insert_flare_events(event_list):
     cursor.close()
     conn.close()
 
+
 def insert_flare_breaches(breach_df):
     """Insert Flare credential breach data into the PE DB."""
     breach_df = breach_df.drop_duplicates(subset=["breach_name"])
@@ -2637,9 +2655,9 @@ def insert_flare_breaches(breach_df):
         insert_vals += f"('{breach_name}', '{desc}', '{breach_date}', '{add_date}', '{mod_date}', {pass_incl}, '{source_uid}'),\n"
     insert_vals = insert_vals[:-2]
     sql = f"""
-    INSERT INTO credential_breaches(breach_name, description, breach_date, added_date, modified_date, password_included, data_source_uid) VALUES 
+    INSERT INTO credential_breaches(breach_name, description, breach_date, added_date, modified_date, password_included, data_source_uid) VALUES
     {insert_vals}
-    ON CONFLICT (breach_name) 
+    ON CONFLICT (breach_name)
     DO UPDATE SET
     password_included = EXCLUDED.password_included;
     """
@@ -2657,13 +2675,14 @@ def insert_flare_breaches(breach_df):
         conn.rollback()
         conn.close()
 
+
 def get_cred_breach_uids(breach_name_list):
     """Get the credential breach uids for the specified list of breach names."""
     conn = connect()
     # Build query
     breach_name_str = "("
     for name in breach_name_list:
-        name = name.replace("'","''")
+        name = name.replace("'", "''")
         breach_name_str += f"'{name}',"
     breach_name_str = breach_name_str[:-1] + ")"
     sql = f"""
@@ -2676,6 +2695,7 @@ def get_cred_breach_uids(breach_name_list):
     conn.close()
     # Return results
     return df
+
 
 def insert_flare_credentials(cred_df):
     """Insert Flare credential exposure data into the PE DB."""
@@ -2702,9 +2722,9 @@ def insert_flare_credentials(cred_df):
         insert_vals += f"('{email}', '{org_uid}', '{root}', '{sub}', '{breach_name}', '{mod_date}', '{breach_uid}', '{source_uid}', '{password}', '{hash_type}', '{intelx_id}', '{login_url}'),\n"
     insert_vals = insert_vals[:-2]
     sql = f"""
-    INSERT INTO credential_exposures(email, organizations_uid, root_domain, sub_domain, breach_name, modified_date, credential_breaches_uid, data_source_uid, password, hash_type, intelx_system_id, login_url) VALUES 
+    INSERT INTO credential_exposures(email, organizations_uid, root_domain, sub_domain, breach_name, modified_date, credential_breaches_uid, data_source_uid, password, hash_type, intelx_system_id, login_url) VALUES
     {insert_vals}
-    ON CONFLICT (breach_name, email) 
+    ON CONFLICT (breach_name, email)
     DO UPDATE SET
     modified_date = EXCLUDED.modified_date;
     """
@@ -2722,6 +2742,7 @@ def insert_flare_credentials(cred_df):
         conn.rollback()
         conn.close()
 
+
 def get_pe_aliases(org_uid):
     """Get full name and abbreviation in the PE DB for the specified organization."""
     # Build query
@@ -2737,13 +2758,14 @@ def get_pe_aliases(org_uid):
     # Return result
     return df
 
+
 def get_pe_roots(org_uid):
     """Get the current root domains in the PE DBfor the specified organization."""
     # Build query
     sql = f"""
     SELECT root_domain
     FROM root_domains
-    WHERE 
+    WHERE
         organizations_uid = '{org_uid}' AND
         enumerate_subs = True
     """
@@ -2753,6 +2775,7 @@ def get_pe_roots(org_uid):
     conn.close()
     # Return result
     return df
+
 
 def get_pe_cidrs(org_uid):
     """Get the current CIDRs in the PE DB for the specified organization."""
@@ -2771,6 +2794,7 @@ def get_pe_cidrs(org_uid):
     # Return result
     return df
 
+
 def get_pe_execs(org_uid):
     """Get the current executive names in the PE DB for the specified organization."""
     # Build query
@@ -2786,6 +2810,7 @@ def get_pe_execs(org_uid):
     # Return result
     return df
 
+
 def query_all_shodan_cves(start_date, end_date):
     """Retrieve a list of all distinct CVEs across all stakeholders for the specified report period."""
     # Build query
@@ -2799,7 +2824,7 @@ def query_all_shodan_cves(start_date, end_date):
                 sv.timestamp,
                 sv.type,
                 UNNEST(sv.potential_vulns) as cve
-            FROM 
+            FROM
                 shodan_vulns sv JOIN
                 organizations o ON
                 sv.organizations_uid = o.organizations_uid
@@ -2818,6 +2843,7 @@ def query_all_shodan_cves(start_date, end_date):
     # Return result
     return df
 
+
 def insert_shodan_top_cves(top_cves):
     """Take dataframe of top 10 Shodan CVEs and insert into the top_cves_shodan table."""
     # Build query
@@ -2830,7 +2856,7 @@ def insert_shodan_top_cves(top_cves):
         date = record.get("date")
         summary = record.get("summary").replace("'", "''")
         data_source_uid = record.get("data_source_uid")
-        insert_vals += f"(\'{cve_id}\', \'{epss}\', \'{nvd}\', \'{date}\', \'{summary}\', \'{data_source_uid}\'),\n"
+        insert_vals += f"('{cve_id}', '{epss}', '{nvd}', '{date}', '{summary}', '{data_source_uid}'),\n"
     insert_vals = insert_vals[:-2]
     sql = f"""
     INSERT INTO top_cves_shodan(cve_id, epss_score, nvd_base_score, collection_date, summary, data_source_uid)

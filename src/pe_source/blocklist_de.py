@@ -1,18 +1,21 @@
 """Scripts to download and maintain blocklist.de's blocklist locally."""
 
 # Standard Python Libraries
+import datetime
 import logging
+import sys
 
 # Third-Party Libraries
-import datetime
 import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter, Retry
-import sys
-from data.pe_db.db_query_source import connect
+
+# cisagov Libraries
+from pe_source.data.pe_db.db_query_source import connect
 
 # Set up logging
 LOGGER = logging.getLogger(__name__)
+
 
 def download_blocklist_as_dict(
     url: str = "https://lists.blocklist.de/lists/all.txt",
@@ -28,14 +31,13 @@ def download_blocklist_as_dict(
         LOGGER.warning("Failed to download blocklist: %s", e)
         return {}
 
+
 def query_blocklist_api(ip_str):
     """Query blocklist API for the given IP address and return info."""
     # Call API to retrieve IP info
     session = requests.Session()
     retries = Retry(
-        total=5,
-        backoff_factor=0.1,
-        status_forcelist=[500, 502, 503, 504, 429]
+        total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504, 429]
     )
     session.mount("http://", HTTPAdapter(max_retries=retries))
     response = session.get(
@@ -51,6 +53,7 @@ def query_blocklist_api(ip_str):
         malicious = True
     return malicious, attacks, reports
 
+
 def get_current_blocklist():
     """Get the current blocklist in the local database."""
     try:
@@ -60,7 +63,8 @@ def get_current_blocklist():
         conn.close()
         return df
     except Exception as e:
-        LOGGER.error("Error: Failed retrieving current blocklist from database")
+        LOGGER.error(f"Error: Failed retrieving current blocklist from database - {e}")
+
 
 def create_blocklist_records(create_list):
     """Create records in the blocklist database table for the specified IPs."""
@@ -75,9 +79,13 @@ def create_blocklist_records(create_list):
                 # Query ip details from blocklist.de API
                 malicious, attacks, reports = query_blocklist_api(ip_str)
                 values_str += f"\t('{ip_str}', '{curr_timestamp}', '{curr_timestamp}', {malicious}, {attacks}, {reports}),\n"
-                print(f"\tRetrieved Blocklist.de info for IP \"{ip_str}\" ({idx+1} of {len(create_list)})")
+                print(
+                    f'\tRetrieved Blocklist.de info for IP "{ip_str}" ({idx+1} of {len(create_list)})'
+                )
             except Exception as e:
-                LOGGER.warning("\tFailed to get blocklist info for IP %s: %s", ip_str, e)
+                LOGGER.warning(
+                    "\tFailed to get blocklist info for IP %s: %s", ip_str, e
+                )
                 continue
         values_str = values_str[:-2]
         # Bulk create new records
@@ -94,7 +102,9 @@ def create_blocklist_records(create_list):
             conn.close()
             print(f"Created {len(create_list)} block list records successfully")
         except Exception as e:
-            print(f"Error: Failed to create {len(create_list)} block list records")
+            print(
+                f"Error: Failed to create {len(create_list)} block list records - {e}"
+            )
     else:
         print("No records to create, skipping")
 
@@ -114,8 +124,8 @@ def update_blocklist_records(update_list):
                 updated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 # Update record
                 query = f"""
-                UPDATE blocklist 
-                SET 
+                UPDATE blocklist
+                SET
                     updated_at = '{updated_at}',
                     malicious = {malicious},
                     attacks = {attacks},
@@ -125,12 +135,15 @@ def update_blocklist_records(update_list):
                 """
                 cursor.execute(query)
                 conn.commit()
-                print(f"Updated blocklist record for {curr_ip} ({idx+1} of {len(update_list)})")
+                print(
+                    f"Updated blocklist record for {curr_ip} ({idx+1} of {len(update_list)})"
+                )
             except Exception as e:
                 print(f"Error: Failed to update blocklist record for {curr_ip} - {e}")
         conn.close()
     else:
         print("No records to update, skipping")
+
 
 def delete_blocklist_records(delete_list):
     """Delete the specified records from the local blocklist table."""
@@ -141,7 +154,7 @@ def delete_blocklist_records(delete_list):
             # compile uids to delete
             uid_list_str = ""
             for uid in delete_list:
-                uid_list_str += f"\'{uid}\', "
+                uid_list_str += f"'{uid}', "
             uid_list_str = uid_list_str[:-2]
             # execute query
             query = f"DELETE FROM blocklist WHERE blocklist_uid IN ({uid_list_str})"
@@ -151,14 +164,19 @@ def delete_blocklist_records(delete_list):
             conn.close()
             print(f"Deleted {len(delete_list)} outdated blocklist records successfully")
         except Exception as e:
-            LOGGER.error("Error: Failed deleteing records from blocklist table in database")
+            LOGGER.error(
+                f"Error: Failed deleteing records from blocklist table in database - {e}"
+            )
     else:
         print("No records to delete, skipping")
+
 
 def prune_current_blocklist(current_blocklist):
     """Go through the entire current blocklist and check for any records to delete."""
     # Iterate over current blocklist
-    print(f"Checking current database blocklist ({len(current_blocklist)} records) for any that need to be deleted")
+    print(
+        f"Checking current database blocklist ({len(current_blocklist)} records) for any that need to be deleted"
+    )
     delete_list = []
     for idx, record in current_blocklist.iterrows():
         curr_ip = record["ip"]
@@ -167,14 +185,17 @@ def prune_current_blocklist(current_blocklist):
         curr_malicious, curr_attacks, curr_reports = query_blocklist_api(curr_ip)
         if (curr_attacks == 0) & (curr_reports == 0):
             # If no attacks or reports on record, mark for deletion
-            print(f"({idx+1}/{len(current_blocklist)}) IP marked for deletion: {curr_ip}")
+            print(
+                f"({idx+1}/{len(current_blocklist)}) IP marked for deletion: {curr_ip}"
+            )
             delete_list.append(curr_uid)
         else:
             print(f"({idx+1}/{len(current_blocklist)}) Keeping IP: {curr_ip}")
-    
+
     # Delete records
     print(f"Pruning records with uids: {delete_list}")
     delete_blocklist_records(delete_list)
+
 
 def refresh_blocklist(prune=False):
     """Update local database blocklist based on the latest blocklist.de download."""
@@ -210,10 +231,11 @@ def refresh_blocklist(prune=False):
 
     # If prune requested, review database blocklist for any records to be deleted
     if prune:
-        print(f"Prune requested, deleting outdated records...")
+        print("Prune requested, deleting outdated records...")
         prune_current_blocklist(current_blocklist)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if len(sys.argv) > 1:
         arguments = sys.argv[1:]
         if arguments[0] == "prune":
@@ -224,4 +246,3 @@ if __name__ == '__main__':
     else:
         print("Running database blocklist refresh, no pruning requested...")
         refresh_blocklist()
-    

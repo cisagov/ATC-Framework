@@ -1,14 +1,17 @@
 """Frequently used helper and API functions for Flare scripts."""
 
-# Imports
+# Standard Python Libraries
 import logging
 import os
 import re
-import requests
-from requests.auth import HTTPBasicAuth
 import time
 
-from ..pe_db.config import get_params
+# Third-Party Libraries
+import requests
+from requests.auth import HTTPBasicAuth
+
+# cisagov Libraries
+from pe_source.data.pe_db.config import get_params
 
 # Setup logging
 LOGGER = logging.getLogger(__name__)
@@ -19,7 +22,7 @@ TENANT_ID = param_dict.get("tenant_id")
 # Convert keys to HTTPBasicAuth objects
 for key in param_dict.keys():
     if "api_key" in key:
-        param_dict[key] = HTTPBasicAuth('', param_dict.get(key))
+        param_dict[key] = HTTPBasicAuth("", str(param_dict.get(key)))
 PARAM_DICT = param_dict
 
 
@@ -29,26 +32,33 @@ def get_flare_token():
     key_num = os.getenv("FLARE_KEY_NUM")
     api_auth = PARAM_DICT.get(f"api_key_{key_num}")
     # Get API token
-    token_url = "https://api.flare.io/tokens/generate"
+    token_url = "https://api.flare.io/tokens/generate"  # nosec
     headers = {
         "Content-Type": "application/json",
     }
     data = f'{{"tenant_id": {TENANT_ID}}}'
-    resp = requests.post(token_url, data=data, headers=headers, auth=api_auth)
+    resp = requests.post(
+        token_url, data=data, headers=headers, auth=api_auth, timeout=60
+    )
     # Retry clause in case API falters
     retry_count, max_retries, time_delay = 1, 5, 3
     while resp.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"\tRetrying Flare token API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        LOGGER.warning(
+            f"\tRetrying Flare token API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.post(token_url, data=data, headers=headers, auth=api_auth)
+        resp = requests.post(
+            token_url, data=data, headers=headers, auth=api_auth, timeout=60
+        )
         retry_count += 1
     # Return results
     if retry_count == max_retries + 1:
-        LOGGER.error(f"Error: Failed to retrieve Flare auth token")
+        LOGGER.error("Error: Failed to retrieve Flare auth token")
         return None
     else:
         resp = resp.json()
         return resp.get("token")
+
 
 def get_ident_group_info(org_name):
     """Retrieve identifier group info for the specified organization."""
@@ -58,30 +68,37 @@ def get_ident_group_info(org_name):
         "Authorization": f"Bearer {flare_token}",
     }
     # PE&T parent group id
-    group_id = 191286  
+    group_id = 191286
     # Get the group id for the specified organization
     orgs_url = "https://api.flare.io/firework/v2/assets/groups/"
-    orgs_resp = requests.get(orgs_url, headers=headers)
+    orgs_resp = requests.get(orgs_url, headers=headers, timeout=60)
     # Retry clause in case API falters
     retry_count, max_retries, time_delay = 1, 10, 5
     while orgs_resp.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"\tRetrying Flare identifier group info API endpoint (code {orgs_resp.status_code}), attempt {retry_count} of {max_retries}")
+        LOGGER.warning(
+            f"\tRetrying Flare identifier group info API endpoint (code {orgs_resp.status_code}), attempt {retry_count} of {max_retries}"
+        )
         time.sleep(time_delay)
-        orgs_resp = requests.get(orgs_url, headers=headers)
+        orgs_resp = requests.get(orgs_url, headers=headers, timeout=60)
         retry_count += 1
     # Return results
     if retry_count == max_retries + 1:
-        LOGGER.error(f"Error: Failed to retrieve Flare identifier group info")
+        LOGGER.error("Error: Failed to retrieve Flare identifier group info")
         return None
     else:
         orgs_resp = orgs_resp.json()
         orgs_list = orgs_resp.get("assets_groups")
-        org_id = [o for o in orgs_list if o["name"] == org_name and o["parent_group_id"] == group_id][0].get("id")
+        org_id = [
+            o
+            for o in orgs_list
+            if o["name"] == org_name and o["parent_group_id"] == group_id
+        ][0].get("id")
         # Return results
         return {
             "name": org_name,
             "id": org_id,
         }
+
 
 def get_ident_by_group_id(ident_group_id):
     """Retrieve all identifiers for the specified group ID."""
@@ -91,17 +108,19 @@ def get_ident_by_group_id(ident_group_id):
         "parent_group_id": ident_group_id,
     }
     headers = {"Authorization": f"Bearer {flare_token}"}
-    resp = requests.get(url, headers=headers, params=params)
+    resp = requests.get(url, headers=headers, params=params, timeout=60)
     # Retry clause in case API falters
     retry_count, max_retries, time_delay = 1, 5, 3
     while resp.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"\tRetrying Flare identifiers by group ID API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        LOGGER.warning(
+            f"\tRetrying Flare identifiers by group ID API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(url, headers=headers, params=params)
+        resp = requests.get(url, headers=headers, params=params, timeout=60)
         retry_count += 1
     # Return results
     if retry_count == max_retries + 1:
-        LOGGER.error(f"Error: Failed to retrieve Flare identifiers by group ID")
+        LOGGER.error("Error: Failed to retrieve Flare identifiers by group ID")
         return None
     else:
         resp = resp.json()
@@ -111,11 +130,7 @@ def get_ident_by_group_id(ident_group_id):
             ident_id = ident.get("id")
             ident_value = ident.get("name")
             ident_type = ident.get("type")
-            ident_dict = {
-                "id": ident_id,
-                "value": ident_value,
-                "type": ident_type
-            }
+            ident_dict = {"id": ident_id, "value": ident_value, "type": ident_type}
             ident_list.append(ident_dict)
         # Return results
         if len(ident_list) == 0:
@@ -128,23 +143,25 @@ def get_ident_by_group_id(ident_group_id):
             ]
         else:
             return ident_list
-        
+
 
 def get_ident_by_group_id_chunk(flare_token, params):
     """Retrieve chunk of identifiers for the specified group ID."""
     url = "https://api.flare.io/firework/v3/identifiers/"
     headers = {"Authorization": f"Bearer {flare_token}"}
-    resp = requests.get(url, headers=headers, params=params)
+    resp = requests.get(url, headers=headers, params=params, timeout=60)
     # Retry clause in case API falters
     retry_count, max_retries, time_delay = 1, 5, 3
     while resp.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"\tRetrying Flare identifiers by group ID API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        LOGGER.warning(
+            f"\tRetrying Flare identifiers by group ID API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(url, headers=headers, params=params)
+        resp = requests.get(url, headers=headers, params=params, timeout=60)
         retry_count += 1
     # Return results
     if retry_count == max_retries + 1:
-        LOGGER.error(f"Error: Failed to retrieve Flare identifiers by group ID")
+        LOGGER.error("Error: Failed to retrieve Flare identifiers by group ID")
         return None
     else:
         resp = resp.json()
@@ -155,11 +172,7 @@ def get_ident_by_group_id_chunk(flare_token, params):
             ident_id = ident.get("id")
             ident_value = ident.get("name")
             ident_type = ident.get("type")
-            ident_dict = {
-                "id": ident_id,
-                "value": ident_value,
-                "type": ident_type
-            }
+            ident_dict = {"id": ident_id, "value": ident_value, "type": ident_type}
             ident_list.append(ident_dict)
         # Log info
         num_items = len(ident_list)
@@ -173,7 +186,8 @@ def get_ident_by_group_id_chunk(flare_token, params):
             "ident_list": ident_list,
             "next_val": next_val,
         }
-        
+
+
 def get_all_ident_by_group_id(ident_group_id):
     """Retrieve all identifiers belonging to the specified identifier group (organization)."""
     print(f"Retrieving all identifiers for the identifier group: {ident_group_id}")
@@ -181,9 +195,9 @@ def get_all_ident_by_group_id(ident_group_id):
     results_list = []
     more_data = False
     curr_next = ""
-    chunk_size = 10 # max size is 10
+    # chunk_size = 10  # max size is 10
     # Make initial data feed call
-    print(f"Working on group identifiers chunk 1")
+    print("Working on group identifiers chunk 1")
     ini_params = {
         "parent_group_id": ident_group_id,
     }
@@ -199,7 +213,7 @@ def get_all_ident_by_group_id(ident_group_id):
         # Rate control delay
         time.sleep(1)
         # Refresh auth token every ~30 min (avg event retrieval api call ~= 1.5s)
-        if retrieve_ct % 1000 == 0: # default 1200
+        if retrieve_ct % 500 == 0:  # default 1200
             LOGGER.warning("Refreshing Flare API auth token for intial event retrieval")
             print("REFRESHING FLARE AUTH TOKEN")
             flare_token = get_flare_token()
@@ -221,7 +235,7 @@ def get_all_ident_by_group_id(ident_group_id):
         else:
             # If no next value, there's no more data to retrieve
             more_data = False
-        retrieve_ct +=1
+        retrieve_ct += 1
     # Once all data has been retrieved, format and return results
     print(f"Total number of identifiers retrieved for this group: {len(results_list)}")
     if len(results_list) == 0:
@@ -234,21 +248,24 @@ def get_all_ident_by_group_id(ident_group_id):
         ]
     else:
         return results_list
-    
+
+
 def get_event_details(event_uid, token):
-    """Get additional details for the specified Flare event uid.""" 
+    """Get additional details for the specified Flare event uid."""
     event_detail_url = f"https://api.flare.io/firework/v2/activities/{event_uid}"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {token}",
     }
-    resp = requests.get(event_detail_url, headers=headers)
+    resp = requests.get(event_detail_url, headers=headers, timeout=60)
     # Retry clause in case API falters
     retry_count, max_retries, time_delay = 1, 10, 5
     while resp.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"\tRetrying Flare event detail API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}")
+        LOGGER.warning(
+            f"\tRetrying Flare event detail API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+        )
         time.sleep(time_delay)
-        resp = requests.get(event_detail_url, headers=headers)
+        resp = requests.get(event_detail_url, headers=headers, timeout=60)
         retry_count += 1
     # Return results
     if retry_count == max_retries + 1:
@@ -256,7 +273,8 @@ def get_event_details(event_uid, token):
         return None
     else:
         return resp.json()
-    
+
+
 def remove_emoji(txt):
     """Remove emoji characters from a given string."""
     # Regex pattern to match various emoji Unicode ranges
@@ -268,6 +286,7 @@ def remove_emoji(txt):
         "\U0001F1E0-\U0001F1FF"  # flags (iOS)
         "\U00002702-\U000027B0"  # Dingbats
         "\U000024C2-\U0001F251"
-        "]+", flags=re.UNICODE
+        "]+",
+        flags=re.UNICODE,
     )
-    return emoji_pattern.sub(r'', txt)
+    return emoji_pattern.sub(r"", txt)
