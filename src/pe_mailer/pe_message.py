@@ -3,8 +3,9 @@
 # Third-Party Libraries
 import chevron
 
-from .message import Message
-from .report_message import ReportMessage
+# cisagov Libraries
+from pe_mailer.message import Message
+from pe_mailer.report_message import ReportMessage
 
 
 class PEMessage(ReportMessage):

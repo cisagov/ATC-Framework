@@ -6,7 +6,8 @@ import datetime
 # Third-Party Libraries
 import chevron
 
-from .message import Message
+# cisagov Libraries
+from pe_mailer.message import Message
 
 
 class StatsMessage(Message):

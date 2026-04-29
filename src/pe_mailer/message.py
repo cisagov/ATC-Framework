@@ -5,15 +5,15 @@ from email import encoders
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import os.path
 import logging
+import os.path
 
-# cisagov Libraries
 # from pe_reports import app
 
 # Setup logging to central file
 # LOGGER = app.config["LOGGER"]
 LOGGER = logging.getLogger(__name__)
+
 
 class Message(MIMEMultipart):
     """An email message sent from the CISA Cyber Assessments inbox.
@@ -40,7 +40,7 @@ class Message(MIMEMultipart):
 
     DefaultFrom = "reports@cyber.dhs.gov"
     DefaultCc = None
-    DefaultBcc = [
+    DefaultBcc: list[str] = [
         # "cyhy_reports@hq.dhs.gov", # disabled b/c cluttering the inbox
         # "pe_automation@hq.dhs.gov", # disabled b/c cluttering the inbox
         # "andrew.loftus@associates.cisa.dhs.gov", # You can also provide a work email

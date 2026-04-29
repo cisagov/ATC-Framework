@@ -1,6 +1,7 @@
 """This module contains the ReportMessage class."""
 
-from .message import Message
+# cisagov Libraries
+from pe_mailer.message import Message
 
 
 class ReportMessage(Message):
