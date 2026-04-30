@@ -1,4 +1,5 @@
 """Calculate the average time to remediate for all orgs."""
+
 # Standard Python Libraries
 import logging
 

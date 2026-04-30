@@ -1,4 +1,5 @@
 """A file containing the Profiling Score (P-Score) algorithm, version 1.0."""
+
 # Standard Python Libraries
 from datetime import datetime
 import logging

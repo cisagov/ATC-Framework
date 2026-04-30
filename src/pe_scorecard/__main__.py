@@ -1,5 +1,6 @@
 """Code to run if this package is used as a Python module."""
 
-from .scorecard_generator import main
+# cisagov Libraries
+from pe_scorecard.scorecard_generator import main
 
 main()

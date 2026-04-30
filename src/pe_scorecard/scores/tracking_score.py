@@ -1,4 +1,5 @@
 """A file containing the Tracking Score (T-Score) algorithm, version 1.0."""
+
 # Standard Python Libraries
 from datetime import datetime, timezone
 import logging
@@ -8,8 +9,6 @@ import numpy as np
 import pandas as pd
 
 # cisagov Libraries
-# from .config import config, staging_config
-# from pe_reports.data.db_query import close, connect
 from pe_scorecard.data.db_query import (  # close,; connect,
     get_bod_18,
     get_kevs,
@@ -29,6 +28,9 @@ from pe_scorecard.scores.score_helper_functions import (
     get_letter_grade,
     get_next_month,
 )
+
+# from .config import config, staging_config
+# from pe_reports.data.db_query import close, connect
 
 LOGGER = logging.getLogger(__name__)
 

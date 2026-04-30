@@ -1,4 +1,5 @@
 """Calculate BOD-22-01 data."""
+
 # Standard Python Libraries
 from datetime import datetime, timezone
 import logging
@@ -9,12 +10,10 @@ import pandas as pd
 import psycopg2
 
 # cisagov Libraries
-# from .config import config, staging_config
 from pe_reports.data.db_query import close, connect
 
+# from .config import config, staging_config
 # from pe_reports.data.cyhy_db_query import pe_db_staging_connect as connect
-
-
 # from psycopg2 import OperationalError
 # from psycopg2.extensions import AsIs
 # import psycopg2.extras as extras

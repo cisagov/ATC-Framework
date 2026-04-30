@@ -1,4 +1,5 @@
 """A file containing the Identification Score (I-Score) algorithm, version 1.1."""
+
 # Standard Python Libraries
 import logging
 import os
@@ -21,17 +22,17 @@ from pe_scorecard.data.db_query import (
     iscore_was_vuln_prev,
     kev_list,
 )
+from pe_scorecard.scores.score_helper_functions import (
+    get_prev_startstop,
+    rescale,
+    split_parent_child_records,
+)
 
 # l_stakeholders,
 # m_stakeholders,
 # s_stakeholders,
 # xl_stakeholders,
 # xs_stakeholders,
-from pe_scorecard.scores.score_helper_functions import (
-    get_prev_startstop,
-    rescale,
-    split_parent_child_records,
-)
 
 # Help python find db_query file
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))

@@ -15,10 +15,8 @@ from psycopg2 import OperationalError, sql
 from psycopg2.extensions import AsIs
 import requests
 
-from .config import config
-
-# from pe_reports.data.cyhy_db_query import pe_db_staging_connect as connect
-
+# cisagov Libraries
+from pe_scorecard.data.config import config
 
 # from pe_reports.data.cyhy_db_query import pe_db_staging_connect as connect
 
@@ -53,14 +51,16 @@ def task_api_call(task_url, check_url, data={}, retry_time=3):
     try:
         # Create task for query
         create_task_result = requests.post(
-            create_task_url, headers=headers, data=data
+            create_task_url, headers=headers, data=data, timeout=60
         ).json()
         task_id = create_task_result.get("task_id")
         LOGGER.info("Created task for", task_url, "query, task_id: ", task_id)
         check_task_url += task_id
         while task_status != "Completed" and task_status != "Failed":
             # Ping task status endpoint and get status
-            check_task_resp = requests.get(check_task_url, headers=headers).json()
+            check_task_resp = requests.get(
+                check_task_url, headers=headers, timeout=60
+            ).json()
             task_status = check_task_resp.get("status")
             LOGGER.info("\tPinged", check_url, "status endpoint, status:", task_status)
             time.sleep(retry_time)

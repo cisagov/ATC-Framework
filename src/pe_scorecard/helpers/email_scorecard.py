@@ -1,4 +1,5 @@
 """Script to email scorecard."""
+
 # Standard Python Libraries
 import datetime
 import logging

@@ -1,4 +1,5 @@
 """Calculations for scorecard metrics."""
+
 # Standard Python Libraries
 import calendar
 import datetime
@@ -11,7 +12,8 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .data.db_query import (
+# cisagov Libraries
+from pe_scorecard.data.db_query import (
     find_last_data_updated,
     find_last_scan_date,
     get_scorecard_metrics_past,
@@ -28,7 +30,7 @@ from .data.db_query import (
     query_vuln_tickets,
     query_web_app_counts,
 )
-from .unified_scorecard_generator import create_scorecard
+from pe_scorecard.unified_scorecard_generator import create_scorecard
 
 BOD1801_DMARC_RUA_URI = "mailto:reports@dmarc.cyber.dhs.gov"
 # Setup logging to central
@@ -390,7 +392,7 @@ class Scorecard:
     def ocsp_exclusions():
         """Prepare a list of OCSP sites to exclude."""
         URL = "https://github.com/cisagov/dotgov-data/blob/main/dotgov-websites/ocsp-crl.csv"
-        r = requests.get(URL)
+        r = requests.get(URL, timeout=60)
         soup = BeautifulSoup(r.content, features="lxml")
 
         table = soup.find_all("table")

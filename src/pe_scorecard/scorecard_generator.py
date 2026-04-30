@@ -43,11 +43,8 @@ from schema import And, Schema, SchemaError, Use
 
 # cisagov Libraries
 import pe_scorecard
-
-from ._version import __version__
-
-# from .average_time_to_remediate import calculate_time_to_remediate
-from .data.db_query import (  # execute_scorecard_summary_data,; query_sector_ttr,; query_was_sector_ttr,
+from pe_scorecard._version import __version__
+from pe_scorecard.data.db_query import (  # execute_scorecard_summary_data,; query_sector_ttr,; query_was_sector_ttr,
     find_last_data_updated,
     find_last_scan_date,
     find_sub_sectors,
@@ -57,14 +54,15 @@ from .data.db_query import (  # execute_scorecard_summary_data,; query_sector_tt
     query_scorecard_data,
     refresh_views,
 )
+from pe_scorecard.scores.generate_d_score import gen_discov_scores
+from pe_scorecard.scores.generate_i_score import gen_ident_scores
+from pe_scorecard.scores.profiling_score import get_profiling_score
+from pe_scorecard.scores.tracking_score import get_tracking_score
+from pe_scorecard.unified_scorecard_generator import create_scorecard
 
+# from .average_time_to_remediate import calculate_time_to_remediate
 # from .helpers.email_scorecard import email_scorecard_report
 # from .metrics import Scorecard
-from .scores.generate_d_score import gen_discov_scores
-from .scores.generate_i_score import gen_ident_scores
-from .scores.profiling_score import get_profiling_score
-from .scores.tracking_score import get_tracking_score
-from .unified_scorecard_generator import create_scorecard
 
 LOGGER = logging.getLogger(__name__)
 ACCESSOR_AWS_PROFILE = os.getenv("ACCESSOR_PROFILE")

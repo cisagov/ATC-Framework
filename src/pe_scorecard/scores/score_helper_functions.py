@@ -1,4 +1,5 @@
 """A file containing the helper functions for various scoring algorithms."""
+
 # Standard Python Libraries
 import calendar
 from datetime import datetime
