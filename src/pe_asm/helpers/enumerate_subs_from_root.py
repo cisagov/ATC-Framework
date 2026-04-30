@@ -1,4 +1,5 @@
 """Script to enumerate subs based on a provided root domain."""
+
 # Standard Python Libraries
 import datetime
 import json
@@ -41,7 +42,9 @@ def enumerate_roots(root_domain, root_uid):
     # Retry clause
     retry_count, max_retries, time_delay = 1, 10, 5
     while response.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})")
+        LOGGER.warning(
+            f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})"
+        )
         time.sleep(time_delay)
         response = requests.request("POST", url, headers=headers, data=payload)
         retry_count += 1
@@ -76,7 +79,7 @@ def enumerate_roots(root_domain, root_uid):
                     "identified": False,
                 }
             )
-            
+
     return found_subs
 
 

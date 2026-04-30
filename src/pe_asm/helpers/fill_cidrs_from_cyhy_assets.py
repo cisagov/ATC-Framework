@@ -41,7 +41,7 @@ def fill_cidrs(staging, orgs):
         for network_index, network in networks.iterrows():
             # Insert each cidr into the cidrs table
             network_count += 1
-            net = network["network"]
+            # net = network["network"]
             cur = conn.cursor()
             try:
                 cur.callproc(

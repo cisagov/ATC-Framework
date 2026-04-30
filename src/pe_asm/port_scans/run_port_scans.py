@@ -13,7 +13,8 @@ import subprocess  # nosec
 # Third-Party Libraries
 import pandas as pd
 
-from ..data.cyhy_db_query import (
+# cisagov Libraries
+from pe_asm.data.cyhy_db_query import (
     insert_cyhy_scorecard_data,
     pe_db_connect,
     pe_db_staging_connect,

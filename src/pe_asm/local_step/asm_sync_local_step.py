@@ -4,24 +4,18 @@
 # Standard Python Libraries
 import datetime
 import logging
+import os
 import time
 
-# Third-Party Libraries
-import os
-
-# Import ASM Sync helper functions
-from asm_sync_local_helpers import (
+# cisagov Libraries
+from pe_asm.local_step.asm_sync_local_helpers import (
     cyhy_db_connect,
-    local_db_connect, # for testing
+    insert_all_cyhy_data,
+    local_db_connect,
     pe_db_connect,
     retrieve_all_cyhy_data,
-    insert_all_cyhy_data,
 )
-
-# Import ASM Sync DB queries
-from asm_sync_local_queries import (
-    identify_org_asset_changes,
-)
+from pe_asm.local_step.asm_sync_local_queries import identify_org_asset_changes
 
 # Setup Logging
 os.makedirs("./asm_sync_local_logs", exist_ok=True)
@@ -39,17 +33,17 @@ def asm_sync_local_step(staging=False):
     """Run the ASM sync step that needs to occur locally."""
     main_log.info("")
     main_start_time = time.time()
-    main_log.info(f"=== *** ASM Sync Local Process Starting *** ===")
+    main_log.info("=== *** ASM Sync Local Process Starting *** ===")
     # Connect to the P&E database
     main_log.info(">>> Establishing connection to the PE database")
     # Connect to database
     if staging:
         print("*** Real PE DB connection requested ***")
-        time.sleep(5) # time to cancel
-        pe_db_conn = pe_db_connect() # PE DB connection
+        time.sleep(5)  # time to cancel
+        pe_db_conn = pe_db_connect()  # PE DB connection
     else:
         print("*** Local DB connection requested ***")
-        pe_db_conn = local_db_connect() # Local DB connection
+        pe_db_conn = local_db_connect()  # Local DB connection
     main_log.info(">>> PE database connection established")
 
     # Connect to the CyHy database
@@ -68,7 +62,7 @@ def asm_sync_local_step(staging=False):
         sector_list,
     ] = retrieve_all_cyhy_data(cyhy_db)
     main_log.info(">>> CyHy DB Data Retrieval Complete")
-    
+
     # Insert/Update all processed CyHy data into the PE DB
     main_log.info(">>> Insertion of CyHy Data into PE DB Starting")
     insert_all_cyhy_data(
@@ -81,7 +75,7 @@ def asm_sync_local_step(staging=False):
         sector_list,
     )
     main_log.info(">>> Insertion of CyHy Data into PE DB Complete")
-    
+
     # Identify which assets in cyhy_db_asset are/aren't current
     main_log.info(">>> Identification of cyhy_db_asset Changes Starting")
     identify_org_asset_changes(pe_db_conn)
@@ -91,8 +85,10 @@ def asm_sync_local_step(staging=False):
     pe_db_conn.close()
     os.popen("killall SCREEN")
     main_end_time = time.time()
-    main_log.info(f"Execution time for ASM sync local process: {str(datetime.timedelta(seconds=(main_end_time - main_start_time)))} (H:M:S)")
-    main_log.info(f"=== *** ASM Sync Local Process Complete *** ===")
+    main_log.info(
+        f"Execution time for ASM sync local process: {str(datetime.timedelta(seconds=(main_end_time - main_start_time)))} (H:M:S)"
+    )
+    main_log.info("=== *** ASM Sync Local Process Complete *** ===")
 
 
 def main():

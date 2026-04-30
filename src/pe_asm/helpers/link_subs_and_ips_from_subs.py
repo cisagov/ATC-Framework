@@ -1,4 +1,5 @@
 """Link sub-domains and IPs from sub-domain lookups."""
+
 # Standard Python Libraries
 import datetime
 import hashlib
@@ -42,7 +43,7 @@ def link_ip_from_domain(sub, root_uid, org_uid, data_source, conn):
         "link_ips_and_subs",
         (DATE, ip_hash, ip, org_uid, sub, data_source, root_uid, None),
     )
-    row = cur.fetchone()
+    cur.fetchone()
     # print(row)
     conn.commit()
     cur.close()

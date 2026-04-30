@@ -15,8 +15,9 @@ import psycopg2.extras as extras
 from pymongo import MongoClient
 from sshtunnel import SSHTunnelForwarder
 
-from .checkAccessor import checkCyhyRunning, checkVMrunning
-from .config import db_config, db_password_key
+# cisagov Libraries
+from pe_asm.data.checkAccessor import checkCyhyRunning, checkVMrunning
+from pe_asm.data.config import db_config, db_password_key
 
 LOGGER = logging.getLogger(__name__)
 
@@ -514,7 +515,7 @@ def query_roots(conn):
             r.root_domain
         FROM
             root_domains r
-            JOIN
+        JOIN
             organizations o
             ON r.organizations_uid = o.organizations_uid
         WHERE
@@ -522,8 +523,8 @@ def query_roots(conn):
             AND
             r.enumerate_subs = True
         ORDER BY
-	        cyhy_db_name ASC
-        """
+            cyhy_db_name ASC
+    """
     # Option 2: Run on orgs where run_scans/fceb/fceb_child/demo are true (excluding the 142 PE orgs)
     # sql = """
     #     SELECT
@@ -541,9 +542,9 @@ def query_roots(conn):
     #         AND
     #         r.enumerate_subs = True
     #     ORDER BY
-	#         cyhy_db_name ASC
+    #         cyhy_db_name ASC
     # """
-    
+
     df = pd.read_sql(sql, conn)
     LOGGER.info(f"{len(df)} roots retrieved using query_roots()")
     return df
@@ -872,17 +873,17 @@ def sqs_query_orgs(staging, cyhy_db_names):
     LOGGER.info(f"Retrieving additional info for org(s): {cyhy_db_names}")
     org_list = "('" + "', '".join(cyhy_db_names) + "')"
     sql = f"""
-        SELECT 
+        SELECT
             organizations_uid, cyhy_db_name, name, agency_type
-        FROM 
+        FROM
             organizations o
-        WHERE 
+        WHERE
             cyhy_db_name IN {org_list}
     """
     df = pd.read_sql(sql, conn)
 
     # Sort to preserve input organization order
-    cyhy_db_names_df = pd.DataFrame(cyhy_db_names, columns=['cyhy_db_name'])
+    cyhy_db_names_df = pd.DataFrame(cyhy_db_names, columns=["cyhy_db_name"])
     df = pd.merge(cyhy_db_names_df, df, on="cyhy_db_name", how="left")
     df = df[
         [
@@ -895,6 +896,7 @@ def sqs_query_orgs(staging, cyhy_db_names):
 
     conn.close()
     return df
+
 
 def sqs_identify_cidr_changes(staging, org_ids):
     """Identify CIDR changes, specific organizations."""
@@ -911,7 +913,7 @@ def sqs_identify_cidr_changes(staging, org_ids):
         f"""
         UPDATE cidrs
         set current = True
-        where 
+        where
             last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
             organizations_uid IN {uids_list}
@@ -933,6 +935,7 @@ def sqs_identify_cidr_changes(staging, org_ids):
     cursor.close()
     # Close database connection
     conn.close()
+
 
 def sqs_query_roots(conn, org_ids):
     """Query root_domains, specific organizations."""
@@ -956,6 +959,7 @@ def sqs_query_roots(conn, org_ids):
     df = pd.read_sql(sql, conn)
     return df
 
+
 def sqs_identify_ip_changes(staging, org_ids):
     """Identify IP changes, specific organizations."""
     # Connect to database
@@ -971,7 +975,7 @@ def sqs_identify_ip_changes(staging, org_ids):
         f"""
         UPDATE ips
         set current = True
-        where 
+        where
             last_seen > (CURRENT_DATE - INTERVAL '15 days')
             AND
             organizations_uid IN {uids_list}
@@ -983,7 +987,7 @@ def sqs_identify_ip_changes(staging, org_ids):
         f"""
         UPDATE ips
         set current = False
-        where 
+        where
             (last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull)
             AND
             organizations_uid IN {uids_list}
@@ -993,6 +997,7 @@ def sqs_identify_ip_changes(staging, org_ids):
     cursor.close()
     # Close database connection
     conn.close()
+
 
 def sqs_identify_sub_changes(staging, org_ids):
     """Identify IP changes, specific organizations."""
@@ -1007,13 +1012,13 @@ def sqs_identify_sub_changes(staging, org_ids):
     LOGGER.info("Marking subdomains as current if seen within the last 15 days")
     cursor.execute(
         f"""
-        UPDATE 
+        UPDATE
             sub_domains sd
-        SET 
+        SET
             current = True
         FROM
             root_domains rd
-        WHERE 
+        WHERE
             sd.root_domain_uid = rd.root_domain_uid
             AND
             last_seen > (CURRENT_DATE - INTERVAL '15 days')
@@ -1025,13 +1030,13 @@ def sqs_identify_sub_changes(staging, org_ids):
     LOGGER.info("Marking subdomains as not current if not seen within the last 15 days")
     cursor.execute(
         f"""
-        UPDATE 
+        UPDATE
             sub_domains sd
-        SET 
+        SET
             current = False
         FROM
             root_domains rd
-        WHERE 
+        WHERE
             sd.root_domain_uid = rd.root_domain_uid
             AND
             (last_seen < (CURRENT_DATE - INTERVAL '15 days') or last_seen isnull)
@@ -1043,6 +1048,7 @@ def sqs_identify_sub_changes(staging, org_ids):
     cursor.close()
     # Close database connection
     conn.close()
+
 
 def sqs_identify_ip_sub_changes(staging, org_ids):
     """Identify IP/Subs changes, specific organizations."""
@@ -1057,13 +1063,13 @@ def sqs_identify_ip_sub_changes(staging, org_ids):
     LOGGER.info("Marking IPs-subs as current if seen within the last 15 days")
     cursor.execute(
         f"""
-        UPDATE 
+        UPDATE
             ips_subs
-        SET 
+        SET
             current = True
         FROM
             ips
-        WHERE 
+        WHERE
             ips_subs.ip_hash = ips.ip_hash
             AND
             ips_subs.last_seen > (CURRENT_DATE - INTERVAL '15 days')
@@ -1075,13 +1081,13 @@ def sqs_identify_ip_sub_changes(staging, org_ids):
     LOGGER.info("Marking IPs-subs as not current if not seen within the last 15 days")
     cursor.execute(
         f"""
-        UPDATE 
+        UPDATE
             ips_subs
-        SET 
+        SET
             current = False
         FROM
             ips
-        WHERE 
+        WHERE
             ips_subs.ip_hash = ips.ip_hash
             AND
             (ips_subs.last_seen < (CURRENT_DATE - INTERVAL '15 days') or ips_subs.last_seen isnull)
@@ -1093,6 +1099,7 @@ def sqs_identify_ip_sub_changes(staging, org_ids):
     cursor.close()
     # Close database connection
     conn.close()
+
 
 def sqs_identified_sub_domains(staging, org_ids):
     """Set sub-domains to identified, specific organizations."""
@@ -1107,13 +1114,13 @@ def sqs_identified_sub_domains(staging, org_ids):
     LOGGER.info("Marking identified subdomains")
     cursor.execute(
         f"""
-        UPDATE 
+        UPDATE
             sub_domains sd
-        SET 
+        SET
             identified = True
         FROM
             root_domains rd
-        WHERE 
+        WHERE
             sd.root_domain_uid = rd.root_domain_uid
             AND
             rd.enumerate_subs = false

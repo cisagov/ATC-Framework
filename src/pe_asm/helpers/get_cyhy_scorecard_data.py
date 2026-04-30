@@ -9,7 +9,8 @@ import logging
 import numpy as np
 import pandas as pd
 
-from ..data.cyhy_db_query import (
+# cisagov Libraries
+from pe_asm.data.cyhy_db_query import (
     get_fceb_orgs,
     get_pe_org_map,
     insert_cyhy_scorecard_data,

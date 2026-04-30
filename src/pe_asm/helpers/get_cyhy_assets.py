@@ -37,14 +37,16 @@ LOGGER = logging.getLogger(__name__)
 def dotgov_domains():
     """Get list of dotgov domains from the github repo."""
     URL = "https://github.com/cisagov/dotgov-data/blob/main/current-federal.csv"
-    r = requests.get(URL)
+    r = requests.get(URL, timeout=60)
 
     # Retry clause
     retry_count, max_retries, time_delay = 1, 10, 5
     while r.status_code != 200 and retry_count <= max_retries:
-        LOGGER.warning(f"Retrying Github dotgov repo (code {r.status_code}), attempt {retry_count} of {max_retries} (url: {URL})")
+        LOGGER.warning(
+            f"Retrying Github dotgov repo (code {r.status_code}), attempt {retry_count} of {max_retries} (url: {URL})"
+        )
         time.sleep(time_delay)
-        r = requests.get(URL)
+        r = requests.get(URL, timeout=60)
         retry_count += 1
 
     soup = BeautifulSoup(r.content, features="lxml")

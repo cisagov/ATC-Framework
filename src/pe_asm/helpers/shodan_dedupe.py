@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Shodan dedupe script."""
+
 # Standard Python Libraries
 import hashlib
 import logging
@@ -293,7 +294,7 @@ def search(api, query, ip_obj, cidr_uid, org_type):
                         "current": True,
                     }
                 )
-        
+
         # Continue retrieving results from the next page if there's more
         i = 1
         while i < results["total"] / 100:
@@ -342,7 +343,7 @@ def search(api, query, ip_obj, cidr_uid, org_type):
         # IF it breaks to here it fails
         LOGGER.error(f"Failed on {query}")
         return 0
-    
+
     # Return full list of results
     return results["total"]
 

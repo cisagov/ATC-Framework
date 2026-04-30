@@ -2,10 +2,10 @@
 
 # Standard Python Libraries
 import datetime
+import logging
 import sys
 
 # Third-Party Libraries
-import logging
 import pandas as pd
 import psycopg2
 import psycopg2.extras as extras
@@ -21,6 +21,7 @@ def show_psycopg2_exception(err):
         "Database connection error: %s on line number: %s", err, traceback.tb_lineno
     )
 
+
 def insert_sectors(conn, db_pass, sectors_list):
     """Insert sectors into PE DB."""
     # Build upsert SQL query
@@ -29,17 +30,20 @@ def insert_sectors(conn, db_pass, sectors_list):
         clean_pass = sector["password"]
         if clean_pass is not None:
             clean_pass = clean_pass.replace("'", "''")
-        sector_input_values += "('%s', '%s', '%s', '%s', '%s', %s, '%s', '%s', PGP_SYM_ENCRYPT('%s', '%s')), " % (
-            sector["id"],
-            sector["acronym"],
-            sector["name"],
-            sector["email"],
-            sector["contact_name"],
-            sector["retired"],
-            datetime.datetime.today().date(),
-            datetime.datetime.today().date(),
-            clean_pass,
-            db_pass,
+        sector_input_values += (
+            "('%s', '%s', '%s', '%s', '%s', %s, '%s', '%s', PGP_SYM_ENCRYPT('%s', '%s')), "
+            % (
+                sector["id"],
+                sector["acronym"],
+                sector["name"],
+                sector["email"],
+                sector["contact_name"],
+                sector["retired"],
+                datetime.datetime.today().date(),
+                datetime.datetime.today().date(),
+                clean_pass,
+                db_pass,
+            )
         )
     # remove final comma
     sector_input_values = sector_input_values[:-2]
@@ -67,6 +71,7 @@ def insert_sectors(conn, db_pass, sectors_list):
         show_psycopg2_exception(err)
         cur.close()
 
+
 def query_pe_sectors(conn):
     """Query sectors from PE DB."""
     sql = """
@@ -76,6 +81,7 @@ def query_pe_sectors(conn):
     df = pd.read_sql(sql, conn)
     main_log.info("PE sectors retrieved successfully using query_pe_sectors()")
     return df
+
 
 def insert_assets(conn, assets_df):
     """Insert CyHy assets into the P&E DB."""
@@ -101,6 +107,7 @@ def insert_assets(conn, assets_df):
         show_psycopg2_exception(err)
         cursor.close()
 
+
 def insert_contacts(conn, contacts_df):
     """Insert CyHy contacts into the P&E databse."""
     # Build upsert SQL query
@@ -125,9 +132,9 @@ def insert_contacts(conn, contacts_df):
         show_psycopg2_exception(err)
         cursor.close()
 
-    # Delete any old/outdated PE Report contacts 
+    # Delete any old/outdated PE Report contacts
     # that aren't currently in the VS database
-    curr_date = datetime.datetime.today().strftime('%Y-%m-%d')
+    curr_date = datetime.datetime.today().strftime("%Y-%m-%d")
     delete_query = f"""
         DELETE FROM cyhy_contacts
         WHERE
@@ -149,11 +156,14 @@ def insert_contacts(conn, contacts_df):
         cur.execute(delete_query)
         conn.commit()
         cur.close()
-        main_log.info("Outdated PE Report contacts deleted successfully using insert_contacts()")
+        main_log.info(
+            "Outdated PE Report contacts deleted successfully using insert_contacts()"
+        )
     except (Exception, psycopg2.DatabaseError) as err:
         main_log.error("Error: Failed deleting outdated contacts in PE DB")
         show_psycopg2_exception(err)
         cur.close()
+
 
 def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
     """Insert CyHy agencies into the P&E database."""
@@ -161,32 +171,35 @@ def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
     agency_input_values = ""
     for idx, agency in cyhy_agency_df.iterrows():
         # handle single quotes in fields
-        agency = agency.replace('\'', '\'\'', regex=True)
+        agency = agency.replace("'", "''", regex=True)
         clean_pass = agency["password"]
         if clean_pass is not None:
             clean_pass = clean_pass.replace("'", "''")
-        agency_input_values += "('%s', '%s', '%s', %s, %s, %s, %s, %s, %s, '%s', %s, '%s', '%s', %s, '%s', %s, '%s', '%s', '%s', PGP_SYM_ENCRYPT('%s', '%s')), " % (
-            agency["name"],
-            agency["cyhy_db_name"],
-            agency["agency_type"],
-            agency["retired"],
-            agency["receives_cyhy_report"],
-            agency["receives_bod_report"],
-            agency["receives_cybex_report"],
-            agency["is_parent"],
-            agency["fceb"],
-            agency["cyhy_period_start"],
-            agency["scorecard"],
-            agency["location_name"],
-            agency["county"],
-            agency["county_fips"] or "NULL",
-            agency["state_abbreviation"],
-            agency["state_fips"] or "NULL",
-            agency["state_name"],
-            agency["country"],
-            agency["country_name"],
-            clean_pass,
-            db_pass,
+        agency_input_values += (
+            "('%s', '%s', '%s', %s, %s, %s, %s, %s, %s, '%s', %s, '%s', '%s', %s, '%s', %s, '%s', '%s', '%s', PGP_SYM_ENCRYPT('%s', '%s')), "
+            % (
+                agency["name"],
+                agency["cyhy_db_name"],
+                agency["agency_type"],
+                agency["retired"],
+                agency["receives_cyhy_report"],
+                agency["receives_bod_report"],
+                agency["receives_cybex_report"],
+                agency["is_parent"],
+                agency["fceb"],
+                agency["cyhy_period_start"],
+                agency["scorecard"],
+                agency["location_name"],
+                agency["county"],
+                agency["county_fips"] or "NULL",
+                agency["state_abbreviation"],
+                agency["state_fips"] or "NULL",
+                agency["state_name"],
+                agency["country"],
+                agency["country_name"],
+                clean_pass,
+                db_pass,
+            )
         )
     # remove final comma
     agency_input_values = agency_input_values[:-2]
@@ -229,6 +242,7 @@ def insert_cyhy_agencies(conn, db_pass, cyhy_agency_df):
         show_psycopg2_exception(err)
         cur.close()
 
+
 def query_pe_orgs(conn):
     """Query P&E organizations."""
     sql = """
@@ -239,13 +253,14 @@ def query_pe_orgs(conn):
     main_log.info("PE organizations retrieved successfully using query_pe_orgs()")
     return df
 
+
 def insert_sector_org_relationship(conn, sector_org_list):
     """Insert sector org relationship into many to many table."""
     # MAYBE TODO delete relationships first to make sure we are up to date
     # Build upsert SQL query
     sector_org_input_values = ""
     for sector_org in sector_org_list:
-        sector_org_input_values += "\n('%s', '%s', '%s', '%s'), " % (
+        sector_org_input_values += "\n('{}', '{}', '{}', '{}'), ".format(
             sector_org[0],
             sector_org[1],
             sector_org[2],
@@ -266,11 +281,16 @@ def insert_sector_org_relationship(conn, sector_org_list):
         cur.execute(sql)
         conn.commit()
         cur.close()
-        main_log.info("Sector-Org relationship data inserted successfully using insert_sector_org_relationship()")
+        main_log.info(
+            "Sector-Org relationship data inserted successfully using insert_sector_org_relationship()"
+        )
     except (Exception, psycopg2.DatabaseError) as err:
-        main_log.error("Error: Failed inserting sector-org relationship data into PE DB")
+        main_log.error(
+            "Error: Failed inserting sector-org relationship data into PE DB"
+        )
         show_psycopg2_exception(err)
         cur.close()
+
 
 def add_sector_hierachy(conn, child_uid, parent_uid):
     """Update parent_sector_uid field."""
@@ -287,6 +307,7 @@ def add_sector_hierachy(conn, child_uid, parent_uid):
     cursor.close()
     # main_log.info("Parent_sector_uid field updated successfully using add_sector_hierarchy()")
 
+
 def update_child_parent_orgs(conn, parent_uid, child_name):
     """Update child parent relationships between organizations."""
     cursor = conn.cursor()
@@ -301,6 +322,7 @@ def update_child_parent_orgs(conn, parent_uid, child_name):
     conn.commit()
     cursor.close()
     # main_log.info("Child-Parent relationships updated successfully using update_child_parent_orgs()")
+
 
 def update_scan_status(conn, child_name):
     """Update child parent relationships between organizations."""
@@ -317,6 +339,7 @@ def update_scan_status(conn, child_name):
     cursor.close()
     # main_log.info("Scan statuses updated successfully using update_scan_status()")
 
+
 def update_fceb_child_status(conn, child_name):
     """Update child parent relationships between organizations."""
     cursor = conn.cursor()
@@ -331,6 +354,7 @@ def update_fceb_child_status(conn, child_name):
     conn.commit()
     cursor.close()
     # main_log.info("FCEB child status updated successfully using update_fceb_child_status()")
+
 
 def insert_dotgov_domains(conn, dotgov_df):
     """Insert dot gov domains."""
@@ -355,10 +379,13 @@ def insert_dotgov_domains(conn, dotgov_df):
         show_psycopg2_exception(err)
         cursor.close()
 
+
 def identify_org_asset_changes(conn):
     """Identify Org Asset changes."""
     cursor = conn.cursor()
-    main_log.info("Marking CIDRs that have been seen in the CyHy DB within the last 3 days")
+    main_log.info(
+        "Marking CIDRs that have been seen in the CyHy DB within the last 3 days"
+    )
     cursor.execute(
         """
         UPDATE cyhy_db_assets
@@ -367,9 +394,13 @@ def identify_org_asset_changes(conn):
         """
     )
     conn.commit()
-    main_log.info("Current CIDRs marked successfully using identify_org_asset_changes()")
+    main_log.info(
+        "Current CIDRs marked successfully using identify_org_asset_changes()"
+    )
 
-    main_log.info("Marking CIDRs that have not been seen in the CyHy DB within the last 3 days")
+    main_log.info(
+        "Marking CIDRs that have not been seen in the CyHy DB within the last 3 days"
+    )
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -379,4 +410,6 @@ def identify_org_asset_changes(conn):
         """
     )
     conn.commit()
-    main_log.info("Non-Current CIDRs marked successfully using identify_org_asset_changes()")
+    main_log.info(
+        "Non-Current CIDRs marked successfully using identify_org_asset_changes()"
+    )

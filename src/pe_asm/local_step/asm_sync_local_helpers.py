@@ -1,25 +1,25 @@
 """All helper functions needed for the ASM Sync local process."""
 
 # Standard Python Libraries
+from configparser import ConfigParser
 import datetime
+from io import StringIO
+import logging
 import os
-import requests
 import sys
 import time
 
 # Third-Party Libraries
 from bs4 import BeautifulSoup
-from configparser import ConfigParser
-from io import StringIO
-import logging
 import pandas as pd
-from pymongo import MongoClient
 import psycopg2
 from psycopg2 import OperationalError
+from pymongo import MongoClient
+import requests
 from sshtunnel import SSHTunnelForwarder
 
-# Import ASM Sync DB queries
-from asm_sync_local_queries import (
+# cisagov Libraries
+from pe_asm.local_step.asm_sync_local_queries import (
     add_sector_hierachy,
     insert_assets,
     insert_contacts,
@@ -58,30 +58,32 @@ def check_accessor_running():
     """Check to make sure the Accessor is running."""
     try:
         # Kill all existing ssh connections
-        os.popen("killall ssh")
+        os.popen("/usr/bin/killall ssh")
         time.sleep(1)
         # Get current status of accessor
-        vmID = os.getenv("INSTANCE_ID") # This needs to be setup in ~/.bashrc
-        main_log.info(f"Checking if the Accessor is currently running (instance ID: {vmID})")
+        vmID = os.getenv("INSTANCE_ID")  # This needs to be setup in ~/.bashrc
+        main_log.info(
+            f"Checking if the Accessor is currently running (instance ID: {vmID})"
+        )
         checkAWS = os.popen(
             f"""
-            export AWS_DEFAULT_PROFILE=cool-dns-sesmanagesuppressionlist-cyber.dhs.gov && 
+            export AWS_DEFAULT_PROFILE=cool-dns-sesmanagesuppressionlist-cyber.dhs.gov &&
             aws ec2 describe-instance-status --instance-ids {vmID}
             """
         )
         checkAWS = checkAWS.read().split("\n")
-        checkAWS = checkAWS[3].split() # used to be 1
+        checkAWS = checkAWS[3].split()  # used to be 1
         checkAWS = checkAWS[2]
         if checkAWS == "running":
             # If Accessor is running, connect a screen
-            os.popen("startEC2Connect") # This needs to be setup in ~/.bin
-            main_log.info(
-                "The Accessor is running and a screen has been connected"
-            )
+            os.popen(
+                "/Users/<username>/.bin/startEC2Connect"
+            )  # This needs to be setup in ~/.bin
+            main_log.info("The Accessor is running and a screen has been connected")
         else:
             # If Accessor isn't running, start it up
             os.popen(
-                f"""export AWS_DEFAULT_PROFILE=cool-dns-sesmanagesuppressionlist-cyber.dhs.gov && 
+                f"""export AWS_DEFAULT_PROFILE=cool-dns-sesmanagesuppressionlist-cyber.dhs.gov &&
                 aws ec2 start-instances --instance-ids {vmID}"""
             )
             main_log.info("The Accessor was not running and needed to be started")
@@ -89,9 +91,11 @@ def check_accessor_running():
             time.sleep(120)
             # Recursive call until Accessor is running
             check_accessor_running()
-    except (BrokenPipeError, IOError):
+    except (BrokenPipeError, OSError):
         sys.stderr.close()
-        main_log.error(f"There was some abnormal operation related to stdout.{sys.stderr}")
+        main_log.error(
+            f"There was some abnormal operation related to stdout.{sys.stderr}"
+        )
 
 
 def pe_db_connect():
@@ -106,7 +110,7 @@ def pe_db_connect():
     server = SSHTunnelForwarder(
         ("localhost"),
         ssh_username="ubuntu",
-        ssh_pkey=conn_dict["pkey_location"], 
+        ssh_pkey=conn_dict["pkey_location"],
         ssh_private_key_password=conn_dict["pkey_pass"],
         host_pkey_directories=[],
         remote_bind_address=(
@@ -147,7 +151,7 @@ def cyhy_db_connect():
     try:
         # Create screen to make SSH connection to CyHy env
         main_log.info("Creating screen to connect to CyHy DB")
-        os.popen("screenConnectCyHy") # nosec
+        os.popen("screenConnectCyHy")  # nosec
         main_log.info("Screen to connect to CyHy DB has been created")
         time.sleep(3)
 
@@ -168,6 +172,7 @@ def cyhy_db_connect():
         main_log.error(
             "Failed connecting to the CyHy database. Make sure you have the ssh connection running"
         )
+
 
 def local_db_connect():
     """Connect to local copy of PE database."""
@@ -195,17 +200,18 @@ def local_db_connect():
     # Return local DB connection
     return local_db_conn
 
+
 def dotgov_domains():
     """Get list of dotgov domains from the github repo."""
     # dotgov_url = "https://github.com/cisagov/dotgov-data/blob/main/current-federal.csv"
-    dotgov_url = "https://raw.githubusercontent.com/cisagov/dotgov-data/main/current-federal.csv" # raw data url
-    resp = requests.get(dotgov_url)
+    dotgov_url = "https://raw.githubusercontent.com/cisagov/dotgov-data/main/current-federal.csv"  # raw data url
+    resp = requests.get(dotgov_url, timeout=60)
     soup_obj = BeautifulSoup(resp.content, features="lxml")
     # found_table = soup_obj.find_all("table")
     body_str = soup_obj.find("body").get_text()
     body_str = body_str.strip()
     # df = pd.read_html(str(found_table))[0]
-    df = pd.read_csv(StringIO(body_str), sep=',')
+    df = pd.read_csv(StringIO(body_str), sep=",")
     # df = df.drop(columns=["Unnamed: 0"])
     df = df.rename(
         columns={
@@ -220,6 +226,7 @@ def dotgov_domains():
     )
     return df
 
+
 def retrieve_all_cyhy_data(cyhy_db):
     """Retrieve all data necessary for the ASM Sync from the CyHy database."""
     collection = cyhy_db["requests"]
@@ -229,7 +236,7 @@ def retrieve_all_cyhy_data(cyhy_db):
     for row in fceb_doc:
         fceb_list = row["children"]
     main_log.info("Retrieved FCEB list from CyHy DB")
-    
+
     # Start retrieving organization data from CyHy DB
     cyhy_request_data = collection.find()
     # Create return variables
@@ -259,14 +266,30 @@ def retrieve_all_cyhy_data(cyhy_db):
                 "fceb": cyhy_request["_id"] in fceb_list,
                 "cyhy_period_start": cyhy_request.get("period_start"),
                 # new fields
-                "location_name": cyhy_request["agency"].get("location", {}).get("name", None),
-                "county": cyhy_request["agency"].get("location", {}).get("county", None),
-                "county_fips": cyhy_request["agency"].get("location", {}).get("county_fips", None),
-                "state_abbreviation": cyhy_request["agency"].get("location", {}).get("state", None),
-                "state_fips": cyhy_request["agency"].get("location", {}).get("state_fips", None),
-                "state_name": cyhy_request["agency"].get("location", {}).get("state_name", None),
-                "country": cyhy_request["agency"].get("location", {}).get("country", None),
-                "country_name": cyhy_request["agency"].get("location", {}).get("country_name", None),
+                "location_name": cyhy_request["agency"]
+                .get("location", {})
+                .get("name", None),
+                "county": cyhy_request["agency"]
+                .get("location", {})
+                .get("county", None),
+                "county_fips": cyhy_request["agency"]
+                .get("location", {})
+                .get("county_fips", None),
+                "state_abbreviation": cyhy_request["agency"]
+                .get("location", {})
+                .get("state", None),
+                "state_fips": cyhy_request["agency"]
+                .get("location", {})
+                .get("state_fips", None),
+                "state_name": cyhy_request["agency"]
+                .get("location", {})
+                .get("state_name", None),
+                "country": cyhy_request["agency"]
+                .get("location", {})
+                .get("country", None),
+                "country_name": cyhy_request["agency"]
+                .get("location", {})
+                .get("country_name", None),
             }
             cyhy_agencies.append(agency)
 
@@ -353,20 +376,12 @@ def retrieve_all_cyhy_data(cyhy_db):
                 # Look for distro contact
                 for i in range(len(cyhy_request["agency"]["contacts"])):
                     if cyhy_request["agency"]["contacts"][i]["type"] == "DISTRO":
-                        distro_email = cyhy_request["agency"]["contacts"][i][
-                            "email"
-                        ]
-                        distro_name = cyhy_request["agency"][
-                            "contacts"
-                        ][i]["name"]
+                        distro_email = cyhy_request["agency"]["contacts"][i]["email"]
+                        distro_name = cyhy_request["agency"]["contacts"][i]["name"]
                 # If none of the contacts were marked as distros, just use the first contact
                 if distro_email is None:
-                    distro_email = cyhy_request["agency"]["contacts"][0][
-                        "email"
-                    ]
-                    distro_name = cyhy_request["agency"][
-                        "contacts"
-                    ][0]["name"]
+                    distro_email = cyhy_request["agency"]["contacts"][0]["email"]
+                    distro_name = cyhy_request["agency"]["contacts"][0]["name"]
                 # Add distro info to sector dict
                 sector_dict["email"] = distro_email
                 sector_dict["contact_name"] = distro_name
@@ -376,7 +391,7 @@ def retrieve_all_cyhy_data(cyhy_db):
                 print("\tROOT/DOD detected, skipping...")
                 continue
             else:
-            # Otherwise, append dict for this sector to list
+                # Otherwise, append dict for this sector to list
                 sector_info_list.append(sector_dict)
 
     # Log stats
@@ -384,7 +399,7 @@ def retrieve_all_cyhy_data(cyhy_db):
     main_log.info(f"Total organizations retrieved from CyHyDB: {len(cyhy_agencies)}")
     main_log.info(f"Total organization assets retrieved from CyHy DB: {len(assets)}")
     main_log.info(f"Total sectors retrieved from CyHy DB: {len(sector_list)}")
-    
+
     # Convert JSON lists to dataframes
     cyhy_agency_df = pd.DataFrame(cyhy_agencies)
     assets_df = pd.DataFrame(assets)
@@ -394,18 +409,27 @@ def retrieve_all_cyhy_data(cyhy_db):
     return [
         assets_df,
         child_parent_dict,
-        contacts_df, 
-        cyhy_agency_df, 
+        contacts_df,
+        cyhy_agency_df,
         sector_info_list,
         sector_list,
     ]
 
-def insert_all_cyhy_data(pe_db_conn, assets_df, child_parent_dict, contacts_df, cyhy_agency_df, sector_info_list, sector_list):
+
+def insert_all_cyhy_data(
+    pe_db_conn,
+    assets_df,
+    child_parent_dict,
+    contacts_df,
+    cyhy_agency_df,
+    sector_info_list,
+    sector_list,
+):
     """Take all the ASM Sync data retrieved from the CyHy database and insert/update it into the PE database."""
     # Get PE DB password key from .ini
     conn_dict = parse_ini(ini_file, "pe_db")
     db_pass = conn_dict.get("pe_db_password_key")
-    
+
     # Insert all CyHy DB sector data into the PE DB
     insert_sectors(pe_db_conn, db_pass, sector_info_list)
 
@@ -425,7 +449,7 @@ def insert_all_cyhy_data(pe_db_conn, assets_df, child_parent_dict, contacts_df, 
 
     # Insert CyHy DB asset data into the PE DB
     insert_assets(pe_db_conn, assets_df)
-    
+
     # Deduplicate cyhy contact data
     contacts_df.drop_duplicates(
         subset=["org_id", "name", "contact_type", "email"],
@@ -467,7 +491,14 @@ def insert_all_cyhy_data(pe_db_conn, assets_df, child_parent_dict, contacts_df, 
             # if the child is an org
             else:
                 # skip if no org_uid available ***
-                if len(pe_orgs.loc[pe_orgs["cyhy_db_name"] == child_agency, "organizations_uid"].index) == 0:
+                if (
+                    len(
+                        pe_orgs.loc[
+                            pe_orgs["cyhy_db_name"] == child_agency, "organizations_uid"
+                        ].index
+                    )
+                    == 0
+                ):
                     continue
                 # grab the org_uid
                 child_uid = pe_orgs.loc[
@@ -486,7 +517,7 @@ def insert_all_cyhy_data(pe_db_conn, assets_df, child_parent_dict, contacts_df, 
 
     # Insert sector-org relationships into the PE DB
     insert_sector_org_relationship(pe_db_conn, sector_child_list)
-    
+
     # Add relationship between sectors to the PE DB, not allowing duplicate parents
     child_list = []
     for relationship in sub_sector_list:
@@ -496,7 +527,9 @@ def insert_all_cyhy_data(pe_db_conn, assets_df, child_parent_dict, contacts_df, 
         else:
             print(relationship[0] + " already has a sector parent")
             continue
-    main_log.info("Parent_sector_uid fields updated successfully using add_sector_hierarchy()")
+    main_log.info(
+        "Parent_sector_uid fields updated successfully using add_sector_hierarchy()"
+    )
 
     # For each parent/child relationship,
     # add the parent's org_uid to the child org
@@ -525,19 +558,25 @@ def insert_all_cyhy_data(pe_db_conn, assets_df, child_parent_dict, contacts_df, 
             scan_status_ct += 1
         # Update child's fceb_child field
         if parent_fceb:
-            print(f"Updating {child_name}'s fceb_child field")            
+            print(f"Updating {child_name}'s fceb_child field")
             update_fceb_child_status(pe_db_conn, child_name)
             fceb_child_ct += 1
-            
+
         # Unsure if this code is still needed:
         # # For orgs whose parent is a scorecard mark scorecard
         # parent_scorecard = pe_orgs.loc[pe_orgs["cyhy_db_name"] == parent_name, "scorecard"].item()
         # if parent_scorecard:
         #     updated_scorecard_child_status(pe_db_conn, child_name)
 
-    main_log.info(f"{child_parent_ct} child-parent relationships updated successfully using update_child_parent_orgs()")
-    main_log.info(f"{scan_status_ct} scan statuses updated successfully using update_scan_status()")
-    main_log.info(f"{fceb_child_ct} FCEB child statuses updated successfully using update_fceb_child_status()")
+    main_log.info(
+        f"{child_parent_ct} child-parent relationships updated successfully using update_child_parent_orgs()"
+    )
+    main_log.info(
+        f"{scan_status_ct} scan statuses updated successfully using update_scan_status()"
+    )
+    main_log.info(
+        f"{fceb_child_ct} FCEB child statuses updated successfully using update_fceb_child_status()"
+    )
 
     # Scrape dot gov domains and insert into P&E database
     dotgov_df = dotgov_domains()

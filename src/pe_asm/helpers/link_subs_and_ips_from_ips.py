@@ -1,4 +1,5 @@
 """Link sub-domains and IPs from IP lookups."""
+
 # Standard Python Libraries
 import datetime
 import hashlib
@@ -39,7 +40,9 @@ def reverseLookup(ip_obj, failed_ips, conn, thread):
     retry_count, max_retries, time_delay = 1, 5, 3
     while response.status_code != 200 and retry_count <= max_retries:
         if retry_count >= 2:
-            LOGGER.warning(f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})")
+            LOGGER.warning(
+                f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})"
+            )
         time.sleep(time_delay)
         response = requests.request("GET", url, headers=headers, data=payload)
         retry_count += 1
@@ -96,7 +99,7 @@ def link_domain_from_ip(ip_obj, org_uid, data_source, failed_ips, conn, thread):
                 domain["root"],
             ),
         )
-        row = cur.fetchone()
+        cur.fetchone()
         # print("Row after procedure")
         # print(row)
         conn.commit()
@@ -113,11 +116,15 @@ def run_ip_chunk(org_name, org_uid, ips_df, thread, conn):
         # internal status logging
         if count % 10 == 0:
             log_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"({log_time}) {thread}: Currently on {org_name}'s IP {count}/{len(ips_df)}")
+            print(
+                f"({log_time}) {thread}: Currently on {org_name}'s IP {count}/{len(ips_df)}"
+            )
         # Log progress
         count += 1
         if count % 10000 == 0:
-            LOGGER.info(f"{thread}: Running {org_name} IPs: {count}/{len(ips_df)}, {time.time() - last_chunk} seconds for the last IP chunk")
+            LOGGER.info(
+                f"{thread}: Running {org_name} IPs: {count}/{len(ips_df)}, {time.time() - last_chunk} seconds for the last IP chunk"
+            )
             last_chunk = time.time()
 
         # Link domain from IP
@@ -155,9 +162,7 @@ def connect_subs_from_ips(staging, orgs_df=None):
         else:
             conn = pe_db_connect()
         org_name = org["cyhy_db_name"]
-        LOGGER.info(
-            "Running on %s, %d/%d", org_name, org_count, num_orgs
-        )
+        LOGGER.info("Running on %s, %d/%d", org_name, org_count, num_orgs)
         # Query IPs
         org_uid = org["organizations_uid"]
         # ips_df = query_ips(org_uid, conn)
