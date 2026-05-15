@@ -49,6 +49,7 @@ from pe_source.dnstwistscript import run_dnstwist
 from pe_source.flare_creds import run_flare_creds
 from pe_source.flare_events import run_flare_events
 from pe_source.flare_refresh import run_flare_ident_refresh
+from pe_source.flare_ident_prune import run_flare_ident_prune
 from pe_source.intelx_identity import IntelX
 from pe_source.pshtt_wrapper import launch_pe_pshtt
 from pe_source.shodan_top_cves import run_top_cves_shodan
@@ -93,6 +94,7 @@ def run_pe_script(source, orgs_list, cybersix_methods, flare_key_num, soc_med_in
         "flare_events": "Flare Events",
         "flare_creds": "Flare Leaked Credentials",
         "flare_ident_refresh": "Flare Identifier Refresh",
+        "flare_ident_prune": "Flare Identifier Prune",
         "intelx": "IntelX",
         "pshtt": "Pshtt",
         "shodan": "Shodan",
@@ -132,6 +134,8 @@ def run_pe_script(source, orgs_list, cybersix_methods, flare_key_num, soc_med_in
         run_flare_creds(orgs_list)
     elif source == "flare_ident_refresh":
         run_flare_ident_refresh(orgs_list)
+    elif source == "flare_ident_prune":
+        run_flare_ident_prune(orgs_list)
     elif source == "intelx":
         intelx = IntelX(orgs_list)
         intelx.run_intelx()
