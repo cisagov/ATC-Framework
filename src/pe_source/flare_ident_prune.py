@@ -1,6 +1,8 @@
 """Scripts to prune auto-enumerated Flare assets."""
 
 # Standard Python Libraries
+import aioping
+import asyncio
 import datetime
 import logging
 import os
@@ -9,6 +11,7 @@ import socket
 import time
 
 # Third-Party Libraries
+import numpy as np
 import openpyxl
 from openpyxl import load_workbook
 import pandas as pd
@@ -128,13 +131,11 @@ def parse_domain_idents(raw_resp):
             "id": ident.get("id"),
             "type": ident.get("type"),
             "value": ident.get("name"),
+            "ip": None,
             "source": ident.get("source"),
             "group_id": ident.get("identifier_group_id"),
-            "is_disabled": ident.get("is_disabled"),
+            "curr_enabled": not ident.get("is_disabled"),
             "detected_resolvable": False,
-            "detected_reachable": False,
-            "detected_responsive": False,
-            "required_action": None,
         }
         domain_list.append(domain_dict)
     # Return parsed results
@@ -148,7 +149,7 @@ def parse_domain_idents(raw_resp):
 def get_all_autoenum_domains():
     """Get Flare auto-enumerated subdomains across all organizations."""
     all_domain_list = []
-    chunk_size = 10 # Max is 100
+    chunk_size = 100 # Max is 100
     flare_token = get_flare_token()
     next = None
     # Make initial API call
@@ -185,63 +186,109 @@ def get_all_autoenum_domains():
         all_domain_list.extend(curr_resp_dict.get("domains"))
         print(f"Retrieved {len(all_domain_list)} of {total_ident_count} auto-enum identifiers")
 
-        # TESTING
-        if len(all_domain_list) >= 20:
-            next = None
+        # # TESTING
+        # if len(all_domain_list) >= 100:
+        #     next = None
 
     # Return results
     print("All auto-enum identifiers retrieved")
     return all_domain_list
 
+async def check_ip_reachable(ip):
+    """Check if a single IP is reachable."""
+    try:
+        # Attempt to ping IP
+        delay = await aioping.ping(ip, timeout=1.0)
+        return {
+            "ip": ip, 
+            "detected_reachable": True, 
+            "response_delay": delay,
+        }
+    except TimeoutError:
+        return {
+            "ip": ip, 
+            "detected_reachable": False, 
+            "response_delay": None,
+        }
+
+async def check_ip_list_reachable(ip_list):
+    """Launch multiple tasks to check IPs' reachability."""
+    # Create separate tasks for each IP
+    tasks = [check_ip_reachable(ip) for ip in ip_list]
+    results = await asyncio.gather(*tasks)
+    return results
 
 def check_domains_responsive(domain_list):
     """Check each domain in list to see if it's resolvable/reachable."""
     results = []
-    # Iterate over each domain
-    for idx, domain_dict in enumerate(domain_list):
-        domain = domain_dict.get("value")
-        ident_id = domain_dict.get("id")
-        curr_is_disabled = domain_dict.get("is_disabled")
-        resolvable = False
-        reachable = False
-        print(f"Checking responsiveness of domain \"{domain}\" ({idx+1} of {len(domain_list)})")
+
+    domain_df = pd.DataFrame(domain_list)
+    print(domain_df)
+    # Check resolvability of each domain
+    for idx, row, in domain_df.iterrows():
+        domain = row["value"]
         # Test if domain has an IP associated with it (resolvable)
+        print(f"Checking resolvability of domain \"{domain}\" ({idx+1} of {len(domain_df)})")
         try:
             domain_ip = socket.gethostbyname(domain)
             resolvable = True
         except socket.gaierror:
             domain_ip = None
-        # Test if the domain's IP can be connected to (reachable)
-        if domain_ip is not None:
-            ping_ct = 3
-            param = '-n' if platform.system().lower() == 'windows' else '-c'
-            command = ['ping', param, str(ping_ct), domain_ip]
-            # Attempt to ping IP address
-            if subprocess.call(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) == 0:
-                reachable = True
-        responsive = resolvable and reachable
-        # Calculate if enable/disable action needed
-        curr_enabled = not curr_is_disabled
-        if curr_enabled and (not responsive):
-            # If currently enabled, but detected unresponsive, mark for disabling
-            req_action = "DISABLE"
-        elif (not curr_enabled) and responsive:
-            # If currently disabled, but detected responsive, mark for enabling
-            req_action = "ENABLE"
-        else:
-            req_action = None
-        # Update results for this domain
-        domain_dict.update(
-            {
-                "detected_resolvable": resolvable,
-                "detected_reachable": reachable,
-                "detected_responsive": responsive,
-                "required_action": req_action,
-            }
-        )
+            resolvable = False
+        # Update value in this row
+        domain_df.at[idx, "ip"] = domain_ip
+        domain_df.at[idx, "detected_resolvable"] = resolvable
+
+    # # testing
+    # test_list = [
+    #     {
+    #         "id": "1234567",
+    #         "type": "domain",
+    #         "value": "test1.domain.gov",
+    #         "ip": "8.8.8.8",
+    #         "source": "SYSTEM_RELATION",
+    #         "group_id": None,
+    #         "curr_enabled": True,
+    #         "detected_resolvable": True,
+    #     },
+    #     {
+    #         "id": "1234568",
+    #         "type": "domain",
+    #         "value": "test2.domain.gov",
+    #         "ip": "8.8.8.8",
+    #         "source": "SYSTEM_RELATION",
+    #         "group_id": None,
+    #         "curr_enabled": False,
+    #         "detected_resolvable": True,
+    #     }
+    # ]
+    # domain_df = pd.concat([domain_df, pd.DataFrame(test_list)], ignore_index=True)
+
+    # Check reachability of any domains that have an IP (resolvable)
+    ip_list = list(set(domain_df.loc[domain_df["ip"].notnull()]["ip"]))
+    ip_results_df = pd.DataFrame(asyncio.run(check_ip_list_reachable(ip_list)))
+
+    # Join resolvability and reachability results
+    domain_df = pd.merge(domain_df, ip_results_df, on="ip", how="left")
+    domain_df["detected_reachable"].fillna(False, inplace=True)
+    domain_df["response_delay"].fillna(-1, inplace=True)
+    
+    # Calculate overall responsiveness and required action
+    domain_df["detected_responsive"] = domain_df["detected_resolvable"] & domain_df["detected_reachable"]
+    conditions = [
+        (domain_df["curr_enabled"]) & (~domain_df["detected_responsive"]),
+        (~domain_df["curr_enabled"]) & (domain_df["detected_responsive"]),
+    ]
+    choices = ["DISABLE", "ENABLE"]
+    domain_df["required_action"] = np.select(conditions, choices, default=None)
+    domain_df = domain_df[
+        ["id", "type", "value", "ip", "source", "group_id", "curr_enabled", "detected_resolvable", "detected_reachable", "detected_responsive", "required_action"]
+    ]
+    print(domain_df)
+    
     # Return results
-    enable_list = [x for x in domain_list if x.get("required_action") == "ENABLE"]
-    disable_list = [x for x in domain_list if x.get("required_action") == "DISABLE"]
+    enable_list = domain_df.loc[domain_df["required_action"] == "ENABLE"].to_dict(orient="records")
+    disable_list = domain_df.loc[domain_df["required_action"] == "DISABLE"].to_dict(orient="records")
     return enable_list, disable_list
 
 
@@ -369,56 +416,20 @@ def run_flare_ident_prune(orgs_list):
         # test_domains_df = pd.read_csv("./src/pe_source/flare_test_org_sys_assets_2026-05-08.csv", index_col=False)
         # auto_enum_domains = test_domains_df.to_dict(orient="records")
 
-
         LOGGER.info("All auto-enumerated assets retrieved")
         # Check which domains are responsive
         LOGGER.info("Checking which auto-enumerated assets are responsive")
         enable_list, disable_list = check_domains_responsive(auto_enum_domains)
 
-        print(pd.DataFrame(enable_list))
-        print(pd.DataFrame(disable_list))
         enable_df = pd.DataFrame(enable_list)
         disable_df = pd.DataFrame(disable_list)
-        enable_df.to_csv("./src/pe_source/flare_FULL_enable_assets_2026-05-14.csv", index=False)
-        disable_df.to_csv("./src/pe_source/flare_FULL_disable_assets_2026-05-14.csv", index=False)
-        # # pprint.pprint(enable_list, sort_dicts=False)
-        # # pprint.pprint(disable_list, sort_dicts=False)
-        # x=5/0
-
-        # # --- TESTING ---
-        # # Testing assets:
-        # test_dict = {
-        #     "23764933": "dcps.dc.gov",
-        #     "23764934": "sso.dc.gov",
-        #     "23764935": "osse.dc.gov",
-        #     "23764936": "dcratransition.dc.gov",
-        #     "23764937": "oig.dc.gov",
-        #     "23764939": "ddoe.dc.gov",
-        #     "23764940": "microstrategy.dc.gov",
-        #     "23764941": "opendata.dc.gov",
-        #     "23764942": "joindcps.dc.gov",
-        #     "23764944": "cap.dhs.dc.gov",
-        # }
-        # test_results = []
-        # for test_id in list(test_dict.keys()):
-        #     test_results.append(get_ident_info(test_id))
-
-        # # Print asset status
-        # print(pd.DataFrame(test_results))
-        # x=5/0
-
-        # # test demo
-        # # demo_issue("TEST_ORG")
-
-        # # test enable/disable
-        # test_enable_list = test_results
-        # test_disable_list = [] # test_results
-        # update_ident_lists(test_enable_list, test_disable_list)
-        # x=5/0
-
-        # --- TESTING ---
-
-
+        print("Enable List:")
+        print(enable_df)
+        print("Disabe List:")
+        print(disable_df)
+        enable_df.to_csv("./src/pe_source/flare_FULL_enable_assets_2026-05-18.csv", index=False)
+        disable_df.to_csv("./src/pe_source/flare_FULL_disable_assets_2026-05-18.csv", index=False)
+        
         LOGGER.info("Auto-enumerated assets have been checked for responsiveness")
         # Enable/Disable the appropriate domains
         LOGGER.info("Enabling/Disabling auto-enumerated assets based on responsiveness")
@@ -664,3 +675,37 @@ def get_ident_info(ident_id):
 
 
 
+# x=5/0
+
+        # # --- TESTING ---
+        # # Testing assets:
+        # test_dict = {
+        #     "23764933": "dcps.dc.gov",
+        #     "23764934": "sso.dc.gov",
+        #     "23764935": "osse.dc.gov",
+        #     "23764936": "dcratransition.dc.gov",
+        #     "23764937": "oig.dc.gov",
+        #     "23764939": "ddoe.dc.gov",
+        #     "23764940": "microstrategy.dc.gov",
+        #     "23764941": "opendata.dc.gov",
+        #     "23764942": "joindcps.dc.gov",
+        #     "23764944": "cap.dhs.dc.gov",
+        # }
+        # test_results = []
+        # for test_id in list(test_dict.keys()):
+        #     test_results.append(get_ident_info(test_id))
+
+        # # Print asset status
+        # print(pd.DataFrame(test_results))
+        # x=5/0
+
+        # # test demo
+        # # demo_issue("TEST_ORG")
+
+        # # test enable/disable
+        # test_enable_list = test_results
+        # test_disable_list = [] # test_results
+        # update_ident_lists(test_enable_list, test_disable_list)
+        # x=5/0
+
+        # --- TESTING ---
