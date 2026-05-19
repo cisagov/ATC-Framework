@@ -257,6 +257,8 @@ def parse_stealer_log_event_fields(event, event_details, org_uid, org_idents_df)
         rel_ident = list(org_idents_df.loc[org_idents_df["type"] == "domain"]["value"])
         rel_creds = []
         creds_list = event_details.get("data").get("credentials")
+        if creds_list is None:
+            return -1
         for cred in creds_list:
             # Record any creds that contain any of the relevant identifiers
             user = cred.get("username")

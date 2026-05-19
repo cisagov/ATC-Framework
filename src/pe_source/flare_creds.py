@@ -334,7 +334,7 @@ def get_stealer_log_creds(event_list, org_idents):
         # Parse any leaked credentials in this stealer_logs event
         cred_list = extract_stealer_log_creds(event, event_details, org_domain_idents)
         # Append any creds found to overall list
-        if len(cred_list) > 0:
+        if (cred_list is not None) and (len(cred_list) > 0):
             total_cred_list.extend(cred_list)
 
     # Return full list of stealer_log creds
