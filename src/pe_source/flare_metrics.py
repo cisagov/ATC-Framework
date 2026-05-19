@@ -33,7 +33,7 @@ from pe_source.data.pe_db.db_query_source import (
 LOGGER = logging.getLogger(__name__)
 
 # --- Temporary get_flare_token() funciton For testing purposes ---
-API_KEY = "fw_hXXnnrBSVLXJCCnZZnsBjenazgLrMNTYqyOXxRlz"
+API_KEY = ""
 API_AUTH = HTTPBasicAuth("", API_KEY)
 def get_flare_token():
     """Testing ver of get Flare API authentication token."""
@@ -324,12 +324,65 @@ def calc_pe_org_metrics():
 
 def calc_all_sys_metrics():
     """Calculate flare metrics for all system assets."""
-    sys_asset_list = get_all_sys_assets()
-    sys_asset_df = pd.DataFrame(sys_asset_list)
-    print(sys_asset_df)
-    sys_asset_df.to_excel("./src/pe_source/flare_sys_assets_raw_2026-05-14.xlsx", index=False)
+    # sys_asset_list = get_all_sys_assets()
+    # sys_asset_df = pd.DataFrame(sys_asset_list)
+    # print(sys_asset_df)
+    # sys_asset_df.to_excel("./src/pe_source/flare_sys_assets_raw_2026-05-14.xlsx", index=False)
+
+    # Calculate metrics about system assets
+    sys_assets_df = pd.read_excel("./src/pe_source/flare_sys_assets_raw_2026-05-14.xlsx", index_col=False, engine="openpyxl")
+    sys_assets_df.insert(2, "root_domain", sys_assets_df["value"].str.split(".").str[-2:].str.join("."))
+    sys_assets_df.rename(
+        columns={
+            "id": "asset_id",
+            "type": "asset_type",
+            "value": "domain",
+            "source": "asset_source",
+        },
+        inplace=True
+    )
+    sys_assets_df = sys_assets_df[
+        [
+            "asset_id",
+            "asset_type",
+            "root_domain",
+            "domain",
+            "asset_source",
+            "group_id",
+        ]
+    ]
+    print(sys_assets_df)
+    # print(sys_assets_df["root_domain"].nunique())
+    # x=5/0
+
+    agg_df = sys_assets_df.groupby("root_domain").size().reset_index(name="num_auto_enum_subdomains")
+    print(agg_df.to_string())
+    print(agg_df["num_auto_enum_subdomains"].sum())
+    # print(sys_assets_df["source"].unique())
 
 
+def calc_resp_test_metrics():
+    """Caculate metrics for responsiveness test results."""
+    test_df = pd.read_csv("./flare_FULL_total_assets_2026-05-19.csv", index_col=False)
+    test_df.insert(2, "root_domain", test_df["value"].str.split(".").str[-2:].str.join("."))
+    test_df.rename(columns={"value": "domain"}, inplace=True)
+    test_df = test_df[[
+        "id",
+        "source",
+        "type",
+        "root_domain",
+        "domain",
+        "ip",
+        "curr_enabled",
+        "detected_resolvable",
+        "detected_reachable",
+        "detected_responsive",
+        "required_action",
+    ]]
+    print(test_df[:10].to_string())
+    # test_df.to_excel("./flare_sys_assets_responsive_results_2026-05-19.xlsx", index=False)
 
+
+# calc_resp_test_metrics()
 # calc_pe_org_metrics()
-calc_all_sys_metrics()
+# calc_all_sys_metrics()
