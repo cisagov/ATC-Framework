@@ -15,9 +15,7 @@ import numpy as np
 import openpyxl
 from openpyxl import load_workbook
 import pandas as pd
-import platform
 import requests
-import subprocess
 from requests.auth import HTTPBasicAuth
 from requests.adapters import HTTPAdapter
 import traceback
@@ -36,8 +34,8 @@ from pe_source.data.pe_db.db_query_source import (
 # Set up logging
 LOGGER = logging.getLogger(__name__)
 
-# --- Temporary get_flare_token() funciton For testing purposes ---
-API_KEY = "fw_hXXnnrBSVLXJCCnZZnsBjenazgLrMNTYqyOXxRlz"
+# --- Temporary get_flare_token() function For testing purposes ---
+API_KEY = ""
 API_AUTH = HTTPBasicAuth("", API_KEY)
 def get_flare_token():
     """Testing ver of get Flare API authentication token."""
@@ -119,11 +117,9 @@ def flare_identifiers_endpoint(token, params):
 def parse_domain_idents(raw_resp):
     """Parse out domain identifiers given raw API response."""
     resp = raw_resp.json()
-    # get next token
     next = resp.get("next")
-    # get total count
     total_ct = resp.get("total_count")
-    # get domains
+    # Get domains
     domain_list = []
     resp_list = resp.get("items")
     for ident in resp_list:
@@ -133,7 +129,6 @@ def parse_domain_idents(raw_resp):
             "value": ident.get("name"),
             "ip": None,
             "source": ident.get("source"),
-            "group_id": ident.get("identifier_group_id"),
             "curr_enabled": not ident.get("is_disabled"),
             "detected_resolvable": False,
         }
@@ -144,7 +139,6 @@ def parse_domain_idents(raw_resp):
         "next": next,
         "total_count": total_ct,
     }
-
 
 def get_all_autoenum_domains():
     """Get Flare auto-enumerated subdomains across all organizations."""
@@ -186,9 +180,9 @@ def get_all_autoenum_domains():
         all_domain_list.extend(curr_resp_dict.get("domains"))
         print(f"Retrieved {len(all_domain_list)} of {total_ident_count} auto-enum identifiers")
 
-        # # TESTING
-        # if len(all_domain_list) >= 100:
-        #     next = None
+        # TESTING
+        if len(all_domain_list) >= 5000:
+            next = None
 
     # Return results
     print("All auto-enum identifiers retrieved")
@@ -198,13 +192,14 @@ async def check_ip_reachable(ip):
     """Check if a single IP is reachable."""
     try:
         # Attempt to ping IP
-        delay = await aioping.ping(ip, timeout=1.0)
+        delay = await aioping.ping(ip, timeout=3.0)
         return {
             "ip": ip, 
             "detected_reachable": True, 
             "response_delay": delay,
         }
-    except TimeoutError:
+    except (TimeoutError, PermissionError):
+        # Mark as unreachable if IP unresponsive or permission denied
         return {
             "ip": ip, 
             "detected_reachable": False, 
@@ -220,8 +215,6 @@ async def check_ip_list_reachable(ip_list):
 
 def check_domains_responsive(domain_list):
     """Check each domain in list to see if it's resolvable/reachable."""
-    results = []
-
     domain_df = pd.DataFrame(domain_list)
     print(domain_df)
     # Check resolvability of each domain
@@ -239,25 +232,24 @@ def check_domains_responsive(domain_list):
         domain_df.at[idx, "ip"] = domain_ip
         domain_df.at[idx, "detected_resolvable"] = resolvable
 
-    # # testing
+    # # Testing
     # test_list = [
-    #     {
-    #         "id": "1234567",
-    #         "type": "domain",
-    #         "value": "test1.domain.gov",
-    #         "ip": "8.8.8.8",
-    #         "source": "SYSTEM_RELATION",
-    #         "group_id": None,
-    #         "curr_enabled": True,
-    #         "detected_resolvable": True,
-    #     },
+    #     # {
+    #     #     "id": "1234567",
+    #     #     "type": "domain",
+    #     #     "value": "test1.domain.gov",
+    #     #     "ip": "8.8.8.8",
+    #     #     "source": "SYSTEM_RELATION",
+    #     #     "group_id": None,
+    #     #     "curr_enabled": True,
+    #     #     "detected_resolvable": True,
+    #     # },
     #     {
     #         "id": "1234568",
     #         "type": "domain",
     #         "value": "test2.domain.gov",
     #         "ip": "8.8.8.8",
     #         "source": "SYSTEM_RELATION",
-    #         "group_id": None,
     #         "curr_enabled": False,
     #         "detected_resolvable": True,
     #     }
@@ -267,12 +259,10 @@ def check_domains_responsive(domain_list):
     # Check reachability of any domains that have an IP (resolvable)
     ip_list = list(set(domain_df.loc[domain_df["ip"].notnull()]["ip"]))
     ip_results_df = pd.DataFrame(asyncio.run(check_ip_list_reachable(ip_list)))
-
     # Join resolvability and reachability results
     domain_df = pd.merge(domain_df, ip_results_df, on="ip", how="left")
     domain_df["detected_reachable"].fillna(False, inplace=True)
     domain_df["response_delay"].fillna(-1, inplace=True)
-    
     # Calculate overall responsiveness and required action
     domain_df["detected_responsive"] = domain_df["detected_resolvable"] & domain_df["detected_reachable"]
     conditions = [
@@ -280,17 +270,25 @@ def check_domains_responsive(domain_list):
         (~domain_df["curr_enabled"]) & (domain_df["detected_responsive"]),
     ]
     choices = ["DISABLE", "ENABLE"]
-    domain_df["required_action"] = np.select(conditions, choices, default=None)
+    domain_df["required_action"] = np.select(conditions, choices, default="NO ACTION")
     domain_df = domain_df[
-        ["id", "type", "value", "ip", "source", "group_id", "curr_enabled", "detected_resolvable", "detected_reachable", "detected_responsive", "required_action"]
+        [
+            "id", 
+            "type", 
+            "value", 
+            "ip", 
+            "source", 
+            "curr_enabled", 
+            "detected_resolvable", 
+            "detected_reachable", 
+            "detected_responsive", 
+            "required_action"
+        ]
     ]
-    print(domain_df)
-    
     # Return results
     enable_list = domain_df.loc[domain_df["required_action"] == "ENABLE"].to_dict(orient="records")
     disable_list = domain_df.loc[domain_df["required_action"] == "DISABLE"].to_dict(orient="records")
-    return enable_list, disable_list
-
+    return enable_list, disable_list, domain_df
 
 def toggle_ident(token, ident_id, active=True):
     """Enable or disable the Flare identifier based on specified ID."""
@@ -319,7 +317,6 @@ def toggle_ident(token, ident_id, active=True):
     except requests.exceptions.RequestException as err:
         print(f"Unexpected error occurred: {err}")
     return token, None
-
 
 def update_ident_lists(enable_list, disable_list):
     """Enable/Disable the provided lists of Flare identifiers."""
@@ -382,7 +379,6 @@ def run_flare_ident_prune(orgs_list):
             pe_orgs_final.append(org_dict)
     # Alphabetize org list for consistent order
     pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
-
     # Create file for exe time performance logging
     pe_orgs_final_df = pd.DataFrame(pe_orgs_final)
     current_date = datetime.date.today().strftime("%Y-%m-%d")
@@ -409,26 +405,23 @@ def run_flare_ident_prune(orgs_list):
     try:
         # Retrieve list of all auto-enum assets in Flare
         LOGGER.info("Retrieving all auto-enumerated assets within Flare")
-
-        auto_enum_domains = get_all_autoenum_domains() # actual function
-
-        # For testing purposes:
-        # test_domains_df = pd.read_csv("./src/pe_source/flare_test_org_sys_assets_2026-05-08.csv", index_col=False)
-        # auto_enum_domains = test_domains_df.to_dict(orient="records")
-
+        auto_enum_domains = get_all_autoenum_domains()
         LOGGER.info("All auto-enumerated assets retrieved")
         # Check which domains are responsive
         LOGGER.info("Checking which auto-enumerated assets are responsive")
-        enable_list, disable_list = check_domains_responsive(auto_enum_domains)
+        enable_list, disable_list, all_resp_results = check_domains_responsive(auto_enum_domains)
 
         enable_df = pd.DataFrame(enable_list)
         disable_df = pd.DataFrame(disable_list)
+        print("All Responsive Results:")
+        print(all_resp_results)
         print("Enable List:")
         print(enable_df)
         print("Disabe List:")
         print(disable_df)
-        enable_df.to_csv("./src/pe_source/flare_FULL_enable_assets_2026-05-18.csv", index=False)
-        disable_df.to_csv("./src/pe_source/flare_FULL_disable_assets_2026-05-18.csv", index=False)
+        all_resp_results.to_csv("./src/pe_source/flare_FULL_total_assets_2026-05-19.csv", index=False)
+        enable_df.to_csv("./src/pe_source/flare_FULL_enable_assets_2026-05-19.csv", index=False)
+        disable_df.to_csv("./src/pe_source/flare_FULL_disable_assets_2026-05-19.csv", index=False)
         
         LOGGER.info("Auto-enumerated assets have been checked for responsiveness")
         # Enable/Disable the appropriate domains
@@ -454,258 +447,3 @@ def run_flare_ident_prune(orgs_list):
     sheet = workbook["Sheet"]
     sheet.append(org_exe_stats)
     workbook.save(exe_time_file)
-
-
-
-# --- TESTING ---
-# get_all_autoenum_domains()
-# x=5/0
-
-# dc.gov = 23764832
-# prune_assets()
-# demo_issue(None)
-# domain_resp = check_domain_responsive("nasa.gov")
-# pprint.pprint(domain_resp, sort_dicts=False)
-#
-# test_token = get_flare_token()
-# test_token = "asdf"
-# test_token, test_resp = test_api_handling(test_token, "chat_message/telegram/-1003080746406/245533507584")
-
-# # Check dc.gov status
-# test_token = get_flare_token()
-# test_token, test_resp = test_api_handling(test_token, "23764832")
-# pprint.pprint(test_resp.json())
-
-
-# test_ident_list = [
-#     {
-#         "ident_id": "23764832",
-#         "domain": "dc.gov",
-#         "domain_ip": "123.456.789.1011",
-#         "resolvable": False,
-#         "reachable": False,
-#     }
-# ]
-# disable_ident_list(test_ident_list)
-
-
-# 187,608
-# 188,230
-
-
-
-def get_testing_idents():
-    """Get a list of identifier to be used for testing."""
-    time_start = time.time()
-    test_org_group_id = "586786"
-    all_domain_list = []
-    chunk_size = 50
-    flare_token = get_flare_token()
-    next = None
-    # Make initial API call
-    params = {
-        "source_group": "USER",
-        "types": ["domain"],
-        "size": chunk_size,
-        "parent_group_id": test_org_group_id,
-    }
-    flare_token, ini_resp = flare_identifiers_endpoint(flare_token, params)
-    # Parse domain identifiers
-    ini_resp_dict = parse_domain_idents(ini_resp)
-    next = ini_resp_dict.get("next")
-    all_domain_list.extend(ini_resp_dict.get("domains"))
-    total_ident_count = ini_resp_dict.get("total_count")
-    print(f"Retrieved {len(all_domain_list)} of {total_ident_count} auto-enum identifiers")
-    # If there's a next value, continue retrieval
-    while next is not None:
-        # Make API call for this chunk
-        curr_params = {
-            "from": next,
-            # "source_group": "USER",
-            # "types": ["domain"],
-            "size": chunk_size,
-            # "parent_group_id": test_org_group_id,
-        }
-        flare_token, curr_resp = flare_identifiers_endpoint(flare_token, curr_params)
-        # 401 token refresh check
-        if curr_resp.status_code == 401:
-            LOGGER.warning("401 code encountered, refreshing token")
-            flare_token = get_flare_token()
-            flare_token, curr_resp = flare_identifiers_endpoint(flare_token, curr_params)
-        # Parse domain identifiers
-        curr_resp_dict = parse_domain_idents(curr_resp)
-        next = curr_resp_dict.get("next")
-        all_domain_list.extend(curr_resp_dict.get("domains"))
-        print(f"Retrieved {len(all_domain_list)} of {total_ident_count} auto-enum identifiers")
-
-        # TESTING
-        if len(all_domain_list) >= 800:
-            next = None
-
-    test_asset_df = pd.DataFrame(all_domain_list)
-    test_asset_df = test_asset_df.loc[test_asset_df["source"].isin(["SYSTEM_RELATION"])]
-    test_asset_df = test_asset_df.loc[test_asset_df["value"].str.contains("dc.gov")]
-    test_asset_df.reset_index(drop=True, inplace=True)
-    test_asset_df = test_asset_df[
-        [
-            "id",
-            "type",
-            "value",
-            "source",
-            "group_id",
-            "is_disabled",
-            
-        ]
-    ]
-    test_asset_df["detected_resolvable"] = False
-    test_asset_df["detected_reachable"] = False
-    test_asset_df["detected_responsive"] = False
-    test_asset_df["required_action"] = None
-    # test_asset_df.to_csv("./flare_test_org_sys_assets_2026-05-08.csv", index=False)
-    print(test_asset_df)
-    time_end = time.time()
-    org_exe_time = "{:.5f}".format(
-        datetime.timedelta(seconds=(time_end - time_start)).total_seconds()
-    )
-    print(org_exe_time)
-    x=5/0
-
-    
-
-def demo_issue(ident_group_name):
-    """Demonstrate issue with Flare identifiers endpoint."""
-    # Use API key
-    api_key = "fw_hXXnnrBSVLXJCCnZZnsBjenazgLrMNTYqyOXxRlz"
-    api_auth = HTTPBasicAuth("", api_key)
-
-    # Retrieve API token
-    token_url = "https://api.flare.io/tokens/generate"
-    token_headers = {
-        "Content-Type": "application/json",
-    }
-    token_data = f'{{"tenant_id": "260075"}}'
-    token_resp = requests.post(
-        url=token_url, data=token_data, headers=token_headers, auth=api_auth, timeout=60
-    )
-    api_token = token_resp.json().get("token")
-
-    # Retrieve identifer group ID
-    # ident_group_name = "TEST_ORG"
-    ident_group_url = "https://api.flare.io/firework/v2/assets/groups/"
-    ident_group_headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_token}",
-    }
-    ident_group_resp = requests.get(ident_group_url, headers=ident_group_headers, timeout=60)
-    ident_group_list = ident_group_resp.json().get("assets_groups")
-    ident_group_id = [o for o in ident_group_list if o["name"] == ident_group_name][0].get("id")
-
-    # Retrieve identifiers for the group ID
-    ident_url = "https://api.flare.io/firework/v3/identifiers/"
-    ident_params = {
-        # "source_group": "USER",
-        # "types": "domain",
-        # "size": 10,
-        # "parent_group_id": ident_group_id,
-        #
-        "from": "WzIzNzY0ODMyXQ",
-    }
-    ident_headers = {"Authorization": f"Bearer {api_token}"}
-    ident_resp = requests.get(ident_url, headers=ident_headers, params=ident_params, timeout=60).json()
-
-    # Print identifiers belonging to the group
-    # pprint.pprint(type(ident_resp.get("items")))
-    for ident in  ident_resp.get("items"):
-        curr_id = ident.get("id")
-        curr_name = ident.get("name")
-        curr_isdisabled = ident.get("is_disabled")
-        print(f"\"{curr_id}\": \"{curr_name}\",")
-
-
-def get_ident_info(ident_id):
-    """Get basic info about an identifier by its ID."""
-    # Setup API call
-    token = get_flare_token()
-    session = create_retry_session()
-    url = f"https://api.flare.io/firework/v3/identifiers/{ident_id}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    # Make API Call
-    try:
-        response = session.get(url, headers=headers, timeout=60)
-        response.raise_for_status()
-
-        pprint.pprint(response.json(), sort_dicts=False)
-        x=5/0
-
-        resp = response.json().get("identifier")
-        return {
-            "ident_id": resp.get("id"),
-            "type": resp.get("type"),
-            "value": resp.get("name"),
-            "source": resp.get("source"),
-            "ident_group_id": resp.get("identifier_group_id"),
-            "is_disabled": resp.get("is_disabled"),
-            "asset_uuid": resp.get("asset_uuid"),
-        }
-    except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-    except requests.exceptions.ConnectionError as conn_err:
-        print(f"Connection error occurred: {conn_err}")
-    except requests.exceptions.Timeout as timeout_err:
-        print(f"Timeout error occurred: {timeout_err}")
-    except requests.exceptions.RequestException as err:
-        print(f"Unexpected error occurred: {err}")
-    return None
-
-
-
-
-# test orgs:
-# TEST_ORG = 586786
-# TEST_ORG_2 = 751677
-
-
-# test assets:
-# test365.cisa.dhs.gov = 8013420
-# dc.gov = 23764832
-# cap.dhs.dc.gov = 23764944
-
-
-
-# x=5/0
-
-        # # --- TESTING ---
-        # # Testing assets:
-        # test_dict = {
-        #     "23764933": "dcps.dc.gov",
-        #     "23764934": "sso.dc.gov",
-        #     "23764935": "osse.dc.gov",
-        #     "23764936": "dcratransition.dc.gov",
-        #     "23764937": "oig.dc.gov",
-        #     "23764939": "ddoe.dc.gov",
-        #     "23764940": "microstrategy.dc.gov",
-        #     "23764941": "opendata.dc.gov",
-        #     "23764942": "joindcps.dc.gov",
-        #     "23764944": "cap.dhs.dc.gov",
-        # }
-        # test_results = []
-        # for test_id in list(test_dict.keys()):
-        #     test_results.append(get_ident_info(test_id))
-
-        # # Print asset status
-        # print(pd.DataFrame(test_results))
-        # x=5/0
-
-        # # test demo
-        # # demo_issue("TEST_ORG")
-
-        # # test enable/disable
-        # test_enable_list = test_results
-        # test_disable_list = [] # test_results
-        # update_ident_lists(test_enable_list, test_disable_list)
-        # x=5/0
-
-        # --- TESTING ---
