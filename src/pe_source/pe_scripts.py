@@ -135,6 +135,8 @@ def run_pe_script(source, orgs_list, cybersix_methods, flare_key_num, soc_med_in
     elif source == "flare_ident_refresh":
         run_flare_ident_refresh(orgs_list)
     elif source == "flare_ident_prune":
+        LOGGER.info(f"Using Flare API key number: {flare_key_num}")
+        os.environ["FLARE_KEY_NUM"] = flare_key_num
         run_flare_ident_prune(orgs_list)
     elif source == "intelx":
         intelx = IntelX(orgs_list)

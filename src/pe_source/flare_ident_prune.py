@@ -85,7 +85,6 @@ def create_retry_session(retries=5, backoff_factor=1, status_forcelist=(429, 500
     session.mount("http://", adapter)
     return session
 
-
 def flare_identifiers_endpoint(token, params):
     """Call the Flare get identifiers endpoint with the specified parameters."""
     # Setup API call
@@ -112,7 +111,6 @@ def flare_identifiers_endpoint(token, params):
     except requests.exceptions.RequestException as err:
         print(f"Unexpected error occurred: {err}")
     return token, None
-
 
 def parse_domain_idents(raw_resp):
     """Parse out domain identifiers given raw API response."""
@@ -180,36 +178,43 @@ def get_all_autoenum_domains():
         all_domain_list.extend(curr_resp_dict.get("domains"))
         print(f"Retrieved {len(all_domain_list)} of {total_ident_count} auto-enum identifiers")
 
-        # TESTING
-        if len(all_domain_list) >= 5000:
-            next = None
+        # # TESTING
+        # if len(all_domain_list) >= 3:
+        #     next = None
 
     # Return results
     print("All auto-enum identifiers retrieved")
     return all_domain_list
 
-async def check_ip_reachable(ip):
-    """Check if a single IP is reachable."""
-    try:
-        # Attempt to ping IP
-        delay = await aioping.ping(ip, timeout=3.0)
-        return {
-            "ip": ip, 
-            "detected_reachable": True, 
-            "response_delay": delay,
-        }
-    except (TimeoutError, PermissionError):
-        # Mark as unreachable if IP unresponsive or permission denied
-        return {
-            "ip": ip, 
-            "detected_reachable": False, 
-            "response_delay": None,
-        }
+async def check_ip_reachable(ip, count=1, timeout=3.0):
+    """Check if a single IP is reachable using specified ping count and timeout."""
+    # Attempt to ping IP the specified amount of times
+    for i in range(count):
+        try:
+            # Attempt ping
+            delay = await aioping.ping(ip, timeout=timeout)
+            # If response receieved, return results
+            return {
+                "ip": ip, 
+                "detected_reachable": True, 
+                "response_delay": delay,
+            }
+        except (TimeoutError, PermissionError) as e:
+            # If ping failed, try again
+            print(f"\tPing {i+1}/{count} failed for {ip} - {e}")
+    # If all ping attempts fail, mark as unreachable
+    return {
+        "ip": ip, 
+        "detected_reachable": False, 
+        "response_delay": None,
+    }
 
 async def check_ip_list_reachable(ip_list):
     """Launch multiple tasks to check IPs' reachability."""
     # Create separate tasks for each IP
-    tasks = [check_ip_reachable(ip) for ip in ip_list]
+    ping_ct = 5
+    timeout = 3
+    tasks = [check_ip_reachable(ip, ping_ct, timeout) for ip in ip_list]
     results = await asyncio.gather(*tasks)
     return results
 
@@ -407,6 +412,16 @@ def run_flare_ident_prune(orgs_list):
         LOGGER.info("Retrieving all auto-enumerated assets within Flare")
         auto_enum_domains = get_all_autoenum_domains()
         LOGGER.info("All auto-enumerated assets retrieved")
+
+        # Don't modify certain domains
+        excluded_roots = (
+            "doj.gov",
+            "nrc-gateway.gov",
+            "nrc.gov",
+            "cisa.dhs.gov",
+        )
+        auto_enum_domains = [d for d in auto_enum_domains if not d["value"].endswith(excluded_roots)]
+
         # Check which domains are responsive
         LOGGER.info("Checking which auto-enumerated assets are responsive")
         enable_list, disable_list, all_resp_results = check_domains_responsive(auto_enum_domains)
@@ -419,9 +434,9 @@ def run_flare_ident_prune(orgs_list):
         print(enable_df)
         print("Disabe List:")
         print(disable_df)
-        all_resp_results.to_csv("./src/pe_source/flare_FULL_total_assets_2026-05-19.csv", index=False)
-        enable_df.to_csv("./src/pe_source/flare_FULL_enable_assets_2026-05-19.csv", index=False)
-        disable_df.to_csv("./src/pe_source/flare_FULL_disable_assets_2026-05-19.csv", index=False)
+        all_resp_results.to_csv("./src/pe_source/flare_FULL_excl_total_assets_2026-05-20.csv", index=False)
+        enable_df.to_csv("./src/pe_source/flare_FULL_excl_enable_assets_2026-05-20.csv", index=False)
+        disable_df.to_csv("./src/pe_source/flare_FULL_excl_disable_assets_2026-05-20.csv", index=False)
         
         LOGGER.info("Auto-enumerated assets have been checked for responsiveness")
         # Enable/Disable the appropriate domains
