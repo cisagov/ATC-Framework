@@ -78,18 +78,19 @@ def parse_domain_idents(raw_resp):
     }
 
 
-def get_all_autoenum_domains():
+def get_all_autoenum_domains(custom_params={}):
     """Get Flare auto-enumerated subdomains across all organizations."""
     all_domain_list = []
     chunk_size = 100  # Max is 100
     flare_token = get_flare_token()
     next = None
     # Make initial API call
-    params = {
+    base_params = {
         "source_group": "SYSTEM",
         "types": ["domain"],
         "size": chunk_size,
     }
+    params = base_params | custom_params
     flare_token, ini_resp = flare_identifiers_endpoint(flare_token, params)
     # Parse domain identifiers
     ini_resp_dict = parse_domain_idents(ini_resp)
@@ -102,12 +103,13 @@ def get_all_autoenum_domains():
     # If there's a next value, continue retrieval
     while next is not None:
         # Make API call for this chunk
-        curr_params = {
+        curr_base_params = {
             "from": next,
             "source_group": "SYSTEM",
             "types": ["domain"],
             "size": chunk_size,
         }
+        curr_params = curr_base_params | custom_params
         flare_token, curr_resp = flare_identifiers_endpoint(flare_token, curr_params)
         # 401 token refresh check
         if curr_resp.status_code == 401:
@@ -261,6 +263,12 @@ def update_ident_lists(enable_list, disable_list):
             curr_ident_id = ident.get("id")
             curr_ident_name = ident.get("value")
             token, resp = toggle_ident(token, curr_ident_id, active=True)
+            # General error handling
+            if resp is None:
+                LOGGER.error(
+                    f'Failed to enable identifier "{curr_ident_name}" ({curr_ident_id}) {idx+1} of {len(disable_list)}, skipping...'
+                )
+                continue
             # 401 token refresh check
             if resp.status_code == 401:
                 LOGGER.warning("401 code encountered, refreshing token")
@@ -280,6 +288,12 @@ def update_ident_lists(enable_list, disable_list):
             curr_ident_name = ident.get("value")
             # Call endpoint to disable indentifier
             token, resp = toggle_ident(token, curr_ident_id, active=False)
+            # General error handling
+            if resp is None:
+                LOGGER.error(
+                    f'Failed to disable identifier "{curr_ident_name}" ({curr_ident_id}) {idx+1} of {len(disable_list)}, skipping...'
+                )
+                continue
             # 401 token refresh check
             if resp.status_code == 401:
                 LOGGER.warning("401 code encountered, refreshing token")
@@ -342,7 +356,15 @@ def run_flare_ident_prune(orgs_list):
     try:
         # Retrieve list of all auto-enum assets in Flare
         LOGGER.info("Retrieving all auto-enumerated assets within Flare")
-        auto_enum_domains = get_all_autoenum_domains()
+        curr_enabled_domains = get_all_autoenum_domains(
+            custom_params={"is_disabled": False}
+        )
+        LOGGER.info("All auto-enumerated assets that are currently enabled retrieved")
+        curr_disabled_domains = get_all_autoenum_domains(
+            custom_params={"is_disabled": True}
+        )
+        LOGGER.info("All auto-enumerated assets that are currently disabled retrieved")
+        auto_enum_domains = curr_enabled_domains + curr_disabled_domains
         LOGGER.info("All auto-enumerated assets retrieved")
         # Don't modify certain domains
         excluded_roots = (
@@ -388,7 +410,7 @@ def run_flare_ident_prune(orgs_list):
         print(f"Total Assets Disabled: {total_disable_assets}")
         print(f"Total Asssets Post Pruning: {post_prune_total}")
     except Exception as e:
-        LOGGER.error(f"Error encountered during Flare pruning script - {e}")
+        LOGGER.error(f"Encountered an error during Flare pruning script - {e}")
         traceback.print_exc()
 
     # Write exe time to file
