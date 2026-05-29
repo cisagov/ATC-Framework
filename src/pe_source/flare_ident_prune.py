@@ -405,10 +405,10 @@ def run_flare_ident_prune(orgs_list):
         post_prune_total = (
             total_assets_tested + total_enable_assets - total_disable_assets
         )
-        print(f"Total Assets Tested: {total_assets_tested}")
-        print(f"Total Assets Enabled: {total_enable_assets}")
-        print(f"Total Assets Disabled: {total_disable_assets}")
-        print(f"Total Asssets Post Pruning: {post_prune_total}")
+        LOGGER.info(f"Total Flare Assets Tested: {total_assets_tested}")
+        LOGGER.info(f"Total Flare Assets Enabled: {total_enable_assets}")
+        LOGGER.info(f"Total Flare Assets Disabled: {total_disable_assets}")
+        LOGGER.info(f"Total Flare Asssets Post Pruning: {post_prune_total}")
     except Exception as e:
         LOGGER.error(f"Encountered an error during Flare pruning script - {e}")
         traceback.print_exc()
