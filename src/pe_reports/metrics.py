@@ -330,7 +330,7 @@ class Malware_Vulns:
         vulns_df = self.vulns_df
         unverif_df = self.insecure_df
 
-        combined_ips = vulns_df["ip"].append(unverif_df["ip"], ignore_index=True)
+        combined_ips = pd.concat([vulns_df["ip"], unverif_df["ip"]], ignore_index=True)
 
         return len(pd.unique(combined_ips))
 

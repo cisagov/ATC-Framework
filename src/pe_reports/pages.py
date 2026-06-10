@@ -88,7 +88,7 @@ def credential(
     cred_xlsx = f"{output_directory}/{org_code}/compromised_credentials.xlsx"
     credWriter = pd.ExcelWriter(cred_xlsx, engine="xlsxwriter")
     Credential.creds_view.to_excel(credWriter, sheet_name="Credentials", index=False)
-    credWriter.save()
+    credWriter.close()
 
     return scorecard_dict, chevron_dict, cred_json, cred_xlsx
 
@@ -139,7 +139,7 @@ def masquerading(
     Domain_Masq.alerts_sum().to_excel(
         domWriter, sheet_name="Domain Alerts", index=False
     )
-    domWriter.save()
+    domWriter.close()
 
     return scorecard_dict, chevron_dict, da_json, da_xlsx
 
@@ -235,7 +235,7 @@ def mal_vuln(
     Malware_Vuln.assets_df.to_excel(vulnWriter, sheet_name="Assets", index=False)
     Malware_Vuln.insecure_df.to_excel(vulnWriter, sheet_name="Insecure", index=False)
     Malware_Vuln.vulns_df.to_excel(vulnWriter, sheet_name="Verified Vulns", index=False)
-    vulnWriter.save()
+    vulnWriter.close()
 
     return (scorecard_dict, chevron_dict, vuln_json, all_cves_df, vuln_xlsx)
 
@@ -336,7 +336,7 @@ def dark_web(
     mentions_df.to_excel(miWriter, sheet_name="Dark Web Mentions", index=False)
     Cyber6.alerts.to_excel(miWriter, sheet_name="Dark Web Alerts", index=False)
     Cyber6.top_cves.to_excel(miWriter, sheet_name="Top CVEs", index=False)
-    miWriter.save()
+    miWriter.close()
     # Return all results
     return (scorecard_dict, chevron_dict, mi_json, mi_xlsx)
 
@@ -467,7 +467,7 @@ def dark_web_flare(
     alerts_df.to_excel(miWriter, sheet_name="Dark Web Alerts", index=False)
     top_cves_df.to_excel(miWriter, sheet_name="Top CVEs", index=False)
     dark_web_event_types.to_excel(miWriter, sheet_name="Event Type Definitions", index=False)
-    miWriter.save()
+    miWriter.close()
     # Return all results
     return (scorecard_dict, chevron_dict, mi_json, mi_xlsx)
 

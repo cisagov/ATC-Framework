@@ -184,7 +184,7 @@ def add_attachment(org_uid, final_output, pdf_file, asm_json, asm_xlsx, start_da
     for_ips_df.to_excel(asmWriter, sheet_name="Foreign IPs", index=False)
     for_ips_dict = for_ips_df.to_dict(orient="records")
 
-    asmWriter.save()
+    asmWriter.close()
 
     # Write to a JSON file
     final_dict = {
