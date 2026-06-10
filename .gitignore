@@ -49,9 +49,21 @@ src/pe_asm/port_scans/config.json
 src/pe_reports/pe_reports_django_project/*.bak
 src/pe_reports/pe_reports_django_project/*.dir
 src/pe_reports/pe_reports_django_project/*.dat
+
+## Data Collection Scripts ##
+src/pe_source/data/dnsmonitor/root_domains_dnsmonitor*
 dnstwist_output.txt
+src/pe_source/flare_responsive_ips_2025-08-25.csv
+src/pe_source/qualys_cyhy_stakeholders_list.csv
+src/pe_source/exe_time_logs/
+src/pe_source/flare_prune_results/
+
+## Ad Hoc Investigations ##
 adhoc_investigations/adhoc_investigation.ini
 adhoc_investigations/input_data
 adhoc_investigations/output_data
 adhoc_investigations/dnsmonitor_monitored_domains.csv
+
+## ASM Sync ##
 src/pe_asm/local_step/asm_sync_local.ini
+src/pe_asm/bash_scripts/

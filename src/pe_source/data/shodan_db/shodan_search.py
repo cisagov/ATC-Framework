@@ -293,6 +293,17 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
 
     all_vulns = vuln_data + risk_data
 
+    # Special scenario to omit 80/http findings
+    if org_uid == "7d2dbd06-f247-11ec-bb6e-02c6a3fe975b":
+        all_vuln_df = pd.DataFrame(all_vulns)
+        all_vuln_df.drop(
+            all_vuln_df[
+                (all_vuln_df["port"] == 80) & (all_vuln_df["protocol"] == "http")
+            ].index,
+            inplace=True,
+        )
+        all_vulns = all_vuln_df.to_dict("records")
+
     # Break shodan asset/vuln data into chunks of 500
     chunk_size = 500
     asset_chunk_list = [
