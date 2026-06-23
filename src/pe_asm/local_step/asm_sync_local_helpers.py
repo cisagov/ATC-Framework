@@ -108,7 +108,7 @@ def pe_db_connect():
     # Establish SSH tunnel to the staging environement
     main_log.info("Setting up SSH tunnel")
     server = SSHTunnelForwarder(
-        ("localhost"),
+        ("localhost", 9999),
         ssh_username="ubuntu",
         ssh_pkey=conn_dict["pkey_location"],
         ssh_private_key_password=conn_dict["pkey_pass"],
