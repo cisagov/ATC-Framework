@@ -7,29 +7,55 @@
 
 updates:
   - directory: /
+    groups:
+      upload-download-artifact:
+        patterns:
+          - actions/download-artifact
+          - actions/upload-artifact
     ignore:
       # Managed by cisagov/skeleton-generic
       - dependency-name: actions/cache
       - dependency-name: actions/checkout
+      - dependency-name: actions/dependency-review-action
+      - dependency-name: actions/labeler
       - dependency-name: actions/setup-go
       - dependency-name: actions/setup-python
-      - dependency-name: crazy-max/ghaction-dump-context
+      - dependency-name: cisagov/action-job-preamble
+      - dependency-name: cisagov/setup-env-github-action
       - dependency-name: crazy-max/ghaction-github-labeler
-      - dependency-name: crazy-max/ghaction-github-status
+      - dependency-name: github/codeql-action
+      - dependency-name: hashicorp/setup-packer
       - dependency-name: hashicorp/setup-terraform
       - dependency-name: mxschmitt/action-tmate
+<<<<<<< HEAD
       - dependency-name: step-security/harden-runner
       # # Managed by cisagov/ATC-Framework
+=======
+      # # Managed by cisagov/skeleton-python-library
+>>>>>>> eb5f53e20803b078ea441605573c17704a0b0412
       # - dependency-name: actions/download-artifact
       # - dependency-name: actions/upload-artifact
-      # - dependency-name: github/codeql-action/analyze
-      # - dependency-name: github/codeql-action/autobuild
-      # - dependency-name: github/codeql-action/init
+    labels:
+      # dependabot default we need to replicate
+      - dependencies
+      # This matches our label definition in .github/labels.yml as opposed to
+      # dependabot's default of `github_actions`.
+      - github-actions
     package-ecosystem: github-actions
     schedule:
       interval: weekly
 
   - directory: /
+    # ignore:
+    #   # Managed by cisagov/skeleton-python-library
+    #   - dependency-name: build
+    #   - dependency-name: coverage
+    #   - dependency-name: coveralls
+    #   - dependency-name: pre-commit
+    #   - dependency-name: pytest-cov
+    #   - dependency-name: pytest
+    #   - dependency-name: setuptools
+    #   - dependency-name: twine
     package-ecosystem: pip
     schedule:
       interval: weekly
